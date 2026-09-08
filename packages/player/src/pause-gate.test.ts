@@ -51,6 +51,24 @@ describe("PauseGate", () => {
     expect(media.paused).toBe(false);
   });
 
+  it.each([5.001, 5.006])("resumes a fractional checkpoint at %s using the actual clock precision", (time) => {
+    gate = new PauseGate(clock, [{ t: time, id: "fractional", prompt: "Explore." }]);
+    media.currentTime = time - 0.1;
+    gate.update(clock.t);
+    media.currentTime = time + 0.01;
+    gate.update(clock.t);
+    expect(media.paused).toBe(true);
+
+    // The render loop keeps reading the rounded clock while the learner explores.
+    gate.update(clock.t);
+    expect(gate.activePrompt).toBe("Explore.");
+    clock.play();
+    media.currentTime += 0.02;
+    gate.update(clock.t);
+    expect(media.paused).toBe(false);
+    expect(gate.activePrompt).toBeNull();
+  });
+
   it("seeking past a gate satisfies it silently", () => {
     gate.update(0.1);
     gate.update(10); // big jump past t=5

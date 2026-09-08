@@ -16,7 +16,9 @@ export const PAUSE_TAIL_SECONDS = 0;
 export function pauseTime(pause: Pick<Pause, "t" | "tail">, duration: number): number {
   const delayed = pause.t + (pause.tail ?? PAUSE_TAIL_SECONDS);
   // Stay just before `ended` so even a final checkpoint is explicitly resumable.
-  return duration > 0 ? Math.min(delayed, Math.max(pause.t, duration - 0.05)) : delayed;
+  const stop = duration > 0 ? Math.min(delayed, Math.max(pause.t, duration - 0.05)) : delayed;
+  // Match AudioClock.t so a rounded-down stopped time cannot re-arm its own gate.
+  return Math.round(stop * 100) / 100;
 }
 
 export class PauseGate {
