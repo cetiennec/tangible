@@ -200,7 +200,8 @@ async function buildLesson(lessonDir: string, manifest: Manifest, scene: SceneIn
   const result = await synthesize(adapter, parsed.narration, {
     voice,
     cacheDir: join(lessonDir, ".cache", "tts"),
-    speed: manifest.tts?.provider === "elevenlabs" ? manifest.tts.speed : undefined,
+    speed: mode === "offline" ? manifest.offlineTts?.speed
+      : manifest.tts?.provider === "elevenlabs" ? manifest.tts.speed : undefined,
     segmentOffsets: narrationSegmentOffsets(parsed.narration, parsed.directives.map((directive) => directive.anchorOffset)),
   });
 

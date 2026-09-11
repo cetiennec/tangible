@@ -20,6 +20,7 @@ export type Manifest = SceneSelection & {
   tags?: string[];
   defaults: { anticipation: number; ease: string; transition: number };
   tts?: TtsConfig;
+  offlineTts?: { speed?: number };
   deployment?: {
     provider: "huggingface";
     space: string;
@@ -101,6 +102,10 @@ function validateManifest(value: unknown): asserts value is Manifest {
 
   if (manifest.voice !== undefined) {
     throw new Error('lesson.yaml field "voice" was replaced by the optional "tts" section');
+  }
+  if (manifest.offlineTts !== undefined) {
+    const offlineTts = object(manifest.offlineTts, 'lesson.yaml field "offlineTts"');
+    if (offlineTts.speed !== undefined) positiveNumber(offlineTts.speed, 'lesson.yaml field "offlineTts.speed"');
   }
   if (manifest.tts !== undefined) {
     const tts = object(manifest.tts, 'lesson.yaml field "tts"');

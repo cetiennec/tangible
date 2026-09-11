@@ -58,6 +58,11 @@ Use `--silent` when a build needs deterministic silent audio and must not
 download the local speech model. Silent audio advances at 60 milliseconds per
 written character. Automated tests use this option.
 
+The optional manifest field `offlineTts.speed` sets a positive speed multiplier
+for the local Supertonic voice (default 1). For example, `offlineTts: { speed:
+1.2 }` requests faster speech. It affects only `--offline` and is included in
+the narration cache key.
+
 Remove `--offline` to synthesize or reuse the configured voice:
 
 ```bash

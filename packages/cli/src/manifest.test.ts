@@ -12,6 +12,13 @@ async function manifest(text: string) {
 }
 
 describe("lesson manifest", () => {
+  it("accepts local voice speed without production speech configuration", async () => {
+    const base = 'id: test\ntitle: Test\npromise: Test narration.\nscene: ./scene.ts\ndefaults: { anticipation: 0, ease: linear, transition: 1 }\n';
+    await expect(manifest(base + 'offlineTts: { speed: 1.2 }\n')).resolves.toMatchObject({ offlineTts: { speed: 1.2 } });
+    for (const speed of ['0', '-1', '.nan', '.inf', 'fast']) {
+      await expect(manifest(base + `offlineTts: { speed: ${speed} }\n`)).rejects.toThrow('offlineTts.speed');
+    }
+  });
   it("accepts an explicit scene registry and validates selection", async () => {
     const base = 'id: test\ntitle: Test\npromise: Test scenes.\ndefaults: { anticipation: 0, ease: linear, transition: 1 }\n';
     const selection = 'scenes: { circle: ./scenes/circle.ts, graph: ./scenes/graph.ts }\ninitialScene: circle\n';

@@ -426,6 +426,19 @@ substitute for assistant answers. The first offline build downloads a pinned
 caches the generated audio inside the lesson, so cue-only edits do not run the
 model again.
 
+Set the local voice speed in `lesson.yaml` when the draft narration needs a
+different pace:
+
+```yaml
+offlineTts:
+  speed: 1.2
+```
+
+The default is 1; 1.2 requests speech 20 percent faster. The value must be
+positive. This setting applies only to `--offline`, and changing it generates
+new local audio with matching cue and caption timings. It does not change the
+production provider settings or the silent test clock.
+
 Install ffmpeg before an offline or provider-backed narration build. Tangible
 automatically converts the TTS provider's WAV or MP3 result into WebM/Opus at
 64 kbps and M4A/AAC-LC at 96 kbps. A browser checks both formats and downloads
