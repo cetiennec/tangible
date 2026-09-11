@@ -1,54 +1,61 @@
-import { describe, it, expect } from "vitest";
-import { pointOnCircle, scene } from "./scene.js";
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from "vitest";
+import type { SceneContext } from "@tangible/player";
+import { circleGeometry, pointOnCircle, scene } from "./scene.js";
+import { graphGeometry, scene as cosine } from "./cosine.js";
 
-describe("unit-circle geometry", () => {
-  it("pointOnCircle follows the math convention", () => {
-    expect(pointOnCircle(0)).toEqual({ x: 1, y: 0 });
-    const q = pointOnCircle(Math.PI / 2);
-    expect(q.x).toBeCloseTo(0, 12);
-    expect(q.y).toBeCloseTo(1, 12);
-  });
-});
-
-// A recording 2D-context stub (jsdom has no canvas implementation).
-function recordingCtx() {
-  const calls: string[] = [];
-  const handler: ProxyHandler<Record<string, unknown>> = {
-    get: (_t, prop) => () => calls.push(String(prop)),
-    set: () => true,
-  };
-  const g = new Proxy({}, handler) as unknown as CanvasRenderingContext2D;
-  return { g, calls };
+function context(): SceneContext {
+  const player = document.createElement("div");
+  const overlay = document.createElement("div");
+  const canvas = document.createElement("canvas");
+  canvas.width = 800; canvas.height = 450;
+  player.append(canvas, overlay);
+  const drawing = new Proxy({}, { get: () => vi.fn(), set: () => true }) as CanvasRenderingContext2D;
+  canvas.getContext = vi.fn(() => drawing) as unknown as HTMLCanvasElement["getContext"];
+  return { canvas, overlay, viewport: () => ({ width: 800, height: 450 }), write: vi.fn(), reset: vi.fn(), pause: vi.fn() };
 }
 
-describe("unit-circle render smoke", () => {
-  it("renders without error and issues drawing calls", () => {
-    const { g, calls } = recordingCtx();
-    const canvas = { getContext: () => g } as unknown as HTMLCanvasElement;
-    const inst = scene.create({ canvas, overlay: {} as HTMLElement, viewport: () => ({ width: 400, height: 400 }) });
-    inst.render({ theta: 1, "show.projection": true, "show.thetaLabel": true, "show.cosLabel": true }, 0.016);
-    expect(calls).toContain("clearRect");
-    expect(calls).toContain("arc"); // the circle + point
-    expect(calls).toContain("fillText"); // labels
-    expect(inst.handles()).toHaveLength(1); // draggable point
-  });
-});
-
-describe("unit-circle point handle", () => {
-  const canvas = { getContext: () => new Proxy({}, { get: () => () => {}, set: () => true }) } as unknown as HTMLCanvasElement;
-  const inst = scene.create({ canvas, overlay: {} as HTMLElement, viewport: () => ({ width: 400, height: 400 }) });
-  const handle = inst.handles()[0]!;
-
-  it("hit-tests near the point at the current theta", () => {
-    // theta=0 → point at (cx+R, cy) = (200+160, 200) = (360, 200)
-    expect(handle.hitTest(360, 200, { theta: 0 })).toBe(true);
-    expect(handle.hitTest(200, 200, { theta: 0 })).toBe(false);
+describe("circle and cosine representations", () => {
+  it("agrees on cosine at the cardinal angles", () => {
+    const box = graphGeometry(context());
+    for (const [theta, expected] of [[0, 1], [Math.PI / 2, 0], [Math.PI, -1], [Math.PI * 2, 1]]) {
+      expect(pointOnCircle(theta!).x).toBeCloseTo(expected!, 12);
+      expect((box.cy - box.y(theta!)) / box.amplitude).toBeCloseTo(expected!, 12);
+    }
+    expect(pointOnCircle(Math.PI / 2).y).toBeCloseTo(1, 12);
   });
 
-  it("maps a drag to theta = atan2 (0..2π)", () => {
-    // straight up from center (200,120) → theta = π/2
-    expect((handle.onDrag(200, 120, { theta: 0 }).theta as number)).toBeCloseTo(Math.PI / 2, 6);
-    // straight down → theta = 3π/2 (normalized positive)
-    expect((handle.onDrag(200, 280, { theta: 0 }).theta as number)).toBeCloseTo((3 * Math.PI) / 2, 6);
+  it("maps a circle drag to a counterclockwise angle", () => {
+    const ctx = context(), instance = scene.create(ctx);
+    const { cx, cy, radius } = circleGeometry(ctx);
+    const handle = instance.handles()[0]!;
+    expect(handle.hitTest(cx + radius, cy, { theta: 0 })).toBe(true);
+    expect(handle.hitTest(cx, cy, { theta: 0 })).toBe(false);
+    expect(handle.onDrag(cx, cy - radius, {}).theta).toBeCloseTo(Math.PI / 2, 12);
+    expect(handle.onDrag(cx, cy + radius, {}).theta).toBeCloseTo(3 * Math.PI / 2, 12);
+    instance.dispose();
+  });
+
+  it("maps and bounds graph dragging by the horizontal coordinate", () => {
+    const ctx = context(), instance = cosine.create(ctx);
+    const box = graphGeometry(ctx), handle = instance.handles()[0]!;
+    expect(handle.onDrag(box.x(Math.PI), 0, {}).theta).toBeCloseTo(Math.PI, 12);
+    expect(handle.onDrag(box.left - 100, 0, {}).theta).toBe(0);
+    expect(handle.onDrag(box.right + 100, 0, {}).theta).toBe(Math.PI * 2);
+    instance.dispose();
+  });
+
+  it.each([scene, cosine])("renders and provides a keyboard-accessible angle control with cleanup", (module) => {
+    const ctx = context(), instance = module.create(ctx);
+    const state = Object.fromEntries(Object.entries(module.schema).map(([key, spec]) => [key, spec.default]));
+    instance.render({ ...state, theta: Math.PI }, { dt: 0, activity: {} });
+    expect(ctx.overlay.querySelector("output")!.textContent).toContain("-1.00");
+    const slider = ctx.overlay.querySelector("input")!;
+    expect(slider.getAttribute("aria-label")).toBe("Angle theta");
+    slider.value = "1"; slider.dispatchEvent(new Event("input"));
+    expect(ctx.write).toHaveBeenCalledWith("theta", 1);
+    instance.dispose();
+    expect(ctx.overlay.children).toHaveLength(0);
+    expect(ctx.overlay.parentElement!.classList.contains("trig-player")).toBe(false);
   });
 });

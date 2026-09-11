@@ -4,9 +4,9 @@
 
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-import { mkdir, writeFile, copyFile, readFile, readdir, unlink } from "node:fs/promises";
+import { mkdir, writeFile, copyFile, readFile, readdir, unlink, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, relative, isAbsolute } from "node:path";
 import { dirname } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -20,7 +20,7 @@ const gzipAsync = promisify(gzip);
 const COMPRESSIBLE_SITE_FILE = /\.(?:html|js|css|json|vtt)$/;
 const MIN_COMPRESSIBLE_BYTES = 1024;
 
-export async function bundleSite(lessonDir: string, manifest: Manifest, scenePath: string): Promise<string> {
+export async function bundleSite(lessonDir: string, manifest: Manifest, scenePath?: string, onInputs?: (paths: string[]) => void): Promise<string> {
   const outDir = join(lessonDir, "build", "site");
   await mkdir(outDir, { recursive: true });
   for (const name of await readdir(outDir)) {
@@ -31,9 +31,15 @@ export async function bundleSite(lessonDir: string, manifest: Manifest, scenePat
   const corePath = require.resolve("@tangible/core");
   const katexCss = createRequire(playerPath).resolve("katex/dist/katex.min.css");
 
+  const sceneImports = manifest.scenes
+    ? Object.entries(manifest.scenes).map(([, path], i) => `import { scene as scene${i} } from ${JSON.stringify(resolve(lessonDir, path))};`).join("\n")
+    : `import { scene } from ${JSON.stringify(scenePath ?? resolve(lessonDir, manifest.scene))};`;
+  const sceneOptions = manifest.scenes
+    ? `scenes: { ${Object.keys(manifest.scenes).map((id, i) => `${JSON.stringify(id)}: scene${i}`).join(", ")} }, initialScene: ${JSON.stringify(manifest.initialScene)}`
+    : "scene";
   const entry = `
 import { Player, PLAYER_CSS, mimeForAudio, preferredAudioSource } from "@tangible/player";
-import { scene } from ${JSON.stringify(scenePath)};
+${sceneImports}
 const HAS_ASSISTANT = ${JSON.stringify(Boolean(manifest.assistant))};
 const ASSISTANT_START_OPEN = ${JSON.stringify(manifest.assistant?.startOpen === true)};
 const INTRODUCTION = ${JSON.stringify({ title: manifest.title })};
@@ -54,7 +60,7 @@ async function main() {
   mount.replaceChildren();
   const player = new Player({
     mount,
-    scene,
+    ${sceneOptions},
     tracks,
     captionsVtt: vtt,
     introduction: INTRODUCTION,
@@ -82,7 +88,7 @@ main().catch((error) => {
 });
 `;
 
-  await build({
+  const result = await build({
     stdin: { contents: entry, resolveDir: lessonDir, loader: "ts", sourcefile: "entry.ts" },
     outfile: join(outDir, "player.js"),
     bundle: true,
@@ -90,13 +96,19 @@ main().catch((error) => {
     platform: "browser",
     alias: { "@tangible/player": playerPath, "@tangible/core": corePath },
     logLevel: "silent",
+    metafile: true,
   });
+  onInputs?.(Object.keys(result.metafile.inputs).map((path) => resolve(path)).filter((path) => {
+    const local = relative(resolve(lessonDir), path);
+    return local !== "" && !local.startsWith("..") && !isAbsolute(local) && existsSync(path);
+  }));
 
   const src = join(lessonDir, "build", "lesson");
   const tracks = JSON.parse(await readFile(join(src, "tracks.json"), "utf8")) as LessonTracks;
   for (const f of ["tracks.json", "captions.vtt", ...tracks.audio.src]) await copyFile(join(src, f), join(outDir, f));
   if (existsSync(join(src, "assistant.json"))) await copyFile(join(src, "assistant.json"), join(outDir, "assistant.json"));
   await copyFile(katexCss, join(outDir, "katex.css"));
+  await cp(join(dirname(katexCss), "fonts"), join(outDir, "fonts"), { recursive: true });
   await writeFile(join(outDir, "index.html"), indexHtml(manifest));
   if (manifest.assistant) {
     await precompressSiteAssets(outDir);

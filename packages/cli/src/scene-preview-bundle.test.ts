@@ -18,7 +18,7 @@ export const scene = { schema, create: () => ({ render() {}, handles: () => [], 
     );
 
     const manifest = await loadSceneManifest(lessonDir);
-    const result = await bundleScenePreview(lessonDir, manifest.id, manifest.scene);
+    const result = await bundleScenePreview(lessonDir, manifest.id, manifest.scene!);
 
     const html = await readFile(join(result.siteDir, "index.html"), "utf8");
     expect(html).toContain("bare-scene scene preview");

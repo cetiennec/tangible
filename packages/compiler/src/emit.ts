@@ -14,6 +14,8 @@ import type { Keyframe } from "@tangible/core";
 import type { Diagnostic } from "./diagnostics.js";
 import { formatDiagnostic } from "./diagnostics.js";
 import { evaluateAuthoredState } from "./authored-state.js";
+import { expandScenes } from "./scenes.js";
+import { check } from "./check.js";
 
 type Timing = Pick<TtsResult, "charTimes" | "wordTimes" | "duration">;
 
@@ -36,15 +38,18 @@ export interface Compiled {
 /** Full parse→resolve→expand→assemble, deterministic for fixed inputs. */
 export function compile(script: string, timing: Timing, scene: SceneInfo, opts: CompileOptions): Compiled {
   const parsed = parseScript(script, opts.file);
-  const authored = evaluateAuthoredState(parsed, scene);
+  const errors = check(parsed, scene).filter((diagnostic) => diagnostic.severity === "error");
+  if (errors.length) throw new Error(errors.map(formatDiagnostic).join("\n"));
+  const authored = scene.scenes ? { bakes: new Map(), diagnostics: [] } : evaluateAuthoredState(parsed, scene);
   if (authored.diagnostics.length) throw new Error(formatDiagnostic(authored.diagnostics[0]!));
-  const cues = resolve(parsed.directives, parsed.narration, timing, { anticipation: opts.defaults.anticipation });
-  const ex = expand(cues, scene, {
+  const cues = resolve(parsed.directives, parsed.narration, timing, { anticipation: opts.defaults.anticipation, sceneBoundaries: Boolean(scene.scenes) });
+  const expandOptions = {
     defaults: { ease: opts.defaults.ease, transition: opts.defaults.transition },
     recorded: opts.recorded,
     recordedPaths: opts.recordedPaths,
     bakes: authored.bakes,
-  });
+  };
+  const ex = scene.scenes ? expandScenes(parsed, cues, scene, expandOptions) : expand(cues, scene, expandOptions);
 
   const tracks: LessonTracks = {
     version: 1,

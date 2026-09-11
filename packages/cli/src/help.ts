@@ -39,15 +39,17 @@ It refuses to overwrite an existing path and prints the next commands.`,
   scene: `Preview the interactive scene without narration
 
 Usage:
-  pnpm lesson scene --lesson lessons/<id> [--port 5179] [--host 127.0.0.1]
+  pnpm lesson scene --lesson lessons/<id> [--scene <name>] [--port 5179] [--host 127.0.0.1]
 
-This command needs no speech provider, narration build, or credential.`,
+This command needs no speech provider, narration build, or credential.
+For multiple scenes, --scene selects one; otherwise initialScene is used.`,
   ref: `Print the scene vocabulary available to narration
 
 Usage:
-  pnpm lesson ref --lesson lessons/<id>
+  pnpm lesson ref --lesson lessons/<id> [--scene <name>]
 
-Run this immediately before writing or translating formal cues.`,
+Run this immediately before writing or translating formal cues.
+For multiple scenes, this prints every scene unless --scene selects one.`,
   check: `Validate a lesson without network or provider calls
 
 Usage:

@@ -31,9 +31,16 @@ Start the complete unit-circle lesson with deterministic silent narration:
 pnpm lesson preview --silent --lesson lessons/unit-circle
 ```
 
-Open the local address printed by the command. Press Start, move the red point,
-pause, seek, and resume. The silent clock lets every visual and interaction work
-without downloading a model. Stop the preview with `Ctrl+C` when you are ready.
+Open the local address printed by the command. Press Start and follow the
+circle, cosine graph, and return to the circle. Move the red point or angle
+slider, pause, seek, and resume. The silent clock lets every visual and
+interaction work without downloading a model. Stop the preview with `Ctrl+C`
+when you are ready.
+
+This example uses two scene modules in one lesson. The authoring guide's
+[Add another scene](./authoring.md#add-another-scene) walkthrough explains how to
+register the files and switch views with `@scene(...)` in the script. Existing
+lessons with one scene keep working without changes.
 
 ## Generate a working lesson
 

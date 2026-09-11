@@ -12,8 +12,8 @@ import { buildIndex, DEFAULT_ASSISTANT_LIMITS, evaluate, validateSchema } from "
 import type { Schema, Keyframe, TtsAdapter, ParamSpec, ParamValue } from "@tangible/core";
 import { StateStore, Reconciler } from "@tangible/player";
 import { FakeTtsAdapter, ElevenLabsAdapter, HuggingFaceVoiceAdapter, SupertonicTtsAdapter } from "@tangible/tts";
-import { loadScene } from "./scene-loader.js";
-import { loadManifest, loadSceneManifest, type Manifest, type TtsConfig } from "./manifest.js";
+import { loadScene, loadLessonScenes } from "./scene-loader.js";
+import { loadManifest, loadSceneManifest, sceneFile, type Manifest, type TtsConfig } from "./manifest.js";
 import { refSheet } from "./ref.js";
 import { scaffold } from "./scaffold.js";
 import { bundleSite } from "./bundle.js";
@@ -106,7 +106,7 @@ async function main() {
 async function cmdCheck(flags: Flags): Promise<number> {
   const lessonDir = flags.lesson ?? process.cwd();
   const manifest = await loadManifest(lessonDir);
-  const scene = await loadScene(join(lessonDir, manifest.scene), { requireRuntime: true });
+  const scene = await loadLessonScenes(lessonDir, manifest, { requireRuntime: true });
   let errors = 0;
   const file = "script.md";
   const script = await readFile(join(lessonDir, file), "utf8");
@@ -128,11 +128,11 @@ async function cmdCheck(flags: Flags): Promise<number> {
 async function cmdBuild(flags: Flags): Promise<void> {
   const lessonDir = flags.lesson ?? process.cwd();
   const manifest = await loadManifest(lessonDir);
-  const scene = await loadScene(join(lessonDir, manifest.scene));
+  const scene = await loadLessonScenes(lessonDir, manifest);
   await buildLesson(lessonDir, manifest, scene, narrationMode(flags));
   console.error(`built ${manifest.id} → build/lesson/`);
   if (flags.bundle) {
-    const out = await bundleSite(lessonDir, manifest, join(lessonDir, manifest.scene));
+    const out = await bundleSite(lessonDir, manifest);
     console.error(`bundled static site → ${out}`);
   }
 }
@@ -225,19 +225,25 @@ async function buildLesson(lessonDir: string, manifest: Manifest, scene: SceneIn
 
 async function cmdPreview(flags: Flags): Promise<void> {
   const lessonDir = flags.lesson ?? process.cwd();
-  const manifest = await loadManifest(lessonDir);
-  const watchPaths = [
-    join(lessonDir, manifest.scene),
+  let manifest = await loadManifest(lessonDir);
+  let watchPaths = [
+    ...Object.values(manifest.scenes ?? { default: manifest.scene }).map((path) => join(lessonDir, path)),
+    join(lessonDir, "lesson.yaml"),
     join(lessonDir, "script.md"),
     ...(manifest.assistant ? [join(lessonDir, manifest.assistant.context)] : []),
   ];
   const rebuild = async () => {
     try {
-      const scene = await loadScene(join(lessonDir, manifest.scene));
+      manifest = await loadManifest(lessonDir);
+      const scene = await loadLessonScenes(lessonDir, manifest);
       // Same TTS selection as build; cached, so it only re-synthesizes on prose edits.
       // Pass --offline for fast local narration while editing the lesson.
       await buildLesson(lessonDir, manifest, scene, narrationMode(flags));
-      await bundleSite(lessonDir, manifest, join(lessonDir, manifest.scene));
+      await bundleSite(lessonDir, manifest, undefined, (inputs) => {
+        watchPaths = [...inputs, join(lessonDir, "lesson.yaml"), join(lessonDir, "script.md"),
+          ...(manifest.assistant ? [join(lessonDir, manifest.assistant.context)] : [])];
+      });
+      return watchPaths;
     } catch (error) {
       throw new Error(authoringError(error));
     }
@@ -269,13 +275,16 @@ async function cmdPreview(flags: Flags): Promise<void> {
 
 async function cmdScene(flags: Flags): Promise<void> {
   const lessonDir = flags.lesson ?? process.cwd();
-  const manifest = await loadSceneManifest(lessonDir);
-  const scenePath = resolvePath(lessonDir, manifest.scene);
   const rebuild = async () => {
+    const manifest = await loadSceneManifest(lessonDir);
+    const selectedFile = sceneFile(manifest, flags.scene);
+    const scenePath = resolvePath(lessonDir, selectedFile);
     const info = await loadScene(scenePath, { requireRuntime: true });
     const errors = validateSchema(info.schema);
     if (errors.length) throw new Error(`invalid scene schema:\n${errors.map((error) => `- ${error}`).join("\n")}`);
-    return bundleScenePreview(lessonDir, manifest.id, manifest.scene);
+    const result = await bundleScenePreview(lessonDir, manifest.id, selectedFile);
+    result.watchPaths.push(join(lessonDir, "lesson.yaml"));
+    return result;
   };
   const initial = await rebuild();
   preview({
@@ -336,11 +345,11 @@ Next:
       if (await cmdCheck({ lesson: lessonDir })) throw new Error("lesson deploy stopped because lesson check failed");
     },
     build: async () => {
-      const scene = await loadScene(join(lessonDir, manifest.scene));
+      const scene = await loadLessonScenes(lessonDir, manifest);
       await buildLesson(lessonDir, manifest, scene, "provider", true);
       console.error(`built ${manifest.id} with real narration → build/lesson/`);
       await rm(join(lessonDir, "build", "site"), { recursive: true, force: true });
-      const out = await bundleSite(lessonDir, manifest, join(lessonDir, manifest.scene));
+      const out = await bundleSite(lessonDir, manifest);
       console.error(`bundled release site → ${out}`);
     },
   });
@@ -350,7 +359,7 @@ async function cmdState(flags: Flags): Promise<void> {
   const lessonDir = flags.lesson ?? process.cwd();
   const manifest = await loadManifest(lessonDir);
   const t = flags.at ?? die("usage: lesson state --at <seconds>");
-  const scene = await loadScene(join(lessonDir, manifest.scene));
+  const scene = await loadLessonScenes(lessonDir, manifest);
   const tracksPath = join(lessonDir, "build", "lesson", "tracks.json");
   if (!existsSync(tracksPath)) die('no lesson build — run "lesson build" first');
   const data = JSON.parse(await readFile(tracksPath, "utf8")) as { tracks: Record<string, Keyframe[]>; duration: number };
@@ -358,7 +367,7 @@ async function cmdState(flags: Flags): Promise<void> {
   const idx = buildIndex(data.tracks, schema);
 
   if (flags.drag) {
-    console.log(JSON.stringify(simulateDrag(idx, schema, scene.schema, data.duration, Number(t), flags.drag), null, 2));
+    console.log(JSON.stringify(simulateDrag(idx, schema, scene.schema, data.duration, Number(t), flags.drag, Boolean(scene.scenes)), null, 2));
     return;
   }
   console.log(JSON.stringify(evaluate(idx, Number(t)), null, 2));
@@ -383,7 +392,7 @@ function parseDrag(spec: Record<string, ParamSpec>, drag: string): { param: stri
 
 /** Grab `param` at time `grabT`, release, then step the real Reconciler forward and
  *  sample scripted-vs-displayed until the display rejoins the timeline (or the window ends). */
-function simulateDrag(idx: ReturnType<typeof buildIndex>, schema: Schema, sceneSchema: Record<string, ParamSpec>, duration: number, grabT: number, drag: string) {
+function simulateDrag(idx: ReturnType<typeof buildIndex>, schema: Schema, sceneSchema: Record<string, ParamSpec>, duration: number, grabT: number, drag: string, multipleScenes = false) {
   const { param, value } = parseDrag(sceneSchema, drag);
   const store = new StateStore(schema);
   const recon = new Reconciler(store, idx, schema);
@@ -398,9 +407,12 @@ function simulateDrag(idx: ReturnType<typeof buildIndex>, schema: Schema, sceneS
   const trajectory: { t: number; scripted: ParamValue; displayed: ParamValue; overriding: boolean }[] = [];
   let reconverged = false;
   let nextSample = 0;
+  let activeScene = seed.scene;
   for (let i = 0; grabT + i * dt <= grabT + window + 1e-9; i++) {
     const tt = grabT + i * dt;
     const scripted = evaluate(idx, tt);
+    if (multipleScenes && scripted.scene !== activeScene) store.resetInteractions();
+    activeScene = scripted.scene;
     recon.reconcile(scripted, tt, dt);
     const overriding = store.meta.get(param)!.modified;
     if (tt - grabT >= nextSample - 1e-9) {
@@ -415,8 +427,17 @@ function simulateDrag(idx: ReturnType<typeof buildIndex>, schema: Schema, sceneS
 async function cmdRef(flags: Flags): Promise<void> {
   const lessonDir = flags.lesson ?? process.cwd();
   const manifest = await loadManifest(lessonDir);
-  const scene = await loadScene(join(lessonDir, manifest.scene));
-  console.log(refSheet(manifest.id, scene));
+  const scene = await loadLessonScenes(lessonDir, manifest);
+  if (scene.scenes) {
+    const ids = flags.scene ? [flags.scene] : Object.keys(scene.scenes);
+    for (const id of ids) {
+      if (!Object.hasOwn(scene.scenes, id)) die(`unknown scene "${id}"`);
+      console.log(refSheet(`${manifest.id} / ${id}`, scene.scenes[id]!));
+    }
+  } else {
+    if (flags.scene) die("--scene requires a manifest with multiple scenes");
+    console.log(refSheet(manifest.id, scene));
+  }
 }
 
 // --- helpers ---
@@ -434,6 +455,7 @@ function boardSpecs(tracks: Record<string, Keyframe[]>): Schema {
 }
 
 interface Flags {
+  scene?: string;
   help?: boolean;
   lesson?: string;
   input?: string;
@@ -466,6 +488,7 @@ function parseFlags(args: string[]): Flags {
     else if (args[i] === "--input") f.input = resolvePath(args[++i]!);
     else if (args[i] === "--offline") f.offline = true;
     else if (args[i] === "--silent") f.silent = true;
+    else if (args[i] === "--scene") f.scene = args[++i];
     else if (args[i] === "--bundle") f.bundle = true;
     else if (args[i] === "-o" || args[i] === "--out") f.out = args[++i];
     else if (args[i] === "--size") f.size = args[++i];

@@ -1,141 +1,73 @@
-// Unit-circle scene: a 2D canvas drawing of a point on the unit circle, its angle
-// theta, and its projection (cosine) onto the horizontal axis. Renders as a pure
-// function of state.
-
-import type { Schema, ParamValue, PlainState, Handle } from "@tangible/core";
-import type { SceneModule, SceneInstance, SceneContext } from "@tangible/player";
+import type { Handle, Schema } from "@tangible/core";
+import type { SceneContext, SceneModule } from "@tangible/player";
+import { angleControls, INK, line, plotBounds, RED, TEAL, TAU } from "./controls.js";
 
 export const schema: Schema = {
-  scene: { type: { kind: "enum", values: ["circle"] }, default: "circle", interpolate: "snap", ownership: "script" },
-  theta: {
-    type: { kind: "scalar", range: [0, 6.2832] },
-    default: 0,
-    interpolate: "lerp",
-    ownership: "script",
-    label: "angle of the point on the circle",
-  },
-  camera: {
-    type: { kind: "orbit" },
-    default: { target: [0, 0, 0], distance: 5, azimuth: 0, elevation: 0 },
-    interpolate: "orbit",
-    ownership: "viewer",
-  },
-  "show.thetaLabel": { type: { kind: "boolean" }, default: false, interpolate: "snap", ownership: "script" },
-  "show.projection": { type: { kind: "boolean" }, default: false, interpolate: "snap", ownership: "script" },
-  "show.cosLabel": { type: { kind: "boolean" }, default: false, interpolate: "snap", ownership: "script" },
+  theta: { type: { kind: "scalar", range: [0, 6.2832] }, default: 0, interpolate: "lerp", ownership: "script", label: "angle on the circle, in radians" },
+  "show.projection": { type: { kind: "boolean" }, default: true, interpolate: "snap", ownership: "script" },
+  "show.thetaLabel": { type: { kind: "boolean" }, default: true, interpolate: "snap", ownership: "script" },
+  "show.cosLabel": { type: { kind: "boolean" }, default: true, interpolate: "snap", ownership: "script" },
 };
 
-export const presets: Record<string, Record<string, ParamValue>> = {
-  sideView: { camera: { target: [0, 0, 0], distance: 5, azimuth: Math.PI / 2, elevation: 0 } },
-};
+export const constants = { HALF_PI: Math.PI / 2, PI: Math.PI, TWO_PI: TAU };
 
-export const constants: Record<string, number | number[]> = {
-  HALF_PI: 1.5708,
-  TWO_PI: 6.2832,
-};
-
-/** Pure geometry: point on the unit circle for angle theta (math convention, y up). */
-export function pointOnCircle(theta: number): { x: number; y: number } {
+/** Cartesian coordinates on the unit circle, with the vertical axis pointing up. */
+export function pointOnCircle(theta: number) {
   return { x: Math.cos(theta), y: Math.sin(theta) };
 }
 
+export function circleGeometry(ctx: SceneContext) {
+  const box = plotBounds(ctx);
+  return { cx: (box.left + box.right) / 2, cy: (box.top + box.bottom) / 2, radius: Math.min((box.right - box.left) * 0.4, (box.bottom - box.top) * 0.45), scale: box.scale };
+}
+
 export const scene: SceneModule = {
-  schema,
-  presets,
-  constants,
-  create(ctx: SceneContext): SceneInstance {
-    const c2d = ctx.canvas.getContext("2d")!;
+  schema, constants,
+  create(ctx) {
+    const g = ctx.canvas.getContext("2d")!;
+    const controls = angleControls(ctx, "The unit circle", "A point on the unit circle and its horizontal coordinate, cosine. The angle slider provides keyboard control.");
     return {
-      render(state: Readonly<PlainState>) {
-        draw(c2d, ctx.viewport(), state);
+      render(state) {
+        const theta = Number(state.theta);
+        const { cx, cy, radius: r, scale } = circleGeometry(ctx);
+        const { x, y } = pointOnCircle(theta);
+        const px = cx + r * x, py = cy - r * y;
+        g.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        g.strokeStyle = "#bbc6bf"; g.lineWidth = scale;
+        line(g, cx - r * 1.2, cy, cx + r * 1.2, cy);
+        line(g, cx, cy - r * 1.15, cx, cy + r * 1.15);
+        g.strokeStyle = INK; g.lineWidth = 2 * scale;
+        g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.stroke();
+        line(g, cx, cy, px, py);
+        if (state["show.projection"]) {
+          g.strokeStyle = TEAL; g.setLineDash([4 * scale, 4 * scale]);
+          line(g, px, py, px, cy); g.setLineDash([]);
+          g.lineWidth = 5 * scale; line(g, cx, cy, px, cy);
+        }
+        g.fillStyle = RED; g.beginPath(); g.arc(px, py, 7 * scale, 0, TAU); g.fill();
+        g.fillStyle = INK; g.font = `${15 * scale}px system-ui`; g.textAlign = "center";
+        if (state["show.thetaLabel"]) g.fillText("θ", cx + r * 0.3 * Math.cos(theta / 2), cy - r * 0.3 * Math.sin(theta / 2));
+        if (state["show.cosLabel"]) { g.fillStyle = TEAL; g.fillText("cos θ", (cx + px) / 2, cy + 23 * scale); }
+        g.fillStyle = INK; g.fillText("1", cx + r * 1.15, cy - 8 * scale);
+        controls.render(theta);
       },
-      handles: () => [pointHandle(ctx.viewport)],
-      dispose: () => {},
+      handles: () => [pointHandle(ctx)],
+      dispose: () => controls.dispose(),
     };
   },
 };
 
-/** Drag the red point around the circle → set theta = atan2. */
-function pointHandle(viewport: () => { width: number; height: number }): Handle {
-  const geom = () => {
-    const { width: w, height: h } = viewport();
-    return { cx: w / 2, cy: h / 2, R: Math.min(w, h) * 0.4 };
-  };
+function pointHandle(ctx: SceneContext): Handle {
   return {
-    id: "point",
-    params: ["theta"],
+    id: "point", params: ["theta"],
     hitTest(px, py, state) {
-      const { cx, cy, R } = geom();
-      const th = state.theta as number;
-      return Math.hypot(px - (cx + Math.cos(th) * R), py - (cy - Math.sin(th) * R)) < R * 0.08;
+      const { cx, cy, radius, scale } = circleGeometry(ctx);
+      const { x, y } = pointOnCircle(Number(state.theta));
+      return Math.hypot(px - cx - x * radius, py - cy + y * radius) <= 22 * scale;
     },
     onDrag(px, py) {
-      const { cx, cy } = geom();
-      let a = Math.atan2(cy - py, px - cx); // screen y is down
-      if (a < 0) a += Math.PI * 2;
-      return { theta: a };
+      const { cx, cy } = circleGeometry(ctx);
+      return { theta: (Math.atan2(cy - py, px - cx) + TAU) % TAU };
     },
   };
-}
-
-function draw(g: CanvasRenderingContext2D, view: { width: number; height: number }, state: Readonly<PlainState>) {
-  const { width: w, height: h } = view;
-  const cx = w / 2;
-  const cy = h / 2;
-  const R = Math.min(w, h) * 0.4;
-  const theta = state.theta as number;
-  const p = pointOnCircle(theta);
-  const px = cx + p.x * R;
-  const py = cy - p.y * R; // screen y is down
-
-  // Sizes are relative to the radius so they stay proportional at any resolution.
-  const stroke = R * 0.012;
-
-  g.clearRect(0, 0, w, h);
-
-  // Axes
-  g.strokeStyle = "#888";
-  g.lineWidth = Math.max(1, R * 0.004);
-  line(g, 0, cy, w, cy);
-  line(g, cx, 0, cx, h);
-
-  // Unit circle
-  g.strokeStyle = "#333";
-  g.lineWidth = stroke;
-  g.beginPath();
-  g.arc(cx, cy, R, 0, Math.PI * 2);
-  g.stroke();
-
-  // Projection (cosine) onto the x-axis
-  if (state["show.projection"]) {
-    g.strokeStyle = "#c0392b";
-    g.lineWidth = stroke;
-    g.setLineDash([R * 0.03, R * 0.03]);
-    line(g, px, py, px, cy);
-    g.setLineDash([]);
-    g.lineWidth = stroke * 2;
-    line(g, cx, cy, px, cy); // the cosine segment
-  }
-
-  // Radius + point
-  g.strokeStyle = "#2c3e50";
-  g.lineWidth = stroke;
-  line(g, cx, cy, px, py);
-  g.fillStyle = "#e74c3c";
-  g.beginPath();
-  g.arc(px, py, R * 0.04, 0, Math.PI * 2);
-  g.fill();
-
-  // Labels
-  g.fillStyle = "#2c3e50";
-  g.font = `${R * 0.1}px sans-serif`;
-  if (state["show.thetaLabel"]) g.fillText("θ", cx + R * 0.16 * Math.cos(theta / 2), cy - R * 0.16 * Math.sin(theta / 2));
-  if (state["show.cosLabel"]) g.fillText("cos θ", (cx + px) / 2 - R * 0.1, cy + R * 0.12);
-}
-
-function line(g: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
-  g.beginPath();
-  g.moveTo(x1, y1);
-  g.lineTo(x2, y2);
-  g.stroke();
 }

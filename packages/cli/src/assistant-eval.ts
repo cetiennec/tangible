@@ -17,7 +17,7 @@ import {
 import { lessonPositionAt, latestCue, parseVtt } from "@tangible/player";
 import { parse as parseYaml } from "yaml";
 import { loadManifest } from "./manifest.js";
-import { loadScene } from "./scene-loader.js";
+import { loadLessonScenes } from "./scene-loader.js";
 import {
   AssistantProviderError,
   AssistantProviderTimeoutError,
@@ -110,7 +110,7 @@ export async function runAssistantEval(opts: AssistantEvalOptions): Promise<void
   const context = JSON.parse(await readFile(contextPath, "utf8")) as AssistantContext;
   const tracks = JSON.parse(await readFile(tracksPath, "utf8")) as LessonTracks;
   const captions = await readFile(join(buildDir, "captions.vtt"), "utf8");
-  const scene = await loadScene(join(opts.lessonDir, manifest.scene));
+  const scene = await loadLessonScenes(opts.lessonDir, manifest);
   validateAssistantEvalFile(data, evalPath, scene.schema, tracks.duration);
 
   const configurations = selectedConfigurations(data, context.model, opts.configurationIds, evalPath);

@@ -1,16 +1,20 @@
 cases:
-  - id: deictic-zero
-    at: 24.8
+  - id: circle-zero
+    at: 5
     state:
-      theta: 1.5708
-      show.thetaLabel: true
-      show.projection: true
-      show.cosLabel: true
+      circle.theta: 1.5707963267948966
     turns:
-      - Why is it zero here?
+      - Why is the cosine zero here?
 
-  - id: conceptual-follow-up
-    at: 17.8
+  - id: graph-minimum
+    at: 20
+    state:
+      cosine.theta: 3.141592653589793
     turns:
-      - What does cosine represent in this picture?
-      - Can you show me a case where it is zero?
+      - What do the two axes represent?
+      - Can you show me where cosine is zero?
+
+  - id: circle-return
+    at: 35
+    turns:
+      - How does this relate to the minimum on the graph?

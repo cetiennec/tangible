@@ -3,18 +3,33 @@ title: The unit circle
 ---
 
 @scene(circle)
-@chapter(The circle and the angle)
+@chapter(On the circle)
+@cue(theta = 0)
+@board(cosine: $x = \cos\theta$)
 
-Here is a circle of radius one. The red point is located by an angle
-we call @cue(show.thetaLabel = true) theta. Watch what happens when we
-let it @cue(theta -> 6.2832, over: 4s, ease: inOutCubic) vary: the
-point goes all the way around the circle.
+On the unit circle, cosine is the red point's horizontal coordinate.
+At zero degrees, it is one.
+@cue(theta -> HALF_PI, over: 2s) Turn through ninety degrees, and the
+point is directly above the center. Its cosine is zero.
 
-@show(projection) Now let's project this point onto the horizontal axis.
-The length we get is @cue(show.cosLabel = true) the cosine of theta.
-@board(cosdef: $x = \cos\theta$)
+@scene(cosine)
+@chapter(Cosine as a graph)
+@cue(theta = 0)
+@clear(board)
+@board(cosineGraph: $y = \cos\theta$)
 
-@pause(prompt: "Drag the red point yourself and watch the cosine.")
+Now we use a different view. The angle runs along the horizontal axis,
+and the height gives its cosine.
+@cue(theta -> TWO_PI, over: 6s, ease: linear) Over one full turn, the
+cosine falls from one to minus one, then rises back to one.
 
-@cue(theta -> 1.5708, over: 2s) Let's continue. At ninety degrees, the
-cosine is zero.
+@pause(prompt: "Move the angle slider and explore the curve.")
+
+@scene(circle)
+@chapter(Back to the circle)
+@cue(theta = PI)
+@clear(board)
+@board(cosine: $x = \cos\theta$)
+
+Back on the circle, a half turn puts the point on the left.
+Its horizontal coordinate is minus one: the same minimum we saw on the graph.

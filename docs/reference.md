@@ -34,7 +34,7 @@ Create a lesson directory:
 pnpm lesson new my-lesson --lesson lessons/my-lesson
 ```
 
-Run the `scenes/scene.ts` entry module by itself while building the interaction:
+Run the scene selected by the manifest by itself while building the interaction:
 
 ```bash
 pnpm lesson scene --lesson lessons/my-lesson
@@ -85,9 +85,9 @@ visitor's browser.
 | Command | Purpose |
 |---|---|
 | `new <id>` | Create `lesson.yaml`, `script.md`, `scenes/scene.ts`, and an assets directory. |
-| `scene` | Run the interactive scene alone while it is being built. |
-| `ref` | Print scene parameters, ranges, presets, groups, constants, and bakers. |
-| `check` | Validate the runtime scene, `script.md`, cues, and assistant configuration without network calls. |
+| `scene` | Run one interactive scene alone; use `--scene <id>` to select a registered scene. |
+| `ref` | Print parameters, ranges, presets, groups, constants, and bakers for all scenes, or one with `--scene <id>`. |
+| `check` | Validate all runtime scene modules, `script.md`, cues, and assistant configuration without network calls. |
 | `preview` | Rebuild changed files and serve the complete lesson locally. |
 | `build` | Compile narration, captions, and animation tracks into `build/lesson/`. |
 | `build --bundle` | Also create the deployable site in `build/site/`. |
@@ -102,6 +102,9 @@ visitor's browser.
 ### Options
 
 - `--lesson <dir>` selects the lesson directory.
+- `scene --scene <id>` and `ref --scene <id>` select a registered scene. This
+  option requires the `scenes` manifest format and does not apply to full-lesson
+  commands such as `preview` or `build`.
 - `--offline` uses local Supertonic narration and the local assistant substitute.
 - `--silent` uses deterministic silent narration and the local assistant substitute.
 - `--bundle` asks `build` to create the deployable site.
@@ -169,11 +172,21 @@ judge failures without discarding other grades.
 
 ### Scene development without narration
 
-`lesson scene` reads only `id` and `scene` from `lesson.yaml`. It loads the scene
-from schema defaults, preserves interactions until reset or reload, and watches
-lesson-local source dependencies. It does not read `script.md`, voice settings,
-assistant context, or compiled lesson artifacts. Its temporary browser bundle is
-stored in `build/scene-preview/`.
+`lesson scene` needs only `id` and the scene selection fields in `lesson.yaml`:
+either `scene`, or `scenes` with `initialScene`. It loads the selected scene from
+schema defaults, preserves interactions until reset or reload, and watches the
+manifest and lesson-local source dependencies. It does not read `script.md`,
+voice settings, assistant context, or compiled lesson artifacts. Its temporary
+browser bundle is stored in `build/scene-preview/`.
+
+With a registry, the default is `initialScene`. Select another module with:
+
+```bash
+pnpm lesson scene --lesson lessons/unit-circle --scene cosine
+```
+
+This preview shows one module at a time. Use `lesson preview` to run the script
+and review scene changes on the narration timeline.
 
 ## Lesson files and manifest
 
@@ -186,23 +199,111 @@ assistant.md            optional semantic assistant context
 assistant.eval.yaml     optional tracked assistant question cases
 scenes/
   scene.ts              scene entry module
-  ...                   optional scene helpers, tests, and visual assets
+  ...                   additional scene modules, helpers, tests, and visual assets
 assets/                 optional authored assets
 ```
 
 `build/` and `.cache/` are generated and gitignored. Tangible currently assumes
 that every lesson is in English. A lesson has one script, one voice, one set of
-captions, one assistant guide, and one scene entry module.
+captions, one assistant guide, and either one scene module or a registry of scenes.
 
-Chapters are markers on the narration timeline. They do not correspond to scene
-files. The plural `scenes/` directory groups the entry module with any supporting
-scene code and assets. A scene can expose several named visual modes through its
-`scene` schema parameter; `@scene(name)` changes that parameter within the same
-entry module.
+Chapters are markers on the narration timeline. They do not select scene files.
+In a single-scene lesson, `@scene(name)` changes the module's `scene` schema
+parameter as before. In a multiple-scene lesson, it selects a registered module.
+
+### Multiple scenes
+
+For a step-by-step example, see
+[Add another scene](./authoring.md#add-another-scene) and the
+[unit-circle manifest](../lessons/unit-circle/lesson.yaml).
+
+Use `scenes` and `initialScene` instead of the singular `scene` field:
+
+```yaml
+scenes:
+  circle: ./scenes/scene.ts
+  cosine: ./scenes/cosine.ts
+initialScene: circle
+```
+
+The registry must be nonempty. Scene ids start with a letter and contain letters,
+digits, hyphens, or underscores. `board` is reserved. `initialScene` must identify
+a registered module. Combining the singular and plural formats is an error.
+Paths are relative to the lesson directory; the folder is not scanned for
+modules. Every registered module follows the usual [scene exports](#scene-exports).
+
+```markdown
+@scene(circle)
+@cue(theta = HALF_PI)
+The point is above the center.
+
+@scene(cosine)
+@cue(theta = PI)
+The graph reaches minus one.
+
+@scene(circle)
+We return to the earlier circle state.
+```
+
+`@scene(id)` selects the registered module at the onset of the next spoken word.
+It takes only the scene id; it has no `over` or `at` options.
+Local directives (`@cue`, `@show`, `@hide`, `@camera`, `@bake`, and `@track`)
+refer to the most recently selected scene in source order,
+starting with `initialScene`. Parameter names, presets, constants, groups, and
+bakers are independent across scenes. Each scene starts from its own defaults;
+revisiting it evaluates its authored tracks at the current lesson time. Cues do
+not reset implicitly on entry, and authored transitions can finish while hidden.
+Learner overrides clear when leaving a scene or seeking. Values are not copied
+between scenes. A module with a local `scene` parameter can still select its
+own modes with `@cue(scene = name)`.
+
+Names remain local in script cues and the module API: write `@cue(theta = PI)`,
+`ctx.write("theta", value)`, and `state.theta`. Do not add a scene prefix there.
+
+Switching is instantaneous and does not pause audio. The player evaluates the
+active module directly from lesson time, including after a seek. All scene code
+is included in the initial bundle. The outgoing instance is disposed and the
+incoming instance receives a fresh canvas. Scene-owned resources must be cleaned
+up in `dispose()`.
+
+Visual anticipation and negative cue offsets are clamped at the preceding scene
+entry. A checkpoint immediately before an entry keeps the outgoing scene until
+the next clock tick after resume. Board directives remain global and require an
+explicit `@clear(board)` when content should not carry across a switch.
+
+`lesson ref --scene <id>` and `lesson scene --scene <id>` select an individual
+scene. Without this flag, the reference lists all scenes and standalone preview
+uses `initialScene`. `lesson state` and compiled tracks use qualified parameter
+names such as `circle.theta` and `cosine.theta`, plus a global `scene` selector.
+For example, after building unit-circle:
+
+```bash
+pnpm lesson state --lesson lessons/unit-circle --at 5
+pnpm lesson state --lesson lessons/unit-circle --at 5 --drag circle.theta=1
+```
+
+Times are seconds from the start of the entire lesson, including on return
+visits. The state output includes parameters from inactive scenes as well.
+Recorded track keys supplied to the compiler use these same qualified names.
+The existing version-1 track format and single-scene names remain supported.
+
+An assistant's `commandable` list also uses qualified names. Inside the existing
+`assistant` section of the manifest, set:
+
+```yaml
+  commandable: [circle.theta, cosine.theta]
+```
+
+The assistant receives the active scene and its visible controls; server
+validation restricts new writes to that scene's allowlist. It cannot change the
+global `scene` selector. Conversation history can retain answers from earlier
+scenes, while temporary visual changes and pending answers clear on a switch.
+Evaluation state overrides and rubric parameter names also need these prefixes;
+see [assistant evaluation authoring](./authoring.md#invite-and-evaluate-questions).
 
 ### Manifest
 
-A minimal `lesson.yaml` is:
+A single-scene `lesson.yaml` can use the original format:
 
 ```yaml
 id: unit-circle
@@ -383,6 +484,12 @@ directive whose final angle differs from its initial angle by 360 degrees.
 @pause(prompt: "Find where SGD becomes unstable.")
 @pause(prompt: "Explore before continuing.", speak: false)
 ```
+
+`@scene(main)` selects a registered module named `main` when the manifest uses
+`scenes`. With the original singular `scene` field, it sets that module's local
+`scene` parameter to `main`. See [Multiple scenes](#multiple-scenes) for the
+selection, timing, and state rules. `@chapter` adds a timeline marker without
+changing the active module.
 
 A spoken pause inserts its prompt into narration and stops at the prompt
 boundary. A silent pause stops without adding text. The normal play control

@@ -1,7 +1,7 @@
 // Provider orchestration for lesson questions: Hugging Face produces a small,
 // declarative written answer plan.
 
-import { validateValue, type AnswerBeat, type AssistantContext, type AssistantRequest, type AssistantResponse, type ParamType, type ParamValue } from "@tangible/core";
+import { assistantSceneContext, validateValue, type AnswerBeat, type AssistantContext, type AssistantRequest, type AssistantResponse, type ParamType, type ParamValue } from "@tangible/core";
 import { formatAssistantSystemPrompt, type AssistantPromptStyle } from "./assistant-prompt.js";
 import { readProviderErrorMessage } from "./provider-error.js";
 
@@ -56,8 +56,9 @@ export async function answerQuestion(
     ? buildAssistantProviderRequest(request, context, providers.promptStyle ?? "structured", providers.requestConfig)
     : undefined;
   if (providerRequest && providers.onProviderRequest) await providers.onProviderRequest(providerRequest);
-  const beats = providers.fake ? fakeAnswer(context) : await huggingFaceAnswer(providerRequest!, providers, context.limits.providerTimeoutSeconds);
-  validateAnswer(beats, context);
+  const activeContext = assistantSceneContext(context, request.state);
+  const beats = providers.fake ? fakeAnswer(activeContext) : await huggingFaceAnswer(providerRequest!, providers, context.limits.providerTimeoutSeconds);
+  validateAnswer(beats, activeContext);
 
   let answer = "";
   for (const beat of beats) {
@@ -140,6 +141,7 @@ export function buildAssistantProviderRequest(
 ): Record<string, unknown> {
   validateAssistantRequest(request, context);
   validateAssistantProviderRequestConfig(config);
+  context = assistantSceneContext(context, request.state);
 
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: `${config.systemPrefix ?? ""}${systemPrompt(context, promptStyle)}` },
@@ -231,9 +233,10 @@ export function validateAssistantRequest(request: AssistantRequest, context: Ass
   }
   if (!Number.isFinite(request.t)) throw new Error("lesson time must be finite");
   if (!request.state || typeof request.state !== "object" || Array.isArray(request.state)) throw new Error("scene state must be an object");
-  const state = visibleState(request, context);
+  const activeContext = assistantSceneContext(context, request.state);
+  const state = visibleState(request, activeContext);
   validatePosition(request.position, limits.request.positionCharacters);
-  filteredTemporaryAssistantState(request, context, state);
+  filteredTemporaryAssistantState(request, activeContext, state);
   if (!Array.isArray(request.history) || request.history.length > limits.request.historyTurns) {
     throw new Error(`conversation history is limited to ${limits.request.historyTurns} turns`);
   }
@@ -357,12 +360,14 @@ function numberArray(_length: number): Record<string, unknown> {
 }
 
 function fakeAnswer(context: AssistantContext): AnswerBeat[] {
-  if (context.commandable.includes("theta")) {
-    const set: Record<string, ParamValue> = { theta: Math.PI / 2 };
-    for (const key of ["show.thetaLabel", "show.projection", "show.cosLabel"]) if (context.commandable.includes(key)) set[key] = true;
+  const theta = context.commandable.find((key) => key === "theta" || key.endsWith(".theta"));
+  if (theta) {
+    const prefix = theta.slice(0, -"theta".length);
+    const set: Record<string, ParamValue> = { [theta]: Math.PI / 2 };
+    for (const key of ["show.thetaLabel", "show.projection", "show.cosLabel"].map((key) => prefix + key)) if (context.commandable.includes(key)) set[key] = true;
     return [
       { say: "Let’s look at a quarter turn.", set, over: 0.4 },
-      { say: "The point’s horizontal coordinate, and therefore its cosine, is zero.", set: {}, over: 0 },
+      { say: "Cosine is zero at a quarter turn.", set: {}, over: 0 },
     ];
   }
   return [{ say: "Let’s look at this situation in the lesson.", set: {}, over: 0 }];

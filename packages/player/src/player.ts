@@ -2,7 +2,7 @@
 // host, reconciler, interaction, board, captions, pause gates, and chrome. One
 // Player for one lesson page.
 
-import { buildIndex, type AssistantContext, type AssistantRequest, type AssistantResponse, type LessonTracks, type Schema, type PlainState, type TrackIndex } from "@tangible/core";
+import { assistantSceneContext, buildIndex, combineSceneSchemas, type AssistantContext, type AssistantRequest, type AssistantResponse, type LessonTracks, type Schema, type PlainState, type TrackIndex } from "@tangible/core";
 import { AudioClock } from "./clock.js";
 import { StateStore } from "./store.js";
 import { TimelineDriver } from "./timeline.js";
@@ -27,9 +27,8 @@ declare global {
   }
 }
 
-export interface PlayerOptions {
+export type PlayerOptions = ({ scene: SceneModule; scenes?: never; initialScene?: never } | { scene?: never; scenes: Record<string, SceneModule>; initialScene: string }) & {
   mount: HTMLElement;
-  scene: SceneModule;
   tracks: LessonTracks;
   captionsVtt?: string;
   audioSrc?: string[];
@@ -43,7 +42,7 @@ export interface PlayerOptions {
     fetchImpl?: typeof fetch;
     startOpen?: boolean;
   };
-}
+};
 
 interface ActiveAnswer {
   timeline: AnswerTimeline;
@@ -59,9 +58,9 @@ export class Player {
   readonly displayStore: StateStore;
   readonly clock: AudioClock;
   readonly driver: TimelineDriver;
-  readonly host: SceneHost;
+  host: SceneHost;
   readonly reconciler: Reconciler;
-  readonly interaction: InteractionManager;
+  interaction: InteractionManager;
   readonly board: Board;
   readonly captions: Captions;
   readonly pauseGate: PauseGate;
@@ -70,6 +69,10 @@ export class Player {
   readonly assistant?: AssistantPanel;
 
   private canvas: HTMLCanvasElement;
+  private overlay: HTMLElement;
+  private scenes?: Record<string, SceneModule>;
+  private activeScene?: string;
+  private schema: Schema;
   private container: HTMLElement;
   private shell: HTMLElement;
   private index: TrackIndex;
@@ -93,7 +96,11 @@ export class Player {
     this.tracks = opts.tracks;
     this.audioLoader = opts.audioLoader;
     this.baseUrl = opts.baseUrl ?? "";
-    const schema: Schema = { ...opts.scene.schema, ...boardSchema(opts.tracks.tracks) };
+    this.scenes = opts.scenes;
+    this.activeScene = opts.initialScene;
+    const sceneSchema = opts.scene ? opts.scene.schema : combineSceneSchemas(opts.scenes, opts.initialScene);
+    const schema: Schema = { ...sceneSchema, ...boardSchema(opts.tracks.tracks) };
+    this.schema = schema;
     this.index = buildIndex(opts.tracks.tracks, schema);
     this.store = new StateStore(schema);
     this.displayStore = new StateStore(schema);
@@ -110,6 +117,7 @@ export class Player {
     this.container = el("div", "xv-player");
     this.canvas = el("canvas", "") as HTMLCanvasElement;
     const overlay = el("div", "xv-overlay");
+    this.overlay = overlay;
     const boardPanel = el("aside", "xv-board");
 
     this.audio = document.createElement("audio");
@@ -128,31 +136,14 @@ export class Player {
     opts.mount.append(this.shell);
     this.resize();
 
-    this.host = new SceneHost(opts.scene, {
-      canvas: this.canvas,
-      overlay,
-      viewport: () => ({ width: this.canvas.width, height: this.canvas.height }),
-      write: (param, value) => this.writeSceneParam(param, value, schema),
-      reset: (param) => {
-        this.store.resetInteraction(param);
-        this.activityTracker.noteUser(param);
-        this.activeAnswer?.claimed.add(param);
-      },
-      pause: () => this.clock.pause(),
-    });
+    this.host = this.createHost(opts.scene ?? opts.scenes[opts.initialScene]!);
     this.reconciler = new Reconciler(this.store, this.index, schema);
-    this.driver = new TimelineDriver(this.clock, this.index, this.store, { onFrame: (t) => this.frame(t) }, this.reconciler);
-    this.interaction = new InteractionManager(
-      this.canvas,
-      this.host,
-      this.store,
-      this.clock,
-      () => this.displayStore.plain,
-      (param) => {
-        this.activityTracker.noteUser(param);
-        this.activeAnswer?.claimed.add(param);
-      },
-    );
+    this.driver = new TimelineDriver(this.clock, this.index, this.store, {
+      beforeFrame: () => this.pauseGate.update(this.clock.t),
+      onFrame: (t) => this.frame(t),
+      onSeek: () => { this.interaction.cancel(); this.cancelAnswer(); },
+    }, this.reconciler);
+    this.interaction = this.createInteraction();
 
     const dev = parseDevParams(typeof location !== "undefined" ? location.search : "");
     if (opts.chrome !== false && !dev.nochrome) {
@@ -290,6 +281,7 @@ export class Player {
   }
 
   private frame(t: number): void {
+    if (this.scenes && this.store.plain.scene !== this.activeScene) this.switchScene(String(this.store.plain.scene));
     const dt = Math.max(0, t - this.lastFrameT);
     this.lastFrameT = t;
     const answerElapsed = this.activeAnswer ? (performance.now() - this.activeAnswer.startedAt) / 1000 : undefined;
@@ -303,10 +295,50 @@ export class Player {
       dt,
       activity: this.activityTracker.evaluate(t, this.store.meta, assistantActivity),
     });
-    this.pauseGate.update(t);
     if (this.pauseGate.activePrompt === null) this.captions.update(t);
     this.chrome?.update(t);
     if (this.dumpState) window.__XV_STATE__ = { ...this.store.plain };
+  }
+
+  private createHost(module: SceneModule): SceneHost {
+    return new SceneHost(module, {
+      canvas: this.canvas,
+      overlay: this.overlay,
+      viewport: () => ({ width: this.canvas.width, height: this.canvas.height }),
+      write: (param, value) => this.writeSceneParam(param, value, this.schema),
+      reset: (param) => {
+        this.store.resetInteraction(param);
+        this.activityTracker.noteUser(param);
+        this.activeAnswer?.claimed.add(param);
+      },
+      pause: () => this.clock.pause(),
+    }, this.activeScene);
+  }
+
+  private createInteraction(): InteractionManager {
+    return new InteractionManager(this.canvas, this.host, this.store, this.clock,
+      () => this.displayStore.plain,
+      (param) => { this.activityTracker.noteUser(param); this.activeAnswer?.claimed.add(param); });
+  }
+
+  private switchScene(id: string): void {
+    const module = this.scenes![id];
+    if (!module) throw new Error(`unknown scene "${id}"`);
+    this.interaction.dispose();
+    this.host.dispose();
+    this.cancelAnswer();
+    for (const key of this.store.keys()) {
+      if (key.startsWith(`${this.activeScene}.`)) this.store.resetInteraction(key);
+    }
+    this.overlay.replaceChildren();
+    // A fresh canvas also permits switching between 2D and WebGL renderers.
+    const canvas = document.createElement("canvas");
+    this.canvas.replaceWith(canvas);
+    this.canvas = canvas;
+    this.resize();
+    this.activeScene = id;
+    this.host = this.createHost(module);
+    this.interaction = this.createInteraction();
   }
 
   private writeSceneParam(param: string, value: PlainState[string], schema: Schema): void {
@@ -320,7 +352,8 @@ export class Player {
     const temporaryAssistantState = this.temporaryAnswerState();
     const visibleState = { ...this.store.plain, ...temporaryAssistantState };
     this.clearActiveAnswer();
-    this.answerAbort = new AbortController();
+    const abort = new AbortController();
+    this.answerAbort = abort;
     this.assistant!.setBusy(true, "Thinking…");
     const body: AssistantRequest = {
       lessonId: context.lessonId,
@@ -336,21 +369,23 @@ export class Player {
         method: "POST",
         headers: { "content-type": "application/json", "x-tangible-client-id": this.assistantClientId! },
         body: JSON.stringify(body),
-        signal: this.answerAbort.signal,
+        signal: abort.signal,
       });
       if (!response.ok) throw new Error(await response.text());
       const answer = (await response.json()) as AssistantResponse;
+      if (this.answerAbort !== abort || abort.signal.aborted) return;
       if (!answer.answer || !Array.isArray(answer.beats)) throw new Error("invalid assistant response");
       this.assistant!.addTurn(question, answer.answer, answer.beats);
       this.startAnswer(answer, context);
     } catch (error) {
-      if ((error as Error).name !== "AbortError") this.assistant!.fail(`Answer failed: ${(error as Error).message}`);
+      if (this.answerAbort === abort && !abort.signal.aborted && (error as Error).name !== "AbortError") this.assistant!.fail(`Answer failed: ${(error as Error).message}`);
     } finally {
-      this.answerAbort = undefined;
+      if (this.answerAbort === abort) this.answerAbort = undefined;
     }
   }
 
   private startAnswer(answer: AssistantResponse, context: AssistantContext): void {
+    context = assistantSceneContext(context, this.store.plain);
     const schema: Schema = {};
     for (const param of context.commandable) schema[param] = context.schema[param]!;
     this.activeAnswer = {
@@ -376,6 +411,7 @@ export class Player {
 
   private cancelAnswer(status = ""): void {
     this.answerAbort?.abort();
+    this.answerAbort = undefined;
     this.clearActiveAnswer();
     this.assistant?.finish(status);
   }

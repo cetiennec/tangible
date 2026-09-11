@@ -11,6 +11,7 @@ export interface ResolvedCue {
 
 export interface ResolveOptions {
   anticipation: number; // seconds, applied to visual cues unless `at:` overrides
+  sceneBoundaries?: boolean;
 }
 
 type Timing = Pick<TtsResult, "charTimes" | "wordTimes" | "duration">;
@@ -24,8 +25,14 @@ export function resolve(directives: Directive[], narration: string, timing: Timi
     let t = timeFor(d, narration, timing, opts);
     // A future visual must never anticipate across an authored checkpoint. The
     // player stops exactly at the spoken prompt boundary, before the next word.
-    if (d.kind === "pause") pauseBarrier = Math.max(pauseBarrier, t);
-    else t = Math.max(t, pauseBarrier);
+    if (d.kind === "pause") {
+      // In a multiple-scene lesson, keep the outgoing scene at the checkpoint.
+      // The next clock tick after resume may select the following scene.
+      pauseBarrier = Math.max(pauseBarrier, t + (opts.sceneBoundaries ? 0.01 : 0));
+    } else {
+      t = Math.max(t, pauseBarrier);
+      if (opts.sceneBoundaries && d.kind === "scene") pauseBarrier = t;
+    }
     return { t, directive: d };
   });
   // Stable sort by time (preserves source order on ties).

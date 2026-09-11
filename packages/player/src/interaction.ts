@@ -17,6 +17,7 @@ export interface InteractionTarget {
 
 export class InteractionManager {
   private active?: Handle;
+  private pointerId?: number;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -34,11 +35,21 @@ export class InteractionManager {
   }
 
   dispose(): void {
+    this.cancel();
     this.canvas.removeEventListener("pointerdown", this.onDown);
     this.canvas.removeEventListener("pointermove", this.onMove);
     this.canvas.removeEventListener("pointerup", this.onUp);
     this.canvas.removeEventListener("pointercancel", this.onUp);
     this.canvas.removeEventListener("wheel", this.onWheel);
+  }
+
+  /** End a drag before seeking or removing its scene. */
+  cancel(): void {
+    if (!this.active) return;
+    for (const param of this.active.params) this.store.setDragging(param, false);
+    if (this.pointerId !== undefined && this.canvas.hasPointerCapture?.(this.pointerId)) this.canvas.releasePointerCapture(this.pointerId);
+    this.active = undefined;
+    this.pointerId = undefined;
   }
 
   private toCanvas(e: Pick<MouseEvent, "clientX" | "clientY">): [number, number] {
@@ -54,6 +65,7 @@ export class InteractionManager {
     for (const h of this.target.handles()) {
       if (!h.hitTest(px, py, state)) continue;
       this.active = h;
+      this.pointerId = e.pointerId;
       this.canvas.setPointerCapture?.(e.pointerId);
       for (const p of h.params) this.store.setDragging(p, true);
       h.onDown?.(px, py, state);
@@ -68,12 +80,7 @@ export class InteractionManager {
     this.write(this.active.onDrag(px, py, this.displayedState()));
   };
 
-  private onUp = (e: PointerEvent) => {
-    if (!this.active) return;
-    for (const p of this.active.params) this.store.setDragging(p, false);
-    this.canvas.releasePointerCapture?.(e.pointerId);
-    this.active = undefined;
-  };
+  private onUp = () => this.cancel();
 
   private onWheel = (e: WheelEvent) => {
     const [px, py] = this.toCanvas(e);

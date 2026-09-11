@@ -35,7 +35,7 @@ Tangible has three layers:
 ```text
 script.md ─────────┐
                    ├─ compiler ─► audio + tracks.json + captions.vtt
-scenes/scene.ts ───┘                         │
+scene module(s) ───┘                         │
                                             ▼
                     player: audio clock ► state ◄ learner interaction
                                                     │
@@ -50,10 +50,18 @@ or call speech providers. The player also owns the standard loading and start
 experience, including the inactive scene preview behind its translucent card;
 lessons contribute only their title to that screen.
 
-During scene development, the CLI bundles `scenes/scene.ts` directly into a
+During scene development, the CLI bundles the selected scene module directly into a
 browser preview. This path initializes state from schema defaults and uses the
 player package's scene host and interaction code. It does not construct a lesson
 player or involve scripts, tracks, audio, or providers.
+
+Multiple-scene lessons register modules in the manifest. The compiler partitions
+local directives by scene before validation and expansion, then qualifies their
+tracks and combines them with a common scene selector and board timeline. The
+player presents local names to each module and switches instances from the
+evaluated selector. Existing single-scene manifests and parameter names keep
+their original meaning. See [multiple scenes](./reference.md#multiple-scenes)
+for the authoring and lifecycle contract.
 
 ## Package boundaries
 

@@ -3,7 +3,7 @@
 // compressed browser audio formats as a narrated release.
 
 import { spawnSync } from "node:child_process";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, cp } from "node:fs/promises";
 import { join } from "node:path";
 import { build } from "esbuild";
 
@@ -16,9 +16,9 @@ const run = (cmd, args) => {
 export default async function prepare() {
   run("node", ["node_modules/typescript/bin/tsc", "--build"]);
   // --silent keeps e2e hermetic: deterministic timing, no model download, no API key, WAV.
-  run("node", ["packages/cli/dist/index.js", "build", "--silent", "--lesson", "lessons/unit-circle"]);
+  run("node", ["packages/cli/dist/index.js", "build", "--silent", "--lesson", "e2e/fixtures/unit-circle"]);
 
-  const buildDir = join(root, "lessons/unit-circle/build/lesson");
+  const buildDir = join(root, "e2e/fixtures/unit-circle/build/lesson");
   const tracks = JSON.parse(await readFile(join(buildDir, "tracks.json"), "utf8"));
   const vtt = await readFile(join(buildDir, "captions.vtt"), "utf8");
   const assistant = JSON.parse(await readFile(join(buildDir, "assistant.json"), "utf8"));
@@ -43,6 +43,8 @@ export default async function prepare() {
 
   const distDir = join(root, "e2e/dist");
   await mkdir(distDir, { recursive: true });
+  run("node", ["packages/cli/dist/index.js", "build", "--silent", "--bundle", "--lesson", "lessons/unit-circle"]);
+  await cp(join(root, "lessons/unit-circle/build/site"), join(distDir, "multi"), { recursive: true });
   const { transcodeForBrowsers } = await import(join(root, "packages/cli/dist/transcode.js"));
   const sourceAudio = await readFile(join(buildDir, "audio.wav"));
   const audioArtifacts = transcodeForBrowsers(sourceAudio, "wav");

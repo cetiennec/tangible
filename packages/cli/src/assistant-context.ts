@@ -29,6 +29,7 @@ export async function buildAssistantContext(
 
   for (const param of config.commandable) {
     if (!scene.schema[param]) throw new Error(`assistant.commandable references unknown parameter "${param}"`);
+    if (scene.scenes && param === "scene") throw new Error("assistant.commandable cannot switch lesson scenes");
   }
 
   return {
@@ -41,6 +42,10 @@ export async function buildAssistantContext(
     script,
     narration: parseScript(script).narration,
     schema: scene.schema,
+    ...(scene.scenes ? {
+      initialScene: scene.initialScene,
+      scenes: Object.fromEntries(Object.entries(scene.scenes).map(([id, info]) => [id, { schema: info.schema, constants: info.constants ?? {} }])),
+    } : {}),
     presets: scene.presets ?? {},
     constants: scene.constants ?? {},
     groups: scene.groups ?? {},

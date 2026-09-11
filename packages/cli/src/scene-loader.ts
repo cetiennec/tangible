@@ -8,6 +8,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SceneInfo } from "@tangible/compiler";
+import { combineScenes } from "@tangible/compiler";
+import { validateSchema } from "@tangible/core";
+import type { SceneSelection } from "./manifest.js";
+
+export async function loadLessonScenes(lessonDir: string, manifest: SceneSelection, options: { requireRuntime?: boolean } = {}): Promise<SceneInfo> {
+  if (manifest.scene !== undefined) return loadScene(join(lessonDir, manifest.scene), options);
+  const entries = await Promise.all(Object.entries(manifest.scenes).map(async ([id, path]) => [id, await loadScene(join(lessonDir, path), options)] as const));
+  return combineScenes(Object.fromEntries(entries), manifest.initialScene);
+}
 
 export async function loadScene(scenePath: string, options: { requireRuntime?: boolean } = {}): Promise<SceneInfo> {
   const dir = await mkdtemp(join(tmpdir(), "xv-scene-"));
@@ -33,6 +42,8 @@ export async function loadScene(scenePath: string, options: { requireRuntime?: b
       scene?: { create?: unknown };
     };
     if (!mod.schema) throw new Error(`${scenePath} does not export a "schema"`);
+    const errors = validateSchema(mod.schema);
+    if (errors.length) throw new Error(`${scenePath}: invalid schema: ${errors.join("; ")}`);
     if (options.requireRuntime && (!mod.scene || typeof mod.scene.create !== "function")) {
       throw new Error(`${scenePath} does not export a runtime "scene" with create(ctx)`);
     }

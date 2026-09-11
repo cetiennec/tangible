@@ -6,3 +6,4 @@ export * from "./interpolate.js";
 export * from "./reconcile.js";
 export * from "./tts.js";
 export * from "./handle.js";
+export * from "./scenes.js";

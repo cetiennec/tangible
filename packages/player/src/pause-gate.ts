@@ -25,11 +25,13 @@ export class PauseGate {
   private satisfied = new Set<string>();
   private active?: Pause;
   private lastT = 0;
+  private lastSeekVersion: number;
 
   constructor(
     private clock: AudioClock,
     private pauses: Pause[],
   ) {
+    this.lastSeekVersion = clock.seekVersion;
     // Resuming playback by any means satisfies the active gate.
     this.clock.on("play", () => {
       if (this.active) this.resolve();
@@ -37,7 +39,8 @@ export class PauseGate {
   }
 
   update(t: number): void {
-    const seeked = Math.abs(t - this.lastT) >= 0.5;
+    const seeked = this.clock.seekVersion !== this.lastSeekVersion || Math.abs(t - this.lastT) >= 0.5;
+    this.lastSeekVersion = this.clock.seekVersion;
 
     for (const p of this.pauses) {
       const stopT = pauseTime(p, this.clock.duration);
@@ -63,8 +66,7 @@ export class PauseGate {
 
   private trigger(p: Pause, stopT: number): void {
     this.active = p;
-    this.clock.pause();
-    this.clock.seek(stopT);
+    this.clock.pause(stopT);
   }
 
   private resolve(): void {

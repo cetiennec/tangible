@@ -68,12 +68,9 @@ tags:
   - optimization
 ```
 
-Each lesson has one scene entry module, selected by the `scene` field in
-`lesson.yaml`. Narration chapters are sections on the lesson timeline; they do
-not select different scene files. The `scenes/` directory is plural because a
-complex scene can have supporting modules, tests, and visual assets alongside
-the entry module. If the scene contains several named visual modes, the entry
-module composes them and the script can select a mode with `@scene`.
+A lesson can have one scene or several independent scenes. Existing lessons keep
+their `scene: ./scenes/scene.ts` manifest field and their existing behavior.
+To introduce another view, follow [Add another scene](#add-another-scene).
 
 ## Build and test the scene
 
@@ -152,6 +149,21 @@ and bakers exposed by the scene. `lesson scene` starts from schema defaults and
 does not read `script.md`, call a provider, or show playback controls. It rebuilds
 when the scene or one of its lesson-local dependencies changes.
 
+For multiple scenes, `lesson ref` prints a separate reference for each scene.
+Add `--scene cosine` to select one. `lesson scene` previews `initialScene` by
+default, or the scene selected with `--scene cosine`. Complete lesson previews
+watch all scene modules, their local dependencies, and the manifest.
+
+```bash
+pnpm lesson ref --lesson lessons/unit-circle --scene cosine
+pnpm lesson scene --lesson lessons/unit-circle --scene cosine
+```
+
+Scene modules must remove their DOM listeners, observers, timers, styles, and
+other resources in `dispose()`. The player provides a fresh canvas and clears
+the scene overlay at each switch. The board, captions, audio, and playback
+controls belong to the player and persist across scenes.
+
 Test the scene before writing narration. Try ordinary, boundary, and unusual
 values. Check resizing and touch interaction where relevant. Ask for changes in
 conceptual terms: what must be manipulable, connected, visible, or easier to
@@ -213,6 +225,121 @@ preserve its visible keyboard focus indicator.
 
 The exact file format and scene exports are described in
 [the reference](./reference.md#lesson-files-and-manifest).
+
+## Add another scene
+
+The [unit-circle lesson](../lessons/unit-circle/script.md) is a working example:
+it moves from a circle to a cosine graph, then returns to the circle. The lesson
+keeps one script, voice, caption timeline, board, and optional assistant guide.
+Each scene supplies its own rendering, controls, and parameter schema.
+
+### Register the scene files
+
+Keep the existing `scenes/scene.ts` and add a second module, such as
+`scenes/cosine.ts`. Both files export the same [scene contract](#scene-contract).
+The example's [circle module](../lessons/unit-circle/scenes/scene.ts) and
+[graph module](../lessons/unit-circle/scenes/cosine.ts) each expose an independent
+`theta` parameter. They can share helper code without sharing parameter values.
+
+In `lesson.yaml`, replace the singular `scene` field with these fields, keeping
+the other lesson settings:
+
+```yaml
+scenes:
+  circle: ./scenes/scene.ts
+  cosine: ./scenes/cosine.ts
+initialScene: circle
+```
+
+The keys `circle` and `cosine` are the names used in the script. Paths are
+relative to the lesson directory. Files are not discovered automatically from
+the folder: register every module explicitly. `initialScene` selects the view
+shown before the first script directive. See the
+[reference](./reference.md#multiple-scenes) for naming rules.
+
+### Switch scenes in the script
+
+Place `@scene(name)` before the spoken phrase that introduces the new view.
+This abbreviated example uses the parameters and constants from unit-circle:
+
+```markdown
+@scene(circle)
+@cue(theta = HALF_PI)
+On the circle, a quarter turn puts the point above the center. Its cosine is zero.
+
+@scene(cosine)
+@cue(theta = HALF_PI)
+On the graph, the same angle has a height of zero.
+@cue(theta -> PI, over: 2s) At a half turn, the cosine reaches minus one.
+@pause(prompt: "Move the angle slider and explore the curve.")
+
+@scene(circle)
+@cue(theta = PI)
+Back on the circle, a half turn puts the point on the left. Its cosine is minus one.
+```
+
+After `@scene(cosine)`, local directives (`@cue`, `@show`, `@hide`, `@camera`,
+`@bake`, and `@track`) refer to the graph until another scene is selected.
+Before the first selection, they refer to `initialScene`. Parameter names,
+constants, presets, groups, and bakers belong to each module. Use `theta` in
+script cues and in scene code, such as `ctx.write("theta", value)` and
+`state.theta`; the framework adds scene prefixes to the compiled tracks.
+Chapters only mark positions on the timeline and do not select scenes.
+
+### Decide what happens on return
+
+Scene changes are immediate and keep narration running. A scene's values come
+from its defaults and authored cues at the current lesson time. Returning does
+not reset it: authored transitions continue on the lesson clock while hidden.
+In the example, the final `@cue(theta = PI)` deliberately changes the circle
+from its earlier quarter turn to a half turn. Omit that cue to return to the
+quarter turn, or write `@cue(theta = 0)` to reset it explicitly.
+
+Learner changes, including camera adjustments, clear when leaving a scene or
+seeking. Values do not transfer between scenes. Each switch disposes the outgoing
+instance and creates the incoming one; follow the cleanup rules in the
+[scene development loop](#scene-development-loop).
+
+Board content persists across scenes. Use `@clear(board)` at a switch when it
+should disappear, as the complete unit-circle script does. A pause immediately
+before a scene change keeps the outgoing scene visible until playback resumes.
+Visual anticipation never moves a cue before the preceding scene entry.
+
+### Preview and check the result
+
+Use these commands with the working example, or substitute your lesson path:
+
+```bash
+pnpm lesson ref --lesson lessons/unit-circle --scene cosine
+pnpm lesson scene --lesson lessons/unit-circle --scene cosine
+```
+
+The standalone preview starts the chosen scene from its defaults and does not
+run the script. Stop it with `Ctrl+C`, then validate and preview the full lesson:
+
+```bash
+pnpm lesson check --lesson lessons/unit-circle
+pnpm lesson preview --silent --lesson lessons/unit-circle
+```
+
+Play through both switches. Drag a control during the pause, resume, and seek
+directly into each scene. Check the return state, board content, and layout in
+each view. Use `--offline` instead of `--silent` for audible draft narration.
+
+### Migrate an existing lesson
+
+Lessons that keep the singular `scene` field need no changes. When converting
+one to the registry format, review these places:
+
+- If the script used `@scene(main)` to set a module's local `scene` parameter,
+  change that directive to `@cue(scene = main)`. In the registry format,
+  `@scene(...)` selects a module. Modules do not need a local `scene` parameter.
+- Keep local names in ordinary cues and scene code. In `assistant.commandable`,
+  evaluation state and rubric fields, and recorded track keys, qualify names
+  with the registry id: for example, `theta` becomes `circle.theta`.
+- Update the shared assistant guide to explain each view and its controls. The
+  assistant can manipulate only the active scene; it cannot select another one.
+  See [Allow visual answers](#allow-visual-answers) for configuration.
 
 ## Write narration and scene hints
 
@@ -584,6 +711,21 @@ Avoid internal layout values, incidental animation state, and controls that
 could leave the scene misleading. `lesson check` rejects unknown parameters.
 The server rejects values with the wrong type or outside a declared range.
 
+For a lesson with several registered scenes, use qualified names in this list:
+
+```yaml
+  commandable:
+    - circle.theta
+    - circle.show.projection
+    - cosine.theta
+```
+
+Keep this list inside `assistant`. The server exposes and accepts writes only
+for the active scene's allowed parameters; the global `scene` selector is not
+commandable. Describe both views in the same `assistant.md`. Conversation
+history continues across scene changes, while temporary visual answers and
+pending responses clear on a switch or seek.
+
 Describe how to use allowed controls in `# Visual answer guidance`. For example,
 require matched conditions for a fair comparison or discourage changing more
 than one variable at a time. The
@@ -665,6 +807,13 @@ cases:
             assertions:
               - { param: theta, operator: eq, value: 1.5708 }
 ```
+
+For multiple scenes, qualify parameter names in `state`, `preserve`,
+`requiredChanges`, and assertion `param` fields, such as `circle.theta` and
+`circle.show.projection`. Each case's `at` is measured from the start of the
+whole lesson, not from scene entry. Choose a time when the intended scene is
+active, and recheck those times after changing narration or voice. See the
+[unit-circle evaluation cases](../lessons/unit-circle/assistant.eval.yaml).
 
 Render the provider requests without downloading a voice model or making
 provider calls:

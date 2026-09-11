@@ -10,8 +10,10 @@ playwright-report/
 perso/
 
 # Generated lesson artifacts
-lessons/*/build/
-lessons/*/.cache/
+lessons/**/build/
+lessons/**/.cache/
+e2e/fixtures/*/build/
+e2e/fixtures/*/.cache/
 
 # Env / secrets
 .env

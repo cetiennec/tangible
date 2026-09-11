@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { loadScene } from "./scene-loader.js";
 import { refSheet } from "./ref.js";
 
-const SCENE_PATH = join(process.cwd(), "lessons/unit-circle/scenes/scene.ts");
+const SCENE_PATH = join(process.cwd(), "e2e/fixtures/unit-circle/scenes/scene.ts");
 const OPTIMIZER_SCENE_PATH = join(process.cwd(), "lessons/optimizers/scenes/scene.ts");
 
 describe("loadScene", () => {

@@ -15,6 +15,8 @@ export interface MediaClockSource {
 export type ClockEvent = "play" | "pause" | "seeked" | "ended";
 
 export class AudioClock {
+  seekVersion = 0;
+
   constructor(private media: MediaClockSource) {}
 
   /** Current time, rounded to 10 ms (matches the exemplar's resolution). */
@@ -40,11 +42,15 @@ export class AudioClock {
     }
   }
 
-  pause(): void {
+  /** Pause, optionally clamping to a checkpoint without treating it as a seek. */
+  pause(at?: number): void {
     this.media.pause();
+    if (at !== undefined) this.media.currentTime = Math.max(0, at);
   }
 
   seek(t: number): void {
+    // Media events arrive later; record this request before another user edit.
+    this.seekVersion++;
     this.media.currentTime = Math.max(0, t);
   }
 

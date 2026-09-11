@@ -3,7 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_ASSISTANT_LIMITS } from "@tangible/core";
-import { loadManifest } from "./manifest.js";
+import { loadManifest, sceneFile } from "./manifest.js";
 
 async function manifest(text: string) {
   const dir = await mkdtemp(join(tmpdir(), "tangible-manifest-"));
@@ -12,6 +12,18 @@ async function manifest(text: string) {
 }
 
 describe("lesson manifest", () => {
+  it("accepts an explicit scene registry and validates selection", async () => {
+    const base = 'id: test\ntitle: Test\npromise: Test scenes.\ndefaults: { anticipation: 0, ease: linear, transition: 1 }\n';
+    const selection = 'scenes: { circle: ./scenes/circle.ts, graph: ./scenes/graph.ts }\ninitialScene: circle\n';
+    const result = await manifest(base + selection);
+    expect(sceneFile(result)).toBe("./scenes/circle.ts");
+    expect(sceneFile(result, "graph")).toBe("./scenes/graph.ts");
+    expect(() => sceneFile(result, "missing")).toThrow('unknown scene "missing"');
+    await expect(manifest(base + selection + 'scene: ./scene.ts\n')).rejects.toThrow("not both");
+    await expect(manifest(base + selection.replace('initialScene: circle', 'initialScene: missing'))).rejects.toThrow("unknown initialScene");
+    await expect(manifest(base + 'scenes: {}\ninitialScene: circle\n')).rejects.toThrow("at least one");
+    await expect(manifest(base + selection.replaceAll('circle', 'board'))).rejects.toThrow("reserved");
+  });
   it("loads explicit speech and assistant provider configuration", async () => {
     await expect(manifest(`
 id: circle

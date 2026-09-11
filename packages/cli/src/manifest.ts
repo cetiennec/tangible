@@ -9,12 +9,15 @@ export type TtsConfig =
   | { provider: "elevenlabs"; voice: string; model?: string; speed?: number }
   | { provider: "hf-endpoint"; voice: string };
 
-export interface Manifest {
+export type SceneSelection =
+  | { scene: string; scenes?: never; initialScene?: never }
+  | { scene?: never; scenes: Record<string, string>; initialScene: string };
+
+export type Manifest = SceneSelection & {
   id: string;
   title: string;
   promise: string;
   tags?: string[];
-  scene: string;
   defaults: { anticipation: number; ease: string; transition: number };
   tts?: TtsConfig;
   deployment?: {
@@ -29,12 +32,11 @@ export interface Manifest {
     commandable: string[];
     limits: AssistantLimits;
   };
-}
+};
 
-export interface SceneManifest {
+export type SceneManifest = SceneSelection & {
   id: string;
-  scene: string;
-}
+};
 
 export async function loadManifest(lessonDir: string): Promise<Manifest> {
   const text = await readFile(join(lessonDir, "lesson.yaml"), "utf8");
@@ -48,8 +50,35 @@ export async function loadSceneManifest(lessonDir: string): Promise<SceneManifes
   const text = await readFile(join(lessonDir, "lesson.yaml"), "utf8");
   const manifest = parseYaml(text) as Partial<SceneManifest> | undefined;
   if (!manifest || typeof manifest.id !== "string") throw new Error('lesson.yaml must define a string "id"');
-  if (typeof manifest.scene !== "string") throw new Error('lesson.yaml must define a string "scene"');
-  return { id: manifest.id, scene: manifest.scene };
+  validateSceneSelection(manifest);
+  return manifest as SceneManifest;
+}
+
+function validateSceneSelection(manifest: Record<string, unknown>): void {
+  if (manifest.scene !== undefined) {
+    nonEmptyString(manifest.scene, 'lesson.yaml field "scene"');
+    if (manifest.scenes !== undefined || manifest.initialScene !== undefined) throw new Error('lesson.yaml must use either "scene" or "scenes" with "initialScene", not both');
+    return;
+  }
+  const scenes = object(manifest.scenes, 'lesson.yaml field "scenes"');
+  if (!Object.keys(scenes).length) throw new Error('lesson.yaml "scenes" must contain at least one scene');
+  for (const [id, path] of Object.entries(scenes)) {
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(id) || id === "board") throw new Error(`invalid scene id "${id}"; use letters, digits, hyphens or underscores; "board" is reserved`);
+    nonEmptyString(path, `lesson.yaml scenes.${id}`);
+  }
+  nonEmptyString(manifest.initialScene, 'lesson.yaml field "initialScene"');
+  if (!Object.hasOwn(scenes, manifest.initialScene as string)) throw new Error(`unknown initialScene "${String(manifest.initialScene)}"`);
+}
+
+/** Select a module for standalone preview or its local cue reference. */
+export function sceneFile(manifest: SceneSelection, selected?: string): string {
+  if (manifest.scene !== undefined) {
+    if (selected) throw new Error("--scene requires a manifest with multiple scenes");
+    return manifest.scene;
+  }
+  const id = selected ?? manifest.initialScene;
+  if (!Object.hasOwn(manifest.scenes, id)) throw new Error(`unknown scene "${id}"; available scenes: ${Object.keys(manifest.scenes).join(", ")}`);
+  return manifest.scenes[id]!;
 }
 
 function validateManifest(value: unknown): asserts value is Manifest {
@@ -63,7 +92,7 @@ function validateManifest(value: unknown): asserts value is Manifest {
   ) {
     throw new Error('lesson.yaml field "tags" must be a list of non-empty strings');
   }
-  nonEmptyString(manifest.scene, 'lesson.yaml field "scene"');
+  validateSceneSelection(manifest);
 
   const defaults = object(manifest.defaults, 'lesson.yaml field "defaults"');
   finiteNumber(defaults.anticipation, 'lesson.yaml field "defaults.anticipation"');

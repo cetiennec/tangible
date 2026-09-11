@@ -4,7 +4,7 @@
 
 import { Player, PLAYER_CSS, mimeForAudio, preferredAudioSource } from "@tangible/player";
 import type { AssistantContext, LessonTracks } from "@tangible/core";
-import { scene } from "../../lessons/unit-circle/scenes/scene";
+import { scene } from "../fixtures/unit-circle/scenes/scene";
 
 declare global {
   interface Window {

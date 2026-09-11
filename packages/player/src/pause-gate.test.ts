@@ -75,6 +75,19 @@ describe("PauseGate", () => {
     expect(media.paused).toBe(false);
   });
 
+  it("also treats a small explicit seek across a checkpoint as navigation", () => {
+    clock.seek(4.99); gate.update(clock.t);
+    clock.seek(5.01); gate.update(clock.t);
+    expect(gate.activePrompt).toBeNull();
+    expect(media.paused).toBe(false);
+  });
+
+  it("does not report the checkpoint clamp as a learner seek", () => {
+    gate.update(4.9); gate.update(5.01);
+    expect(clock.seekVersion).toBe(0);
+    expect(clock.t).toBe(5);
+  });
+
   it("seeking back to the start re-arms the gate", () => {
     gate.update(0.1);
     gate.update(10); // satisfied

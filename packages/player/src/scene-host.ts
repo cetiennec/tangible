@@ -3,6 +3,7 @@
 // mutable state that affects output across frames (that would break value-at-time).
 
 import type { Schema, ParamValue, PlainState, Handle } from "@tangible/core";
+import { localSceneValues, sceneParam, sceneWrites } from "@tangible/core";
 import type { ParameterActivityMap } from "./parameter-activity.js";
 
 export type { Handle };
@@ -38,16 +39,34 @@ export interface SceneModule {
 export class SceneHost {
   readonly instance: SceneInstance;
 
-  constructor(module: SceneModule, ctx: SceneContext) {
-    this.instance = module.create(ctx);
+  constructor(module: SceneModule, ctx: SceneContext, private sceneId?: string) {
+    this.instance = module.create(sceneId ? {
+      ...ctx,
+      write: (param, value) => ctx.write(sceneParam(sceneId, param), value),
+      reset: (param) => ctx.reset(sceneParam(sceneId, param)),
+    } : ctx);
   }
 
   render(state: Readonly<PlainState>, frame: SceneFrame): void {
-    this.instance.render(state, frame);
+    this.instance.render(this.localState(state), this.sceneId ? { ...frame, activity: localSceneValues(this.sceneId, frame.activity) } : frame);
   }
 
   handles(): Handle[] {
-    return this.instance.handles();
+    const handles = this.instance.handles();
+    const id = this.sceneId;
+    if (!id) return handles;
+    return handles.map((handle) => ({
+      id: sceneParam(id, handle.id),
+      params: handle.params.map((param) => sceneParam(id, param)),
+      hitTest: (x, y, state) => handle.hitTest(x, y, this.localState(state)),
+      onDown: handle.onDown ? (x, y, state) => handle.onDown!(x, y, this.localState(state)) : undefined,
+      onDrag: (x, y, state) => sceneWrites(id, handle.onDrag(x, y, this.localState(state))),
+      onWheel: handle.onWheel ? (x, y, delta, state) => sceneWrites(id, handle.onWheel!(x, y, delta, this.localState(state))) : undefined,
+    }));
+  }
+
+  private localState(state: Readonly<PlainState>): Readonly<PlainState> {
+    return this.sceneId ? localSceneValues(this.sceneId, state) : state;
   }
 
   dispose(): void {

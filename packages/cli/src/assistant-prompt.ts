@@ -1,6 +1,6 @@
 // Human-readable prompt assembly from the validated assistant build artifact.
 
-import type { AssistantContext, ParamSpec } from "@tangible/core";
+import { sceneParam, type AssistantContext, type ParamSpec } from "@tangible/core";
 import { parseScript, type Directive } from "@tangible/compiler";
 
 export type AssistantPromptStyle = "legacy" | "structured";
@@ -43,6 +43,7 @@ function structuredPrompt(context: AssistantContext): string {
     "## 4. Scene controls",
     "",
     "The current user message supplies the actual visible values. Use the exact internal keys below only in a beat’s `set` object, never in its `say` text.",
+    ...(context.scenes ? ["The visible state identifies the active scene. Only that scene's controls are available. You cannot switch scenes or change hidden scenes."] : []),
     "",
     ...formatControls(context),
     "## 5. Response",
@@ -126,6 +127,20 @@ function normalizeGuideHeadings(guide: string): string {
 
 function formatLessonOutline(context: AssistantContext): string[] {
   const parsed = parseScript(context.script);
+  const settingsByDirective = new Map<Directive, string[]>();
+  let activeScene = context.initialScene;
+  for (const directive of parsed.directives) {
+    if (directive.kind === "scene" && context.scenes) activeScene = directive.name;
+    if (directive.kind !== "cue") continue;
+    const local = activeScene ? context.scenes?.[activeScene] : undefined;
+    if (local && activeScene) {
+      settingsByDirective.set(directive, formatCue({ ...directive, assignments: directive.assignments.map((assignment) => ({ ...assignment, param: sceneParam(activeScene!, assignment.param) })) }, {
+        ...context,
+        schema: Object.fromEntries(Object.entries(local.schema).map(([param, spec]) => [sceneParam(activeScene!, param), spec])),
+        constants: local.constants,
+      }));
+    } else settingsByDirective.set(directive, formatCue(directive, context));
+  }
   const chapters = parsed.directives.flatMap((directive, index) => directive.kind === "chapter" ? [{ directive, index }] : []);
   const sections: { title: string; start: number; end: number; directives: Directive[] }[] = [];
 
@@ -155,7 +170,7 @@ function formatLessonOutline(context: AssistantContext): string[] {
   const lines: string[] = ["<lesson_narration>", ""];
   for (const section of sections) {
     const narration = parsed.narration.slice(section.start, section.end).trim();
-    const settings = section.directives.flatMap((directive) => directive.kind === "cue" ? formatCue(directive, context) : []);
+    const settings = section.directives.flatMap((directive) => settingsByDirective.get(directive) ?? []);
     const board = section.directives.flatMap((directive) => directive.kind === "board" ? [formatBoardItem(directive)] : []);
     const silentActivities = section.directives.flatMap((directive) => directive.kind === "pause" && !directive.speak ? [directive.prompt] : []);
     if (!narration && !settings.length && !board.length && !silentActivities.length) continue;

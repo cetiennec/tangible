@@ -1,14 +1,11 @@
 id: unit-circle
 title: The unit circle
-promise: Connect a point on the unit circle to the graph of cosine.
+promise: See how an angle on the unit circle determines its sine and cosine.
 tags:
   - mathematics
   - trigonometry
   - geometry
-scenes:
-  circle: ./scenes/scene.ts
-  cosine: ./scenes/cosine.ts
-initialScene: circle
+scene: ./scenes/scene.ts
 defaults:
   anticipation: -0.2
   ease: inOutCubic
@@ -22,4 +19,4 @@ assistant:
   provider: huggingface
   model: google/gemma-4-31B-it:cerebras
   context: assistant.md
-  commandable: [circle.theta, circle.show.thetaLabel, circle.show.projection, circle.show.cosLabel, cosine.theta]
+  commandable: [theta, show.thetaLabel, show.projection, show.cosLabel]

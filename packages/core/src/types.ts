@@ -148,6 +148,8 @@ export interface AssistantContext {
   script: string;
   narration: string;
   schema: Schema;
+  scenes?: Record<string, { schema: Schema; constants: Record<string, ParamValue> }>;
+  initialScene?: string;
   presets: Record<string, Record<string, ParamValue>>;
   constants: Record<string, ParamValue>;
   groups: Record<string, string[]>;

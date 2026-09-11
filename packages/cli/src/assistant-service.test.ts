@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ASSISTANT_LIMITS, type AssistantContext, type AssistantRequest } from "@tangible/core";
+import { combineSceneSchemas, DEFAULT_ASSISTANT_LIMITS, type AssistantContext, type AssistantRequest } from "@tangible/core";
 import {
   AssistantProviderError,
   AssistantProviderTimeoutError,
@@ -38,6 +38,22 @@ const request: AssistantRequest = {
 };
 
 describe("assistant service", () => {
+  it("exposes and commands only the visible scene while retaining valid history from other scenes", async () => {
+    const scenes = { circle: { schema: context.schema, constants: {} }, graph: { schema: context.schema, constants: {} } };
+    const multiple: AssistantContext = { ...context, scenes, initialScene: "circle", schema: combineSceneSchemas(scenes, "circle"), commandable: ["circle.theta", "graph.theta"] };
+    const current: AssistantRequest = { ...request, state: { scene: "graph", "circle.theta": 1, "graph.theta": 2 }, history: [{ question: "Show me.", answer: "Here.", beats: [{ say: "Here.", set: { "circle.theta": 1 }, over: 0 }] }] };
+    const body = buildAssistantProviderRequest(current, multiple);
+    const messages = body.messages as { content: string }[];
+    const visible = JSON.parse(messages.at(-1)!.content) as { visibleState: object };
+    expect(visible.visibleState).toEqual({ scene: "graph", "graph.theta": 2 });
+    expect(JSON.stringify(body.response_format)).toContain('"graph.theta"');
+    expect(JSON.stringify(body.response_format)).not.toContain('"circle.theta"');
+    const answer = await answerQuestion(current, multiple, { fake: true });
+    expect(answer.beats[0]!.set).toEqual({ "graph.theta": Math.PI / 2 });
+    await expect(answerQuestion(current, multiple, { hfToken: "test", fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ beats: [{ say: "Wrong scene.", set: { "circle.theta": 0 }, over: 0 }] }) } }] })) })).rejects.toThrow('cannot command parameter "circle.theta"');
+    expect(() => validateAssistantRequest({ ...current, state: {} }, multiple)).toThrow("active scene");
+    expect(() => validateAssistantRequest({ ...current, temporaryAssistantState: { "circle.theta": 1 } }, multiple)).toThrow("cannot contain");
+  });
   it("turns fake beats into a written answer", async () => {
     const response = await answerQuestion(request, context, { fake: true });
     expect(response.answer).toContain("quarter turn");

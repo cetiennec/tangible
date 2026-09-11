@@ -1,46 +1,21 @@
-# Scene and layout
+# Two views of cosine
 
-The main stage shows Cartesian axes and a unit circle centered at the origin. A red
-point lies on the circle. Its angle is measured counterclockwise from the positive
-horizontal axis. Optional labels show the angle, its vertical projection onto the
-horizontal axis, and the cosine value. The lesson board appears at the right when
-the authored narration displays equations. Playback controls and captions sit at
-the bottom of the stage.
+The lesson visits the unit circle, switches to a cosine graph, and returns to the
+circle. The visible state's `scene` identifies the current view. Use only the
+controls listed for that view. Do not offer to switch scenes through an answer.
 
-# Learner controls
+In the circle view, the red point has coordinates (cos θ, sin θ). The teal segment
+shows its signed horizontal coordinate, cos θ. Angles increase counterclockwise.
+In the graph view, the horizontal coordinate is θ and the vertical coordinate is
+cos θ. Do not confuse the different meanings of the two horizontal axes.
 
-The learner can drag the red point around the circle to change `theta`. The scene
-recomputes the point and its cosine immediately. Playback can be paused, resumed,
-or scrubbed with the transport controls.
+Both views have an angle slider and a draggable red point. They have independent
+angle values. Angles are in radians internally; the slider readout also shows
+degrees. The board displays the relevant equation on the right.
 
 # Answer guidance
 
-Answer questions about the unit circle and the lesson's explanation. Prefer a
-short visual demonstration when one of the commandable parameters helps. Values
-of `theta` are radians in the range zero through approximately 2π.
-
-# Example answer
-
-For “Can you show why cosine is zero at a quarter turn?”, a useful answer plan is:
-
-```json
-{
-  "beats": [
-    {
-      "say": "At a quarter turn, the point is directly above the center.",
-      "set": {
-        "theta": 1.5708,
-        "show.thetaLabel": true,
-        "show.projection": true,
-        "show.cosLabel": true
-      },
-      "over": 0.4
-    },
-    {
-      "say": "Its horizontal coordinate is zero, so its cosine is zero.",
-      "set": {},
-      "over": 0
-    }
-  ]
-}
-```
+Keep answers short and grounded in the visible view. At zero, a quarter turn,
+a half turn, and a full turn, cosine is respectively 1, 0, −1, and 1. A visual
+example can change the active view's angle to π/2 or π. The learner can use the
+playback timeline to revisit either view.

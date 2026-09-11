@@ -14,9 +14,9 @@ const fixedScript = brokenScript.replace("theta = 99", "theta = 1.5");
 
 test("lesson preview shows compiler errors and recovers without exiting", async ({ page }) => {
   const lessonDir = mkdtempSync(join(tmpdir(), "tangible-preview-error-e2e-"));
-  cpSync("lessons/unit-circle/lesson.yaml", join(lessonDir, "lesson.yaml"));
-  cpSync("lessons/unit-circle/scenes", join(lessonDir, "scenes"), { recursive: true });
-  cpSync("lessons/unit-circle/assistant.md", join(lessonDir, "assistant.md"));
+  cpSync("e2e/fixtures/unit-circle/lesson.yaml", join(lessonDir, "lesson.yaml"));
+  cpSync("e2e/fixtures/unit-circle/scenes", join(lessonDir, "scenes"), { recursive: true });
+  cpSync("e2e/fixtures/unit-circle/assistant.md", join(lessonDir, "assistant.md"));
   writeFileSync(join(lessonDir, "script.md"), brokenScript);
 
   const port = await freePort();

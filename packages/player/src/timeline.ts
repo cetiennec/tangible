@@ -7,6 +7,7 @@ import type { StateStore } from "./store.js";
 import type { Reconciler } from "./reconciler.js";
 
 export interface DriverHooks {
+  beforeFrame?: () => void;
   onSeek?: (t: number) => void;
   onFrame?: (t: number) => void;
   now?: () => number; // wall-clock seconds; injectable for tests
@@ -21,6 +22,7 @@ export class TimelineDriver {
   private raf = 0;
   private running = false;
   private lastPlaying: boolean;
+  private lastSeekVersion: number;
 
   constructor(
     private clock: AudioClock,
@@ -30,6 +32,7 @@ export class TimelineDriver {
     private reconciler?: Reconciler,
   ) {
     this.lastPlaying = clock.playing;
+    this.lastSeekVersion = clock.seekVersion;
   }
 
   start(): void {
@@ -49,10 +52,12 @@ export class TimelineDriver {
 
   /** One frame; public so tests can step deterministically without rAF. */
   tick(): void {
+    this.hooks.beforeFrame?.();
     const t = this.clock.t;
     const now = this.hooks.now?.() ?? performance.now() / 1000;
     const dt = this.lastNow < 0 ? 0 : Math.max(0, now - this.lastNow);
-    const seeked = Math.abs(t - this.lastT) > SEEK_THRESHOLD;
+    const seeked = this.clock.seekVersion !== this.lastSeekVersion || Math.abs(t - this.lastT) > SEEK_THRESHOLD;
+    this.lastSeekVersion = this.clock.seekVersion;
     const playing = this.clock.playing;
 
     evaluate(this.index, t, this.buf);

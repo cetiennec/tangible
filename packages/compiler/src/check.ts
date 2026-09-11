@@ -8,9 +8,12 @@ import type { ParsedScript, Options } from "./parse.js";
 import { parseValue, parseGroup, type Constants } from "./value.js";
 import { type Diagnostic, type SourceLoc, suggest } from "./diagnostics.js";
 import { evaluateAuthoredState } from "./authored-state.js";
+import { splitScenes } from "./scenes.js";
 
 export interface SceneInfo {
   schema: Schema;
+  scenes?: Record<string, SceneInfo>;
+  initialScene?: string;
   presets?: Record<string, Record<string, ParamValue>>;
   constants?: Constants;
   groups?: Record<string, string[]>; // named parameter groups: `@cue(name -> [v1, v2, ...])`
@@ -22,6 +25,14 @@ export interface CheckOptions {
 }
 
 export function check(parsed: ParsedScript, scene: SceneInfo, opts: CheckOptions = {}): Diagnostic[] {
+  if (scene.scenes) {
+    const parts = splitScenes(parsed, scene);
+    return [
+      ...check(parts.common, { schema: { scene: scene.schema.scene! } }, opts),
+      ...Object.entries(scene.scenes).flatMap(([id, info]) =>
+        check(parts.scenes[id]!, info, opts).map((diagnostic) => ({ ...diagnostic, message: `scene "${id}": ${diagnostic.message}` }))),
+    ];
+  }
   const diags: Diagnostic[] = [];
   const keys = Object.keys(scene.schema);
   const presets = scene.presets ?? {};
