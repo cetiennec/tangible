@@ -4,6 +4,7 @@ export * from "./store.js";
 export * from "./parameter-activity.js";
 export * from "./timeline.js";
 export * from "./scene-host.js";
+export { type DesignSize, type SceneSize } from "./scene-size.js";
 export * from "./scene-preview.js";
 export * from "./reconciler.js";
 export * from "./interaction.js";

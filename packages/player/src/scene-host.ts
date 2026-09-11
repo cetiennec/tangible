@@ -5,6 +5,7 @@
 import type { Schema, ParamValue, PlainState, Handle } from "@tangible/core";
 import { localSceneValues, sceneParam, sceneWrites } from "@tangible/core";
 import type { ParameterActivityMap } from "./parameter-activity.js";
+import type { DesignSize, SceneSize } from "./scene-size.js";
 
 export type { Handle };
 
@@ -12,6 +13,7 @@ export interface SceneContext {
   canvas: HTMLCanvasElement;
   overlay: HTMLElement; // for DOM labels / in-scene KaTeX
   viewport(): { width: number; height: number };
+  size(): SceneSize; // layout coordinates and their display/backing-pixel scales
   write(param: string, value: ParamValue): void; // DOM controls enter normal reconciliation
   reset(param: string): void;
   pause(): void;
@@ -30,6 +32,7 @@ export interface SceneInstance {
 
 export interface SceneModule {
   schema: Schema;
+  designSize?: DesignSize; // opt into proportional enlargement above this size
   presets?: Record<string, Record<string, ParamValue>>;
   constants?: Record<string, ParamValue>;
   create(ctx: SceneContext): SceneInstance;

@@ -5,6 +5,7 @@ import { InteractionManager, type InteractionClock } from "./interaction.js";
 import { SceneHost, type SceneModule } from "./scene-host.js";
 import { StateStore } from "./store.js";
 import { ParameterActivityTracker } from "./parameter-activity.js";
+import { resizeScene, type DesignSize, type SceneSize } from "./scene-size.js";
 
 export interface ScenePreviewOptions {
   mount: HTMLElement;
@@ -26,12 +27,15 @@ export class ScenePreview {
   private shell: HTMLElement;
   private container: HTMLElement;
   private canvas: HTMLCanvasElement;
+  private designSize?: DesignSize;
+  private sceneSize!: SceneSize;
   private resizeObserver?: ResizeObserver;
   private animationFrame = 0;
   private lastNow?: number;
   private activityTracker = new ParameterActivityTracker();
 
   constructor(opts: ScenePreviewOptions) {
+    this.designSize = opts.scene.designSize;
     this.shell = element("div", "xv-shell");
     this.container = element("div", "xv-player");
     this.canvas = element("canvas") as HTMLCanvasElement;
@@ -46,6 +50,7 @@ export class ScenePreview {
       canvas: this.canvas,
       overlay,
       viewport: () => ({ width: this.canvas.width, height: this.canvas.height }),
+      size: () => this.sceneSize,
       write: (param, value) => this.write(param, value, opts.scene),
       reset: (param) => this.reset(param, opts.scene),
       pause: () => {},
@@ -68,6 +73,7 @@ export class ScenePreview {
         this.render();
       });
       this.resizeObserver.observe(this.container);
+      this.resizeObserver.observe(this.shell);
     }
   }
 
@@ -119,12 +125,7 @@ export class ScenePreview {
   }
 
   private resize(): void {
-    const dpr = window.devicePixelRatio || 1;
-    const bounds = this.container.getBoundingClientRect();
-    const width = Math.round(bounds.width) || 640;
-    const height = Math.round(bounds.height) || 360;
-    this.canvas.width = Math.round(width * dpr);
-    this.canvas.height = Math.round(height * dpr);
+    this.sceneSize = resizeScene(this.canvas, this.container, this.designSize);
   }
 }
 

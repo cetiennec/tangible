@@ -42,8 +42,9 @@ function scene(id: string) {
 const players: Player[] = [];
 afterEach(() => { for (const player of players.splice(0)) player.dispose(); document.body.replaceChildren(); vi.restoreAllMocks(); });
 
-function setup() {
+function setup(scaling = false) {
   const circle = scene("circle"), graph = scene("graph");
+  if (scaling) circle.module.designSize = { width: 1280, height: 720 };
   const mount = document.createElement("div");
   document.body.append(mount);
   const player = new Player({ mount, scenes: { circle: circle.module, graph: graph.module }, initialScene: "circle", tracks });
@@ -53,6 +54,17 @@ function setup() {
 }
 
 describe("multiple scene playback", () => {
+  it("applies and removes scaling before creating each scene", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 2560, height: 1440 } as DOMRect);
+    const { circle, graph, mount, seek } = setup(true);
+    expect(circle.contexts[0]!.size()).toMatchObject({ width: 1280, height: 720, scale: 2 });
+    seek(2.5);
+    expect(graph.contexts[0]!.size()).toMatchObject({ width: 2560, height: 1440, scale: 1 });
+    expect(mount.querySelector<HTMLElement>(".xv-player")!.style.zoom).toBe("1");
+    seek(0);
+    expect(circle.contexts[1]!.size()).toMatchObject({ width: 1280, height: 720, scale: 2 });
+  });
+
   it("seeks directly into a scene with local state and activity, then recreates an earlier scene", () => {
     const { player, circle, graph, mount, seek } = setup();
     seek(2.5);

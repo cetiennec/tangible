@@ -387,6 +387,22 @@ remote Space settings.
 
 Run `pnpm lesson ref --lesson <dir>` for the exact lesson-specific contract.
 
+The runtime module may declare `scene.designSize: { width, height }`, with
+positive finite reference dimensions in CSS pixels. This opts into proportional
+enlargement with `max(1, min(playerWidth / width, playerHeight / height))`.
+The scene and player overlays enlarge together; the assistant drawer stays
+outside that composition. Omit the field to retain ordinary CSS sizing.
+
+`ctx.size()` returns `{ width, height, scale, canvasScale }`. Its dimensions
+are the available layout rectangle before magnification. `scale` converts its
+coordinates to displayed CSS pixels, and `canvasScale` converts them to canvas
+backing pixels, including display density. Use `canvasScale` for the canvas
+transform and to convert incoming handle coordinates. `ctx.viewport()` still
+returns backing-pixel dimensions. Scene preview and the full player use the same
+sizing rules, which are reapplied on scene switches. See
+[responsive scene layouts](./authoring.md#design-responsive-scene-layouts)
+for canvas and HTML examples.
+
 The runtime scene instance renders with `render(state, frame)`. `state` is the
 complete visible parameter state. `frame.dt` is the elapsed rendering time, and
 `frame.activity` maps currently manipulated parameter names to:

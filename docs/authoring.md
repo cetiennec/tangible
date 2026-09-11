@@ -218,6 +218,44 @@ landscape windows in the review set, alongside a desktop and a tablet. Capture
 screenshots at the same meaningful lesson time so that comparisons exercise the
 same controls and board content.
 
+For a composition that should enlarge together on large displays, set
+`designSize: { width: 1280, height: 720 }` on the exported scene module. Choose
+the reference dimensions at which its text, diagrams, and supporting plots have
+the intended proportions. Above that size, the player magnifies the scene,
+board, captions, introduction, and playback controls together. It measures the
+actual player rectangle, including the space reserved for the assistant.
+The assistant drawer remains an ordinary HTML interface outside the composition.
+
+The scale never falls below one. Below the reference size, the scene receives
+the smaller available rectangle and must use its compact layout, readable text,
+and minimum touch targets. Existing scenes that omit `designSize` retain their
+previous sizing.
+
+Use `ctx.size()` for canvas layout in a scene that opts in:
+
+```ts
+const { width, height, canvasScale } = ctx.size();
+g.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
+g.clearRect(0, 0, width, height);
+g.font = "16px system-ui";
+g.lineWidth = 2;
+```
+
+Draw and position HTML overlays in the same layout coordinates. A canvas mark
+at `x = 100` then aligns with an HTML element at `left: 100px`; fonts, strokes,
+and native input controls enlarge together. The canvas backing store still
+uses the full display resolution, so the drawing stays sharp. Divide handle
+coordinates by `canvasScale` before comparing them with these layout positions.
+The existing `ctx.viewport()` and raw handle coordinates remain in canvas
+backing pixels.
+
+Use container queries for compact layouts and container-relative units for
+fluid text. Browser viewport units such as `vw` refer to the whole browser,
+which can be much wider than an embedded lesson. Test the reference size,
+2560 × 1440, and 3840 × 2160, including a high-density display, an embedded
+player, and resizing while paused. Use the same `designSize` across scenes
+when their controls should keep the same apparent size through a scene switch.
+
 The standard player adds a small “Made with Tangible” link at the right end of
 the playback controls. Scenes must not reproduce or position this link. If a
 scene changes the colors of the player controls, keep `.xv-credit` readable and

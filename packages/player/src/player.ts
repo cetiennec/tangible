@@ -20,6 +20,7 @@ import { lessonPositionAt } from "./lesson-position.js";
 import { ParameterActivityTracker } from "./parameter-activity.js";
 import { mimeForAudio } from "./audio-source.js";
 import { StartScreen, type LessonIntroduction } from "./start-screen.js";
+import { resizeScene, type DesignSize, type SceneSize } from "./scene-size.js";
 
 declare global {
   interface Window {
@@ -69,6 +70,8 @@ export class Player {
   readonly assistant?: AssistantPanel;
 
   private canvas: HTMLCanvasElement;
+  private designSize?: DesignSize;
+  private sceneSize!: SceneSize;
   private overlay: HTMLElement;
   private scenes?: Record<string, SceneModule>;
   private activeScene?: string;
@@ -98,6 +101,7 @@ export class Player {
     this.baseUrl = opts.baseUrl ?? "";
     this.scenes = opts.scenes;
     this.activeScene = opts.initialScene;
+    this.designSize = (opts.scene ?? opts.scenes[opts.initialScene]!).designSize;
     const sceneSchema = opts.scene ? opts.scene.schema : combineSceneSchemas(opts.scenes, opts.initialScene);
     const schema: Schema = { ...sceneSchema, ...boardSchema(opts.tracks.tracks) };
     this.schema = schema;
@@ -198,6 +202,7 @@ export class Player {
         this.driver.tick(); // repaint at the new size even when paused
       });
       this.resizeObserver.observe(this.container);
+      this.resizeObserver.observe(this.shell);
     }
   }
 
@@ -305,6 +310,7 @@ export class Player {
       canvas: this.canvas,
       overlay: this.overlay,
       viewport: () => ({ width: this.canvas.width, height: this.canvas.height }),
+      size: () => this.sceneSize,
       write: (param, value) => this.writeSceneParam(param, value, this.schema),
       reset: (param) => {
         this.store.resetInteraction(param);
@@ -335,6 +341,7 @@ export class Player {
     const canvas = document.createElement("canvas");
     this.canvas.replaceWith(canvas);
     this.canvas = canvas;
+    this.designSize = module.designSize;
     this.resize();
     this.activeScene = id;
     this.host = this.createHost(module);
@@ -417,14 +424,7 @@ export class Player {
   }
 
   private resize(): void {
-    // Back the canvas at device resolution so lines and text stay crisp (incl.
-    // fullscreen); the scene draws in backing pixels via viewport().
-    const dpr = window.devicePixelRatio || 1;
-    const r = this.container.getBoundingClientRect();
-    const cssW = Math.round(r.width) || 640;
-    const cssH = Math.round(r.height) || 360;
-    this.canvas.width = Math.round(cssW * dpr);
-    this.canvas.height = Math.round(cssH * dpr);
+    this.sceneSize = resizeScene(this.canvas, this.container, this.designSize);
   }
 }
 

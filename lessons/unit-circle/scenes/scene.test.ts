@@ -12,7 +12,7 @@ function context(): SceneContext {
   player.append(canvas, overlay);
   const drawing = new Proxy({}, { get: () => vi.fn(), set: () => true }) as CanvasRenderingContext2D;
   canvas.getContext = vi.fn(() => drawing) as unknown as HTMLCanvasElement["getContext"];
-  return { canvas, overlay, viewport: () => ({ width: 800, height: 450 }), write: vi.fn(), reset: vi.fn(), pause: vi.fn() };
+  return { canvas, overlay, viewport: () => ({ width: 800, height: 450 }), size: () => ({ width: 800, height: 450, scale: 1, canvasScale: 1 }), write: vi.fn(), reset: vi.fn(), pause: vi.fn() };
 }
 
 describe("circle and cosine representations", () => {
