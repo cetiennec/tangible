@@ -85,7 +85,7 @@ type Geometry = ReturnType<typeof armGeometry>;
 /** Where the area surface sits when the narration asks for it. */
 export function surfaceBox(ctx: SceneContext): SurfaceBox {
   const { width, height } = ctx.size();
-  return { left: width * 0.36, right: width * 0.7, top: height * 0.18, bottom: height - 116 };
+  return { left: width * 0.34, right: width * 0.65, top: height * 0.26, bottom: height - 116 };
 }
 
 /** Centimetres to layout pixels, with the y axis pointing up. */

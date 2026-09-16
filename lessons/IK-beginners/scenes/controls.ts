@@ -155,13 +155,13 @@ const STYLE = `
 .ik-button:focus-visible { outline: 3px solid ${TIP}; outline-offset: 2px; }
 .ik-toggle[aria-pressed="true"] { background: ${WORKSPACE}; color: #ffffff; }
 .ik-button.ik-active { box-shadow: 0 0 0 3px rgba(181, 50, 43, 0.3); }
-.ik-player .xv-board { top: 4%; right: 3%; width: 25%; height: 19%; padding: 0; font-size: 17px; }
+.ik-player .xv-board { top: 3%; right: 3%; width: 30%; height: 21%; padding: 0; font-size: 15px; }
 .ik-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
   .ik-scene header { width: 58%; }
   .ik-scene h1 { font-size: 16px; }
   .ik-panel { top: 22%; gap: 4px; }
   .ik-lede { display: none; }
-  .ik-player .xv-board { font-size: 14px; }
+  .ik-player .xv-board { font-size: 12px; }
 }
 `;

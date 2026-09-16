@@ -57,19 +57,23 @@ Look at your arms, this is actually a feature human arms have.
 @cue(show.areaSurface = false)
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
 
-Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
+@pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)
+
+@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> 4.783, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
 If the robot has more degrees of freedom than the space, the number of solutions can actually go to infinity.
 
-Display a 3 dof robot and show that we can reach a point with different angles.
+[[Display a 3 DOF robot and show that we can reach a point with different angles.]]
 
 The solution for the IK can sometimes be found analytically.
 
-In the 2 DOF example, one can invert the equations of the FK with a bit of maths, leading to the following equations.
+@clear(board)
+In the 2 DOF example, one can invert the equations of the FK with a bit of maths, leading to the following @board(ikq2: $q_2 = \htmlClass{sign}{\pm}\arccos\left(\frac{x^2+y^2-L_1^2-L_2^2}{2L_1L_2}\right)$) @board(ikq1: $q_1 = \mathrm{atan2}(y,x) - \mathrm{atan2}(L_2\sin q_2,\, L_1+L_2\cos q_2)$) equations.
 
-The 2 elbow configurations depend on the sign in front of the acos function.
+The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of the acos function.
 
-If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, the best known is Newton's iterative method, in which we repeat the following sequence until convergence:
+If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
+the best known is Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
 OK, so now we fully know our robot's FK and IK, we can make it draw a circle!
 
@@ -77,7 +81,7 @@ From the equation of the circle with regard to time t, we know x and y, and obta
 
 Now think about LeRobot, when is IK used?
 
-This actually depends on the teleoperator. Here is the SO-101 follower arm (make it pop in a 3d viewer)
+This actually depends on the teleoperator. Here is the SO-101 follower arm [[Make the SO-101 pop in a 3D viewer here.]]
 
 If we use the phone as teleoperator, then we need IK.
 
