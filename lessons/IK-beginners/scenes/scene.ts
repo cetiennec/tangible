@@ -2,6 +2,7 @@ import type { Handle, PlainState, Schema } from "@tangible/core";
 import type { SceneContext, SceneFrame, SceneModule } from "@tangible/player";
 import { armControls, INK, LINK1, LINK2, MUTED, TIP, WORKSPACE } from "./controls.js";
 import { drawAreaSurface, type SurfaceBox } from "./area-surface.js";
+import { armLabels, type LabelFlags, type ScreenPose } from "./labels.js";
 import {
   directionOf,
   elbowBranch,
@@ -52,6 +53,34 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "shade every position the tip can reach",
+  },
+  "label.motors": {
+    type: { kind: "boolean" },
+    default: true,
+    interpolate: "snap",
+    ownership: "script",
+    label: "number the two motors on the drawing",
+  },
+  "label.angles": {
+    type: { kind: "boolean" },
+    default: true,
+    interpolate: "snap",
+    ownership: "script",
+    label: "show the joint angle values on the drawing",
+  },
+  "label.links": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "show the link lengths on the drawing",
+  },
+  "label.tip": {
+    type: { kind: "boolean" },
+    default: true,
+    interpolate: "snap",
+    ownership: "script",
+    label: "name the end-effector and show its coordinates",
   },
   "show.areaSurface": {
     type: { kind: "boolean" },
@@ -120,13 +149,18 @@ export const scene: SceneModule = {
         g.lineCap = "round";
         g.lineJoin = "round";
 
+        const flags: LabelFlags = {
+          motors: state["label.motors"] as boolean,
+          angles: state["label.angles"] as boolean,
+          links: state["label.links"] as boolean,
+          tip: state["label.tip"] as boolean,
+        };
         if (state["show.workspace"]) drawWorkspace(g, geometry, state.l1 as number, state.l2 as number);
         drawAxes(g, geometry);
-        drawTipProjection(g, geometry, pose.tip);
+        if (flags.tip) drawTipProjection(g, geometry, pose.tip);
         drawArm(g, geometry, state, pose, frame);
-        drawAngles(g, geometry, state, pose);
-        drawMotorLabels(g, geometry, pose);
-        drawTipReadout(g, geometry, pose.tip);
+        if (flags.angles) drawAngles(g, geometry, state, pose);
+        drawLabels(g, geometry, state, pose, flags);
         if (surfaceShown) {
           drawAreaSurface(g, surfaceBox(ctx), state.l1 as number, state.l2 as number, {
             ink: INK,
@@ -225,24 +259,28 @@ function drawArm(
   drawLink(g, base, elbow, LINK1, link1Active);
   drawLink(g, elbow, tip, LINK2, link2Active);
 
-  g.fillStyle = "#ffffff";
+  const numbered = state["label.motors"] as boolean;
   g.strokeStyle = INK;
   g.lineWidth = 2.5;
-  for (const joint of [base, elbow]) {
+  for (const [index, joint] of [base, elbow].entries()) {
+    g.fillStyle = "#ffffff";
     g.beginPath();
-    g.arc(joint.x, joint.y, 7, 0, TAU);
+    g.arc(joint.x, joint.y, numbered ? 10 : 7, 0, TAU);
     g.fill();
     g.stroke();
+    if (!numbered) continue;
+    // The motor number lives inside its own joint, where nothing can collide.
+    g.fillStyle = INK;
+    g.font = "700 12px system-ui, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(String(index + 1), joint.x, joint.y);
+    g.textBaseline = "alphabetic";
   }
   g.fillStyle = TIP;
   g.beginPath();
   g.arc(tip.x, tip.y, 8, 0, TAU);
   g.fill();
-
-  g.font = "600 13px system-ui, sans-serif";
-  g.textAlign = "center";
-  labelAt(g, LINK1, `L₁ = ${(state.l1 as number).toFixed(1)}`, midpoint(base, elbow), 16);
-  labelAt(g, LINK2, `L₂ = ${(state.l2 as number).toFixed(1)}`, midpoint(elbow, tip), -12);
 }
 
 function drawLink(g: CanvasRenderingContext2D, from: Point, to: Point, color: string, active: boolean) {
@@ -268,19 +306,6 @@ function drawAngles(g: CanvasRenderingContext2D, geometry: Geometry, state: Read
   drawArc(g, base, baseRadius, 0, q1, LINK1);
   drawArc(g, elbow, elbowRadius, q1, q1 + q2, LINK2);
 
-  g.font = "600 14px system-ui, sans-serif";
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  const q1Label = { x: base.x + (baseRadius + 15) * Math.cos(q1 / 2), y: base.y - (baseRadius + 15) * Math.sin(q1 / 2) };
-  const q2Label = {
-    x: elbow.x + (elbowRadius + 15) * Math.cos(q1 + q2 / 2),
-    y: elbow.y - (elbowRadius + 15) * Math.sin(q1 + q2 / 2),
-  };
-  g.fillStyle = LINK1;
-  g.fillText(`q₁ = ${q1.toFixed(2)}`, q1Label.x, q1Label.y);
-  g.fillStyle = LINK2;
-  g.fillText(`q₂ = ${q2.toFixed(2)}`, q2Label.x, q2Label.y);
-  g.textBaseline = "alphabetic";
 }
 
 /** A canvas arc drawn in world orientation, where positive angles turn counterclockwise. */
@@ -292,34 +317,37 @@ function drawArc(g: CanvasRenderingContext2D, centre: Point, radius: number, fro
   g.stroke();
 }
 
-function drawTipReadout(g: CanvasRenderingContext2D, geometry: Geometry, tip: Point) {
-  const point = toScreen(geometry, tip);
-  g.textAlign = "left";
-  g.fillStyle = TIP;
-  g.font = "700 13px system-ui, sans-serif";
-  g.fillText("end-effector", point.x + 14, point.y - 30);
-  g.font = "700 15px system-ui, sans-serif";
-  g.fillText(`(x, y) = (${tip.x.toFixed(1)}, ${tip.y.toFixed(1)}) cm`, point.x + 14, point.y - 12);
-}
-
-/** The two motors the narration counts: one at the base, one at the elbow. */
-function drawMotorLabels(g: CanvasRenderingContext2D, geometry: Geometry, pose: ArmPose) {
-  g.fillStyle = MUTED;
-  g.font = "600 11px system-ui, sans-serif";
-  g.textAlign = "center";
-  for (const [joint, label] of [[pose.base, "motor 1"], [pose.elbow, "motor 2"]] as const) {
-    const point = toScreen(geometry, joint);
-    g.fillText(label, point.x, point.y + 24);
+/** Draw whichever annotations the narration currently wants. */
+function drawLabels(
+  g: CanvasRenderingContext2D,
+  geometry: Geometry,
+  state: Readonly<PlainState>,
+  pose: ArmPose,
+  flags: LabelFlags,
+) {
+  const screen: ScreenPose = {
+    base: toScreen(geometry, pose.base),
+    elbow: toScreen(geometry, pose.elbow),
+    tip: toScreen(geometry, pose.tip),
+    baseArc: Math.min(34, (state.l1 as number) * geometry.pxPerCm * 0.5),
+    elbowArc: Math.min(30, (state.l2 as number) * geometry.pxPerCm * 0.5),
+  };
+  const labels = armLabels(
+    screen,
+    { q1: state.q1 as number, q2: state.q2 as number },
+    { l1: state.l1 as number, l2: state.l2 as number },
+    pose.tip,
+    flags,
+    { ink: INK, muted: MUTED, link1: LINK1, link2: LINK2, tip: TIP },
+  );
+  g.textBaseline = "middle";
+  for (const label of labels) {
+    g.fillStyle = label.color;
+    g.font = `${label.weight} ${label.size}px system-ui, sans-serif`;
+    g.textAlign = label.align;
+    g.fillText(label.text, label.x, label.y);
   }
-}
-
-function labelAt(g: CanvasRenderingContext2D, color: string, text: string, at: Point, offset: number) {
-  g.fillStyle = color;
-  g.fillText(text, at.x, at.y + offset);
-}
-
-function midpoint(a: Point, b: Point): Point {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  g.textBaseline = "alphabetic";
 }
 
 function line(g: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
