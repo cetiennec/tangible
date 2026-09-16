@@ -11,12 +11,11 @@ The tip of the robot is called the end-effector.
 
 See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 5.2, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. So there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and cm.
 
-The relation between angles and end-effector position is called the Forward Kinematics or FK:
-x = f(theta)
+The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
 For serial robots, like ours, it can be obtained by modeling each joint position.
 For instance, motor 1 is at the base (0,0).
-But motor 2 position depends on motor 1 angle.
+But motor 2 position @cue(q1 -> 1.2, over: 2s) depends on motor 1 angle.
 And end-effector position on motor 2 position and angle.
 
 With this we have the full relation that gives angle to position.
@@ -27,20 +26,22 @@ But when thinking of a trajectory, as humans, we think of the trajectory in the 
 But this does not tell us what motor action we should apply to the robot.
 
 This is where the inverse kinematics (or IK) problem comes in.
-IK is the inverse relationship of FK, which is:
-theta = f-1(x)
+@clear(board)
+IK is @board(ik: $\theta = f^{-1}(x)$) the inverse relationship of FK.
 
 And this does not always have a solution or even a unique solution.
 
 Pause and think a bit about cases where the number of solutions could be 0?
 
+@pause(prompt: "When can the arm not reach a point at all?", speak: false)
+
 For our 2 DOF robot, we either have 0 or 2 solutions.
 
-We have 0 solutions outside of the reachable space, which is all the points that the end-effector can reach. 
+We have 0 solutions outside of the @cue(show.workspace = true) reachable space, which is all the points that the end-effector can reach.
 
-(toggle the drawing)
+Of course this reachable space @cue(l2 -> 11.5, over: 2.5s) depends on the length of the links. Pause and play with the link lengths.
 
-Of course this reachable space depends on the length of the links. Pause and play with the link lengths. 
+@pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 
 What value of L2 would give the largest reachable space according to you?
 
