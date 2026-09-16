@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampToReach,
   directionOf,
+  elbowBranch,
   forwardKinematics,
-  NORMALIZED_AREA,
-  normalizedArea,
-  reachableArea,
+  inverseKinematics,
   reachableRadii,
-  SQ_CM_PER_SQ_M,
   TAU,
   wrapAngle,
 } from "./kinematics.js";
@@ -70,44 +69,6 @@ describe("reachable radii", () => {
   });
 });
 
-describe("reachable area", () => {
-  it("equals four pi times the product of the link lengths", () => {
-    for (const [l1, l2] of [[9, 7], [3, 12], [6, 6], [12, 12], [4.5, 10.25]]) {
-      expect(reachableArea(l1!, l2!)).toBeCloseTo(4 * Math.PI * l1! * l2!, 9);
-    }
-  });
-
-  it("is a full disc when the links are equal", () => {
-    const radius = reachableRadii(6, 6).outer;
-    expect(reachableArea(6, 6)).toBeCloseTo(Math.PI * radius * radius, 9);
-  });
-
-  it("depends on the product of the links, not on their total length", () => {
-    // Same total length of 20 cm, but the balanced pair sweeps the larger area.
-    expect(reachableArea(10, 10)).toBeGreaterThan(reachableArea(4, 16));
-    expect(reachableArea(8, 12)).toBeCloseTo(reachableArea(12, 8), 9);
-  });
-
-  it("converts to square metres by ten thousand", () => {
-    expect(reachableArea(10, 10) / SQ_CM_PER_SQ_M).toBeCloseTo(0.1257, 4);
-  });
-});
-
-describe("normalized area", () => {
-  it("is four pi for every pair of link lengths", () => {
-    for (let l1 = 0.5; l1 <= 20; l1 += 0.37) {
-      for (let l2 = 0.5; l2 <= 20; l2 += 0.53) {
-        expect(normalizedArea(l1, l2)).toBeCloseTo(NORMALIZED_AREA, 9);
-      }
-    }
-  });
-
-  it("does not move when only one link changes", () => {
-    expect(normalizedArea(3, 7)).toBeCloseTo(normalizedArea(12, 7), 9);
-    expect(normalizedArea(7, 3)).toBeCloseTo(normalizedArea(7, 12), 9);
-  });
-});
-
 describe("angle helpers", () => {
   it.each([
     [0, 0],
@@ -129,5 +90,85 @@ describe("angle helpers", () => {
     const { base, elbow, tip } = forwardKinematics(q1, q2, l1, l2);
     expect(wrapAngle(directionOf(base, elbow))).toBeCloseTo(q1, 12);
     expect(wrapAngle(directionOf(elbow, tip) - q1)).toBeCloseTo(q2, 12);
+  });
+});
+
+describe("inverse kinematics", () => {
+  const [l1, l2] = [9, 7];
+
+  it("returns joint angles that put the tip back on the target", () => {
+    for (const target of [{ x: 10, y: 4 }, { x: -6, y: 8 }, { x: 0, y: -12 }, { x: -3, y: -5 }]) {
+      for (const branch of ["up", "down"] as const) {
+        const { q1, q2 } = inverseKinematics(target, l1, l2, branch);
+        const { tip } = forwardKinematics(q1, q2, l1, l2);
+        expect(tip.x).toBeCloseTo(target.x, 9);
+        expect(tip.y).toBeCloseTo(target.y, 9);
+      }
+    }
+  });
+
+  it("gives two genuinely different poses that reach the same point", () => {
+    const target = { x: 10, y: 4 };
+    const up = inverseKinematics(target, l1, l2, "up");
+    const down = inverseKinematics(target, l1, l2, "down");
+    expect(up.q2).not.toBeCloseTo(down.q2, 3);
+    // The elbow sits on opposite sides, but both tips land on the target.
+    expect(forwardKinematics(up.q1, up.q2, l1, l2).elbow.y).not.toBeCloseTo(
+      forwardKinematics(down.q1, down.q2, l1, l2).elbow.y,
+      3,
+    );
+  });
+
+  it("reports the branch it produced", () => {
+    expect(elbowBranch(inverseKinematics({ x: 10, y: 4 }, l1, l2, "up").q2)).toBe("up");
+    expect(elbowBranch(inverseKinematics({ x: 10, y: 4 }, l1, l2, "down").q2)).toBe("down");
+  });
+
+  it("recovers the pose that produced a point, for either branch", () => {
+    for (const q2 of [0.9, 2.6, 3.9, 5.4]) {
+      const { tip } = forwardKinematics(1.1, q2, l1, l2);
+      const solved = inverseKinematics(tip, l1, l2, elbowBranch(q2));
+      expect(solved.q1).toBeCloseTo(1.1, 9);
+      expect(solved.q2).toBeCloseTo(q2, 9);
+    }
+  });
+
+  it("pulls a target beyond the arm's reach onto the outer circle", () => {
+    const { outer } = reachableRadii(l1, l2);
+    const { q1, q2, reached } = inverseKinematics({ x: 100, y: 0 }, l1, l2, "up");
+    expect(Math.hypot(reached.x, reached.y)).toBeCloseTo(outer, 9);
+    // A fully stretched arm: the elbow does not bend at all.
+    expect(q2).toBeCloseTo(0, 9);
+    expect(q1).toBeCloseTo(0, 9);
+  });
+
+  it("pushes a target inside the dead zone onto the inner circle", () => {
+    const { inner } = reachableRadii(l1, l2);
+    const { reached } = inverseKinematics({ x: 0.4, y: 0.3 }, l1, l2, "up");
+    expect(Math.hypot(reached.x, reached.y)).toBeCloseTo(inner, 9);
+    // Direction is preserved while the distance is corrected.
+    expect(Math.atan2(reached.y, reached.x)).toBeCloseTo(Math.atan2(0.3, 0.4), 9);
+  });
+
+  it("handles a target exactly at the base without dividing by zero", () => {
+    const { q1, q2 } = inverseKinematics({ x: 0, y: 0 }, l1, l2, "up");
+    expect(Number.isFinite(q1)).toBe(true);
+    expect(Number.isFinite(q2)).toBe(true);
+  });
+});
+
+describe("clamping to the reachable annulus", () => {
+  it("leaves a point that is already reachable alone", () => {
+    const target = { x: 10, y: 4 };
+    expect(clampToReach(target, 9, 7)).toEqual(target);
+  });
+
+  it("keeps every clamped point inside the annulus", () => {
+    const { inner, outer } = reachableRadii(9, 7);
+    for (const target of [{ x: 40, y: 40 }, { x: 0.1, y: 0 }, { x: -50, y: 3 }, { x: 0, y: 0 }]) {
+      const radius = Math.hypot(...Object.values(clampToReach(target, 9, 7)));
+      expect(radius).toBeGreaterThanOrEqual(inner - 1e-12);
+      expect(radius).toBeLessThanOrEqual(outer + 1e-12);
+    }
   });
 });

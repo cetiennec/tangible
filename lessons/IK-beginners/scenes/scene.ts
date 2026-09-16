@@ -3,7 +3,9 @@ import type { SceneContext, SceneFrame, SceneModule } from "@tangible/player";
 import { armControls, INK, LINK1, LINK2, MUTED, TIP, WORKSPACE } from "./controls.js";
 import {
   directionOf,
+  elbowBranch,
   forwardKinematics,
+  inverseKinematics,
   MAX_LINK_CM,
   MAX_REACH_CM,
   MIN_LINK_CM,
@@ -108,6 +110,7 @@ export const scene: SceneModule = {
         drawTipProjection(g, geometry, pose.tip);
         drawArm(g, geometry, state, pose, frame);
         drawAngles(g, geometry, state, pose);
+        drawMotorLabels(g, geometry, pose);
         drawTipReadout(g, geometry, pose.tip);
         controls.render(state, frame.activity);
       },
@@ -267,10 +270,23 @@ function drawArc(g: CanvasRenderingContext2D, centre: Point, radius: number, fro
 
 function drawTipReadout(g: CanvasRenderingContext2D, geometry: Geometry, tip: Point) {
   const point = toScreen(geometry, tip);
-  g.fillStyle = TIP;
-  g.font = "700 15px system-ui, sans-serif";
   g.textAlign = "left";
+  g.fillStyle = TIP;
+  g.font = "700 13px system-ui, sans-serif";
+  g.fillText("end-effector", point.x + 14, point.y - 30);
+  g.font = "700 15px system-ui, sans-serif";
   g.fillText(`(x, y) = (${tip.x.toFixed(1)}, ${tip.y.toFixed(1)}) cm`, point.x + 14, point.y - 12);
+}
+
+/** The two motors the narration counts: one at the base, one at the elbow. */
+function drawMotorLabels(g: CanvasRenderingContext2D, geometry: Geometry, pose: ArmPose) {
+  g.fillStyle = MUTED;
+  g.font = "600 11px system-ui, sans-serif";
+  g.textAlign = "center";
+  for (const [joint, label] of [[pose.base, "motor 1"], [pose.elbow, "motor 2"]] as const) {
+    const point = toScreen(geometry, joint);
+    g.fillText(label, point.x, point.y + 24);
+  }
 }
 
 function labelAt(g: CanvasRenderingContext2D, color: string, text: string, at: Point, offset: number) {
@@ -306,17 +322,21 @@ function elbowHandle(ctx: SceneContext): Handle {
   };
 }
 
-/** Dragging the tip turns link 2 about the elbow, leaving q1 alone. */
+/**
+ * Dragging the end-effector solves the inverse problem: both motors move so the
+ * tip follows the pointer. The elbow keeps bending the way it already does, so
+ * the arm does not snap to the other solution part-way through a drag.
+ */
 function tipHandle(ctx: SceneContext): Handle {
   return {
     id: "tip",
-    params: ["q2"],
+    params: ["q1", "q2"],
     hitTest: (px, py, state) => nearJoint(ctx, px, py, poseOf(state).tip),
     onDrag(px, py, state) {
       const geometry = armGeometry(ctx);
-      const { elbow } = poseOf(state);
-      const pointer = toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale);
-      return { q2: wrapAngle(directionOf(elbow, pointer) - (state.q1 as number)) };
+      const target = toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale);
+      const solved = inverseKinematics(target, state.l1 as number, state.l2 as number, elbowBranch(state.q2 as number));
+      return { q1: solved.q1, q2: solved.q2 };
     },
   };
 }

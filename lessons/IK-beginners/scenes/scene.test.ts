@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { PlainState } from "@tangible/core";
 import type { SceneContext } from "@tangible/player";
 import { armGeometry, scene, schema } from "./scene.js";
-import { forwardKinematics } from "./kinematics.js";
+import { elbowBranch, forwardKinematics } from "./kinematics.js";
 
 function context(): SceneContext {
   const player = document.createElement("div");
@@ -56,36 +56,49 @@ describe("dragging the arm", () => {
     instance.dispose();
   });
 
-  it("turns link 2 about the elbow when the tip is dragged", () => {
+  it("moves both motors so the end-effector follows the pointer", () => {
     const ctx = context();
     const instance = scene.create(ctx);
     const tip = instance.handles().find((handle) => handle.id === "tip")!;
-    const pose = forwardKinematics(0.6, 0.9, 9, 7);
-    const at = screenOf(ctx, pose.tip);
+    expect(tip.params).toEqual(["q1", "q2"]);
 
-    expect(tip.hitTest(at.x, at.y, defaults)).toBe(true);
+    const target = { x: 2, y: 11 };
+    const at = screenOf(ctx, target);
+    const { q1, q2 } = tip.onDrag(at.x, at.y, defaults) as { q1: number; q2: number };
 
-    // Point link 2 straight along the x axis: q2 then cancels q1 exactly.
-    const along = screenOf(ctx, { x: pose.elbow.x + 5, y: pose.elbow.y });
-    expect(tip.onDrag(along.x, along.y, defaults).q2).toBeCloseTo(2 * Math.PI - 0.6, 12);
-    expect(tip.params).toEqual(["q2"]);
+    // The solved pose puts the tip exactly on the point that was dragged to.
+    const moved = forwardKinematics(q1, q2, 9, 7);
+    expect(moved.tip.x).toBeCloseTo(target.x, 9);
+    expect(moved.tip.y).toBeCloseTo(target.y, 9);
     instance.dispose();
   });
 
-  it("agrees with the kinematics after a drag is written back", () => {
+  it("keeps the elbow bent the same way through a drag", () => {
     const ctx = context();
     const instance = scene.create(ctx);
     const tip = instance.handles().find((handle) => handle.id === "tip")!;
-    const target = { x: 2, y: 11 };
-    const at = screenOf(ctx, target);
-    const { q2 } = tip.onDrag(at.x, at.y, defaults) as { q2: number };
 
-    // The tip lands on the ray from the elbow through the pointer.
-    const moved = forwardKinematics(0.6, q2, 9, 7);
-    const elbow = forwardKinematics(0.6, 0.9, 9, 7).elbow;
-    const toPointer = Math.atan2(target.y - elbow.y, target.x - elbow.x);
-    const toTip = Math.atan2(moved.tip.y - elbow.y, moved.tip.x - elbow.x);
-    expect(toTip).toBeCloseTo(toPointer, 12);
+    // Default q2 is 0.9, an elbow-up pose; dragging must not flip it.
+    const at = screenOf(ctx, { x: 8, y: -6 });
+    const { q2 } = tip.onDrag(at.x, at.y, defaults) as { q2: number };
+    expect(elbowBranch(q2)).toBe("up");
+
+    // Starting from an elbow-down pose, the drag stays elbow-down.
+    const down = { ...defaults, q2: 5.2 };
+    const solved = tip.onDrag(at.x, at.y, down) as { q2: number };
+    expect(elbowBranch(solved.q2)).toBe("down");
+    instance.dispose();
+  });
+
+  it("pulls an out-of-reach target back to the arm's limit", () => {
+    const ctx = context();
+    const instance = scene.create(ctx);
+    const tip = instance.handles().find((handle) => handle.id === "tip")!;
+
+    const far = screenOf(ctx, { x: 60, y: 0 });
+    const { q1, q2 } = tip.onDrag(far.x, far.y, defaults) as { q1: number; q2: number };
+    const reach = Math.hypot(...Object.values(forwardKinematics(q1, q2, 9, 7).tip));
+    expect(reach).toBeCloseTo(16, 9); // fully stretched: 9 + 7
     instance.dispose();
   });
 });
@@ -100,7 +113,7 @@ describe("the control panel", () => {
     expect(q1.value).toBe("1.25");
     expect(ctx.overlay.querySelector('[data-value="q1"]')!.textContent).toBe("1.25 rad");
     expect(ctx.overlay.querySelector('[data-value="l2"]')!.textContent).toBe("11.5 cm");
-    expect(q1.getAttribute("aria-label")).toBe("Shoulder angle q1 in radians");
+    expect(q1.getAttribute("aria-label")).toBe("Motor 1 angle q1 in radians");
 
     q1.value = "4.5";
     q1.dispatchEvent(new Event("input"));
@@ -109,36 +122,24 @@ describe("the control panel", () => {
     instance.dispose();
   });
 
-  it("reports the reachable area in both units", () => {
+  it("flips to the other solution for the same end-effector point", () => {
     const ctx = context();
     const instance = scene.create(ctx);
-    instance.render({ ...defaults, l1: 10, l2: 10 }, { dt: 0, activity: {} });
+    instance.render(defaults, { dt: 0, activity: {} });
 
-    // Equal links of 10 cm give a full disc of radius 20 cm: 400 pi square centimetres.
-    expect(ctx.overlay.querySelector('[data-value="area"]')!.textContent).toBe("1257 cm\u00b2 \u00b7 0.1257 m\u00b2");
+    const flip = ctx.overlay.querySelector<HTMLButtonElement>('button[data-action="flip-elbow"]')!;
+    expect(flip.textContent).toBe("Flip to elbow-down");
+    flip.click();
 
-    // The most lopsided pair the sliders allow sweeps far less, despite reaching further.
-    instance.render({ ...defaults, l1: 3, l2: 12 }, { dt: 0, activity: {} });
-    expect(ctx.overlay.querySelector('[data-value="area"]')!.textContent).toBe("452 cm\u00b2 \u00b7 0.0452 m\u00b2");
-    instance.dispose();
-  });
-
-  it("slides both plot markers along the constant line", () => {
-    const ctx = context();
-    const instance = scene.create(ctx);
-    const marker = (param: string) => ctx.overlay.querySelector(`[data-dot="${param}"]`)!;
-
-    instance.render({ ...defaults, l1: 12, l2: 3 }, { dt: 0, activity: {} });
-    // The longest link sits at 1 on the horizontal axis, the shortest at a quarter.
-    expect(Number(marker("l1").getAttribute("cx"))).toBeCloseTo(290, 6);
-    expect(Number(marker("l2").getAttribute("cx"))).toBeCloseTo(99.5, 6);
-
-    // Both markers stay on the same height, because the ratio never changes.
-    const level = marker("l1").getAttribute("cy");
-    instance.render({ ...defaults, l1: 5, l2: 11 }, { dt: 0, activity: {} });
-    expect(marker("l1").getAttribute("cy")).toBe(level);
-    expect(marker("l2").getAttribute("cy")).toBe(level);
-    expect(Number(marker("l1").getAttribute("cx"))).toBeLessThan(Number(marker("l2").getAttribute("cx")));
+    const written = Object.fromEntries(
+      (ctx.write as unknown as { mock: { calls: [string, number][] } }).mock.calls,
+    );
+    // The elbow swaps sides while the end-effector stays where it was.
+    expect(elbowBranch(written.q2!)).toBe("down");
+    const before = forwardKinematics(0.6, 0.9, 9, 7).tip;
+    const after = forwardKinematics(written.q1!, written.q2!, 9, 7).tip;
+    expect(after.x).toBeCloseTo(before.x, 9);
+    expect(after.y).toBeCloseTo(before.y, 9);
     instance.dispose();
   });
 

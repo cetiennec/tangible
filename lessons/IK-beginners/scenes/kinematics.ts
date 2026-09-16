@@ -36,34 +36,48 @@ export function reachableRadii(l1: number, l2: number) {
   return { inner: Math.abs(l1 - l2), outer: l1 + l2 };
 }
 
-/** Square centimetres in one square metre. */
-export const SQ_CM_PER_SQ_M = 10_000;
-
-/**
- * Area of the reachable annulus, in square centimetres. Subtracting the two
- * squared radii cancels the squared link lengths, so the area is always
- * 4 * PI * l1 * l2: it depends on the product of the links, not their sum.
- */
-export function reachableArea(l1: number, l2: number): number {
-  const { inner, outer } = reachableRadii(l1, l2);
-  return Math.PI * (outer * outer - inner * inner);
-}
-
-/**
- * The reachable area divided by the product of the link lengths. The division
- * cancels both link lengths exactly, so this ratio is 4 * PI for every arm,
- * whatever the links are. Plotted against link length it is a flat line.
- */
-export function normalizedArea(l1: number, l2: number): number {
-  return reachableArea(l1, l2) / (l1 * l2);
-}
-
-/** The value normalizedArea always takes. */
-export const NORMALIZED_AREA = 4 * Math.PI;
-
 /** The same angle expressed in the half-open interval [0, TAU). */
 export function wrapAngle(angle: number): number {
   return ((angle % TAU) + TAU) % TAU;
+}
+
+/**
+ * Which of the two solutions an elbow angle represents. "up" is the solution
+ * where the elbow bends counterclockwise, meaning the sine of q2 is positive.
+ * A straight or fully folded arm sits on the boundary, where both agree.
+ */
+export type ElbowBranch = "up" | "down";
+
+export function elbowBranch(q2: number): ElbowBranch {
+  return Math.sin(q2) >= 0 ? "up" : "down";
+}
+
+/** The nearest point to `target` that the tip can actually reach. */
+export function clampToReach(target: Point, l1: number, l2: number): Point {
+  const { inner, outer } = reachableRadii(l1, l2);
+  const radius = Math.hypot(target.x, target.y);
+  if (radius >= inner && radius <= outer) return target;
+  // At the exact centre no direction is preferred, so pick the positive x axis.
+  if (radius === 0) return { x: inner, y: 0 };
+  const scale = (radius < inner ? inner : outer) / radius;
+  return { x: target.x * scale, y: target.y * scale };
+}
+
+/**
+ * Joint angles that put the tip on a target: the inverse of forwardKinematics.
+ * Every reachable point except the two boundary circles has exactly two
+ * solutions, and `branch` chooses between them. Unreachable targets are pulled
+ * to the nearest reachable point first, so this always returns a real pose.
+ */
+export function inverseKinematics(target: Point, l1: number, l2: number, branch: ElbowBranch) {
+  const reached = clampToReach(target, l1, l2);
+  const cosQ2 = (reached.x * reached.x + reached.y * reached.y - l1 * l1 - l2 * l2) / (2 * l1 * l2);
+  // Rounding can push a boundary target a hair outside the valid cosine range.
+  const cosine = Math.min(1, Math.max(-1, cosQ2));
+  const sine = Math.sqrt(1 - cosine * cosine) * (branch === "up" ? 1 : -1);
+  const q2 = Math.atan2(sine, cosine);
+  const q1 = Math.atan2(reached.y, reached.x) - Math.atan2(l2 * sine, l1 + l2 * cosine);
+  return { q1: wrapAngle(q1), q2: wrapAngle(q2), reached };
 }
 
 /** The angle of the vector from `from` to `to`, measured from the positive x axis. */
