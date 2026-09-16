@@ -1,6 +1,7 @@
 import type { Handle, PlainState, Schema } from "@tangible/core";
 import type { SceneContext, SceneFrame, SceneModule } from "@tangible/player";
 import { armControls, INK, LINK1, LINK2, MUTED, TIP, WORKSPACE } from "./controls.js";
+import { drawAreaSurface, type SurfaceBox } from "./area-surface.js";
 import {
   directionOf,
   elbowBranch,
@@ -52,14 +53,21 @@ export const schema: Schema = {
     ownership: "script",
     label: "shade every position the tip can reach",
   },
+  "show.areaSurface": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "plot the reachable area against both link lengths",
+  },
 };
 
 export const constants = { PI: Math.PI, HALF_PI: Math.PI / 2, QUARTER_PI: Math.PI / 4, TWO_PI: TAU };
 
 /** Where the base sits on screen and how many pixels one centimetre occupies. */
-export function armGeometry(ctx: SceneContext) {
+export function armGeometry(ctx: SceneContext, compact = false) {
   const { width, height, canvasScale } = ctx.size();
-  const [left, right] = [width * 0.04, width * 0.62];
+  const [left, right] = compact ? [width * 0.02, width * 0.34] : [width * 0.04, width * 0.62];
   const [top, bottom] = [height * 0.16, height - 116];
   const radius = (Math.min(right - left, bottom - top) / 2) * 0.94;
   return {
@@ -73,6 +81,12 @@ export function armGeometry(ctx: SceneContext) {
 }
 
 type Geometry = ReturnType<typeof armGeometry>;
+
+/** Where the area surface sits when the narration asks for it. */
+export function surfaceBox(ctx: SceneContext): SurfaceBox {
+  const { width, height } = ctx.size();
+  return { left: width * 0.36, right: width * 0.7, top: height * 0.18, bottom: height - 116 };
+}
 
 /** Centimetres to layout pixels, with the y axis pointing up. */
 function toScreen(geometry: Geometry, point: Point): Point {
@@ -98,7 +112,8 @@ export const scene: SceneModule = {
 
     return {
       render(state: Readonly<PlainState>, frame: SceneFrame) {
-        const geometry = armGeometry(ctx);
+        const surfaceShown = state["show.areaSurface"] as boolean;
+        const geometry = armGeometry(ctx, surfaceShown);
         const pose = poseOf(state);
         g.setTransform(geometry.canvasScale, 0, 0, geometry.canvasScale, 0, 0);
         g.clearRect(0, 0, geometry.width, geometry.height);
@@ -112,6 +127,15 @@ export const scene: SceneModule = {
         drawAngles(g, geometry, state, pose);
         drawMotorLabels(g, geometry, pose);
         drawTipReadout(g, geometry, pose.tip);
+        if (surfaceShown) {
+          drawAreaSurface(g, surfaceBox(ctx), state.l1 as number, state.l2 as number, {
+            ink: INK,
+            muted: MUTED,
+            allowed: WORKSPACE,
+            ridge: LINK2,
+            marker: TIP,
+          });
+        }
         controls.render(state, frame.activity);
       },
       handles: () => [tipHandle(ctx), elbowHandle(ctx)],
@@ -314,9 +338,9 @@ function elbowHandle(ctx: SceneContext): Handle {
   return {
     id: "elbow",
     params: ["q1"],
-    hitTest: (px, py, state) => nearJoint(ctx, px, py, poseOf(state).elbow),
-    onDrag(px, py) {
-      const geometry = armGeometry(ctx);
+    hitTest: (px, py, state) => nearJoint(ctx, px, py, poseOf(state).elbow, state["show.areaSurface"] as boolean),
+    onDrag(px, py, state) {
+      const geometry = armGeometry(ctx, state["show.areaSurface"] as boolean);
       return { q1: wrapAngle(directionOf({ x: 0, y: 0 }, toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale))) };
     },
   };
@@ -331,9 +355,9 @@ function tipHandle(ctx: SceneContext): Handle {
   return {
     id: "tip",
     params: ["q1", "q2"],
-    hitTest: (px, py, state) => nearJoint(ctx, px, py, poseOf(state).tip),
+    hitTest: (px, py, state) => nearJoint(ctx, px, py, poseOf(state).tip, state["show.areaSurface"] as boolean),
     onDrag(px, py, state) {
-      const geometry = armGeometry(ctx);
+      const geometry = armGeometry(ctx, state["show.areaSurface"] as boolean);
       const target = toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale);
       const solved = inverseKinematics(target, state.l1 as number, state.l2 as number, elbowBranch(state.q2 as number));
       return { q1: solved.q1, q2: solved.q2 };
@@ -341,8 +365,8 @@ function tipHandle(ctx: SceneContext): Handle {
   };
 }
 
-function nearJoint(ctx: SceneContext, px: number, py: number, joint: Point): boolean {
-  const geometry = armGeometry(ctx);
+function nearJoint(ctx: SceneContext, px: number, py: number, joint: Point, compact: boolean): boolean {
+  const geometry = armGeometry(ctx, compact);
   const target = toScreen(geometry, joint);
   return Math.hypot(px / geometry.canvasScale - target.x, py / geometry.canvasScale - target.y) <= GRAB_RADIUS;
 }

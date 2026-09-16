@@ -42,6 +42,18 @@ export function wrapAngle(angle: number): number {
 }
 
 /**
+ * Area of the reachable annulus, in square centimetres. Subtracting the two
+ * squared radii cancels the squared link lengths, so the area is always
+ * 4 * PI * l1 * l2: it depends on the product of the links, not their sum.
+ * Maximising it while link 2 may not exceed link 1 therefore puts the optimum
+ * on the boundary, at equal links.
+ */
+export function reachableArea(l1: number, l2: number): number {
+  const { inner, outer } = reachableRadii(l1, l2);
+  return Math.PI * (outer * outer - inner * inner);
+}
+
+/**
  * Which of the two solutions an elbow angle represents. "up" is the solution
  * where the elbow bends counterclockwise, meaning the sine of q2 is positive.
  * A straight or fully folded arm sits on the boundary, where both agree.

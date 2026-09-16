@@ -39,18 +39,22 @@ For our 2 DOF robot, we either have 0 or 2 solutions.
 
 We have 0 solutions outside of the @cue(show.workspace = true) reachable space, which is all the points that the end-effector can reach.
 
-Of course this reachable space @cue(l2 -> 11.5, over: 2.5s) depends on the length of the links. Pause and play with the link lengths.
+Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length of the links. Pause and play with the link lengths.
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 
+Let's assume L2 can never be longer than L1, so that the forearm does not hit the ground.
+
 What value of L2 would give the largest reachable space according to you?
 
-Show the 3d curve
+@pause(prompt: "Pick your answer before we plot it.", speak: false)
 
-Yeah, this is actually L1=L2, have you seen this somewhere?
+@cue(show.areaSurface = true)
+Yeah, this is actually @cue(l1 -> 12, over: 2s) @cue(l2 -> 12, over: 2s) L1=L2, have you seen this somewhere?
 
 Look at your arms, this is actually a feature human arms have.
 
+@cue(show.areaSurface = false)
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
 
 Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
