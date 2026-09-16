@@ -1,0 +1,18 @@
+id: ik-beginners
+title: Where does the arm's tip end up?
+promise: Turn the two joints of a planar robot arm and watch the tip trace out
+  everything it can reach.
+tags:
+  - robotics
+  - kinematics
+  - mathematics
+scenes:
+  planar: ./scenes/scene.ts
+initialScene: planar
+defaults:
+  anticipation: -0.2
+  ease: inOutCubic
+  transition: 1.0
+deployment:
+  provider: huggingface
+  space: cetiennec/ik-beginners
