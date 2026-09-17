@@ -1,15 +1,37 @@
-import type { PlainState, Schema } from "@tangible/core";
+import type { OrbitState, PlainState, Schema } from "@tangible/core";
+import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
-import { INK, LINK1, LINK2, MUTED, TIP } from "./controls.js";
+import { INK, LINK1, MUTED, TIP } from "./controls.js";
+import { RobotView } from "./so101-view.js";
 
-// The LeRobot dataset visualiser, showing a recorded SO-101 episode. Hugging
-// Face serves Spaces from a dedicated embed host and sets no framing
-// restrictions, so this loads inside the lesson.
-const EPISODE = "/cetiennec/so101_red_on_green_merged/episode_0";
-const VIEWER = `https://lerobot-visualize-dataset.hf.space/?path=${encodeURIComponent(EPISODE)}`;
-const SOURCE = `https://huggingface.co/spaces/lerobot/visualize_dataset?path=${encodeURIComponent(EPISODE)}`;
+const SOURCE = "https://huggingface.co/spaces/lerobot/visualize_dataset";
+
+/** Joint ranges as the published SO-101 description declares them. */
+const JOINTS = [
+  { param: "pan", joint: "shoulder_pan", label: "Shoulder pan", range: [-1.91986, 1.91986] },
+  { param: "lift", joint: "shoulder_lift", label: "Shoulder lift", range: [-1.74533, 1.74533] },
+  { param: "elbow", joint: "elbow_flex", label: "Elbow", range: [-1.69, 1.69] },
+  { param: "wristFlex", joint: "wrist_flex", label: "Wrist flex", range: [-1.65806, 1.65806] },
+  { param: "wristRoll", joint: "wrist_roll", label: "Wrist roll", range: [-2.74385, 2.84121] },
+  { param: "gripper", joint: "gripper", label: "Gripper", range: [-0.17453, 1.74533] },
+] as const;
+
+const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.62, azimuth: 0.9, elevation: 0.42 };
 
 export const schema: Schema = {
+  ...Object.fromEntries(
+    JOINTS.map((entry) => [
+      entry.param,
+      {
+        type: { kind: "scalar", range: [...entry.range] },
+        default: 0,
+        interpolate: "lerp",
+        ownership: "script",
+        label: `${entry.label} angle, in radians`,
+      },
+    ]),
+  ),
+  camera: { type: { kind: "orbit" }, default: HOME, interpolate: "orbit", ownership: "viewer", label: "viewpoint on the arm" },
   teleop: {
     type: { kind: "enum", values: ["none", "phone", "leader"] },
     default: "none",
@@ -17,7 +39,7 @@ export const schema: Schema = {
     ownership: "script",
     label: "which teleoperation route the side note explains",
   },
-};
+} as Schema;
 
 const NOTES: Record<string, { title: string; body: string; accent: string }> = {
   phone: {
@@ -40,73 +62,102 @@ export const scene: SceneModule = {
     root.className = "so101-scene";
     root.innerHTML = `
       <header>
-        <p class="so101-kicker">Recorded episode</p>
-        <h1>An SO-101 doing the task</h1>
+        <p class="so101-kicker">The real robot</p>
+        <h1>An SO-101, six joints in three dimensions</h1>
       </header>
-      <div class="so101-frame">
-        <p class="so101-fallback">
-          If this stays blank, the recording is at
-          <a href="${SOURCE}" target="_blank" rel="noreferrer noopener">the LeRobot dataset visualiser</a>.
-        </p>
-        <iframe src="${VIEWER}" title="LeRobot dataset visualiser showing a recorded SO-101 episode"
-          referrerpolicy="no-referrer-when-downgrade"></iframe>
-      </div>
+      <p class="so101-status">Loading the SO-101 model…</p>
       <aside class="so101-note" hidden>
         <p class="so101-note-title"></p>
         <p class="so101-note-body"></p>
       </aside>
+      <p class="so101-credit">Robot description published by
+        <a href="${SOURCE}" target="_blank" rel="noreferrer noopener">LeRobot</a>. Drag to turn the view.</p>
     `;
     const style = document.createElement("style");
     style.textContent = STYLE;
     const player = ctx.overlay.parentElement!;
     player.classList.add("so101-player");
-    // Nothing is drawn on the canvas in this scene.
-    ctx.canvas.setAttribute("aria-hidden", "true");
+    ctx.canvas.setAttribute("role", "img");
+    ctx.canvas.setAttribute("aria-label", "A three-dimensional view of an SO-101 robot arm with six joints.");
     ctx.overlay.append(style, root);
 
+    const status = root.querySelector<HTMLElement>(".so101-status")!;
     const note = root.querySelector<HTMLElement>(".so101-note")!;
     const noteTitle = root.querySelector<HTMLElement>(".so101-note-title")!;
     const noteBody = root.querySelector<HTMLElement>(".so101-note-body")!;
 
+    const view = new RobotView(ctx.overlay);
+    let ready = false;
+    let failed = false;
+    view
+      .load()
+      .then(() => {
+        ready = true;
+        status.hidden = true;
+      })
+      .catch((error: unknown) => {
+        failed = true;
+        status.textContent = "The SO-101 model could not be loaded. Check the connection and reload.";
+        status.classList.add("so101-failed");
+        console.error("SO-101 model loading failed:", error);
+      });
+
+    const box = () => {
+      const { width, height } = ctx.size();
+      return { left: width * 0.03, top: height * 0.14, width: width * 0.62, height: height - height * 0.14 - 72 };
+    };
+
     return {
       render(state: Readonly<PlainState>) {
+        const size = ctx.size();
+        view.place(box(), size);
+        if (ready) {
+          for (const entry of JOINTS) view.setJoint(entry.joint, state[entry.param] as number);
+          const camera = state.camera as OrbitState;
+          view.setCamera(camera.azimuth, camera.elevation, camera.distance);
+          view.render();
+        } else if (!failed) {
+          status.hidden = false;
+        }
+
         const chosen = NOTES[String(state.teleop)];
         note.hidden = !chosen;
-        if (!chosen) return;
-        noteTitle.textContent = chosen.title;
-        noteBody.textContent = chosen.body;
-        note.style.setProperty("--accent", chosen.accent);
+        if (chosen) {
+          noteTitle.textContent = chosen.title;
+          noteBody.textContent = chosen.body;
+          note.style.setProperty("--accent", chosen.accent);
+        }
       },
-      handles: () => [],
+      handles: () => [orbitHandle({ speed: 0.006, minElevation: -0.2, maxElevation: 1.3, zoomSpeed: 0.0008, minDistance: 0.35, maxDistance: 1.2 })],
       dispose() {
+        view.dispose();
         root.remove();
         style.remove();
         player.classList.remove("so101-player");
-        ctx.canvas.removeAttribute("aria-hidden");
       },
     };
   },
 };
 
 const STYLE = `
-.so101-player { background: #f4f6f4; color: ${INK}; }
+.so101-player { background: #eef1f2; color: ${INK}; }
 .so101-scene { font-family: system-ui, sans-serif; }
-.so101-scene header { position: absolute; top: 4%; left: 3%; width: 50%; }
+.so101-scene header { position: absolute; top: 4%; left: 3%; width: 52%; }
 .so101-kicker { margin: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: ${MUTED}; }
 .so101-scene h1 { margin: 0; font-size: clamp(16px, 2.2vw, 26px); line-height: 1.15; font-weight: 600; }
-.so101-frame { position: absolute; left: 3%; top: 15%; width: 62%; bottom: 66px; border: 1px solid #c3cdd1; border-radius: 10px; overflow: hidden; background: #fff; pointer-events: auto; }
-.so101-frame iframe { position: relative; width: 100%; height: 100%; border: 0; }
-.so101-fallback { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; padding: 20px; text-align: center; font-size: 13px; line-height: 1.5; color: ${MUTED}; }
-.so101-fallback a { color: ${LINK2}; }
-.so101-note { position: absolute; right: 3%; top: 30%; width: 28%; padding: 14px 16px; border-left: 4px solid var(--accent, ${LINK1}); border-radius: 0 8px 8px 0; background: rgba(255, 255, 255, .92); }
+.so101-status { position: absolute; left: 3%; top: 48%; width: 62%; margin: 0; text-align: center; font-size: 14px; color: ${MUTED}; }
+.so101-status.so101-failed { color: ${TIP}; }
+.so101-note { position: absolute; right: 3%; top: 32%; width: 28%; padding: 14px 16px; border-left: 4px solid var(--accent, ${LINK1}); border-radius: 0 8px 8px 0; background: rgba(255, 255, 255, .92); }
 .so101-note-title { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--accent, ${LINK1}); }
 .so101-note-body { margin: 0; font-size: 13px; line-height: 1.45; color: ${INK}; }
+.so101-credit { position: absolute; left: 3%; bottom: 58px; margin: 0; font-size: 11px; color: ${MUTED}; }
+.so101-credit a { color: ${MUTED}; }
 .so101-player .xv-board { top: 4%; right: 3%; width: 30%; height: 20%; padding: 0; font-size: 15px; }
 .so101-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
   .so101-scene h1 { font-size: 15px; }
-  .so101-frame { top: 20%; width: 58%; }
-  .so101-note { top: 26%; padding: 9px 11px; }
+  .so101-note { top: 28%; padding: 9px 11px; }
   .so101-note-body { font-size: 11px; }
+  .so101-credit { display: none; }
 }
 `;

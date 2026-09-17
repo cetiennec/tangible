@@ -1,73 +1,70 @@
-// @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
-import type { SceneContext } from "@tangible/player";
-import { scene, schema } from "./so101.js";
+// The scene itself needs a WebGL context, which jsdom does not provide, so the
+// tests cover the parts that decide whether the arm assembles correctly: the
+// rotation convention, and the joint ranges declared against the real robot.
+import { describe, expect, it } from "vitest";
+import * as THREE from "three";
+import { rpyQuaternion } from "./so101-view.js";
+import { schema } from "./so101.js";
 
-function context(): SceneContext {
-  const player = document.createElement("div");
-  const overlay = document.createElement("div");
-  const canvas = document.createElement("canvas");
-  player.append(canvas, overlay);
-  return {
-    canvas,
-    overlay,
-    viewport: () => ({ width: 1280, height: 720 }),
-    size: () => ({ width: 1280, height: 720, scale: 1, canvasScale: 1 }),
-    write: vi.fn(),
-    reset: vi.fn(),
-    pause: vi.fn(),
-  };
+const HALF_PI = Math.PI / 2;
+
+function turn(rpy: [number, number, number], point: [number, number, number]) {
+  return new THREE.Vector3(...point).applyQuaternion(rpyQuaternion(rpy));
 }
 
-describe("the SO-101 episode scene", () => {
-  it("embeds the visualiser pointed at the recorded episode", () => {
-    const ctx = context();
-    const instance = scene.create(ctx);
-    const frame = ctx.overlay.querySelector("iframe")!;
-    expect(frame.getAttribute("src")).toContain("lerobot-visualize-dataset.hf.space");
-    expect(decodeURIComponent(frame.getAttribute("src")!)).toContain("/cetiennec/so101_red_on_green_merged/episode_0");
-    expect(frame.getAttribute("title")).toMatch(/SO-101/);
-    instance.dispose();
+describe("the URDF rotation convention", () => {
+  it("turns about z for yaw", () => {
+    const v = turn([0, 0, HALF_PI], [1, 0, 0]);
+    expect(v.x).toBeCloseTo(0, 9);
+    expect(v.y).toBeCloseTo(1, 9);
   });
 
-  it("offers a link in case the embedded viewer does not load", () => {
-    const ctx = context();
-    const instance = scene.create(ctx);
-    const link = ctx.overlay.querySelector<HTMLAnchorElement>(".so101-fallback a")!;
-    expect(link.getAttribute("href")).toContain("huggingface.co/spaces/lerobot/visualize_dataset");
-    expect(link.getAttribute("rel")).toContain("noopener");
-    instance.dispose();
+  it("turns about y for pitch", () => {
+    const v = turn([0, HALF_PI, 0], [0, 0, 1]);
+    expect(v.x).toBeCloseTo(1, 9);
+    expect(v.z).toBeCloseTo(0, 9);
   });
 
-  it("shows a side note only for the teleoperation route being discussed", () => {
-    const ctx = context();
-    const instance = scene.create(ctx);
-    const note = ctx.overlay.querySelector<HTMLElement>(".so101-note")!;
-
-    instance.render({ teleop: "none" }, { dt: 0, activity: {} });
-    expect(note.hidden).toBe(true);
-
-    instance.render({ teleop: "phone" }, { dt: 0, activity: {} });
-    expect(note.hidden).toBe(false);
-    expect(note.textContent).toMatch(/Cartesian/);
-    expect(note.textContent).toMatch(/IK/);
-
-    instance.render({ teleop: "leader" }, { dt: 0, activity: {} });
-    expect(note.textContent).toMatch(/joint space/);
-    instance.dispose();
+  it("turns about x for roll", () => {
+    const v = turn([HALF_PI, 0, 0], [0, 1, 0]);
+    expect(v.y).toBeCloseTo(0, 9);
+    expect(v.z).toBeCloseTo(1, 9);
   });
 
-  it("cleans up the embed and the player class when it is left", () => {
-    const ctx = context();
-    const instance = scene.create(ctx);
-    expect(ctx.canvas.getAttribute("aria-hidden")).toBe("true");
-    instance.dispose();
-    expect(ctx.overlay.children).toHaveLength(0);
-    expect(ctx.overlay.parentElement!.classList.contains("so101-player")).toBe(false);
-    expect(ctx.canvas.hasAttribute("aria-hidden")).toBe(false);
+  it("composes roll, then pitch, then yaw, as URDF specifies", () => {
+    // Rz(90) * Rx(90) applied to the y axis leaves it on z.
+    const v = turn([HALF_PI, 0, HALF_PI], [0, 1, 0]);
+    expect(v.x).toBeCloseTo(0, 9);
+    expect(v.y).toBeCloseTo(0, 9);
+    expect(v.z).toBeCloseTo(1, 9);
   });
 
-  it("declares only the parameter the narration cues", () => {
-    expect(Object.keys(schema)).toEqual(["teleop"]);
+  it("is a pure rotation, preserving length", () => {
+    expect(turn([0.3, -1.1, 2.2], [0.4, -0.7, 0.55]).length()).toBeCloseTo(Math.hypot(0.4, 0.7, 0.55), 9);
+  });
+});
+
+describe("the SO-101 scene contract", () => {
+  it("exposes one parameter per moving joint, plus the camera and the note", () => {
+    expect(Object.keys(schema).sort()).toEqual(
+      ["camera", "elbow", "gripper", "lift", "pan", "teleop", "wristFlex", "wristRoll"].sort(),
+    );
+  });
+
+  it("uses the joint limits the published description declares", () => {
+    const range = (name: string) => (schema[name]!.type as { range: [number, number] }).range;
+    expect(range("pan")).toEqual([-1.91986, 1.91986]);
+    expect(range("lift")).toEqual([-1.74533, 1.74533]);
+    expect(range("elbow")).toEqual([-1.69, 1.69]);
+    expect(range("gripper")).toEqual([-0.17453, 1.74533]);
+  });
+
+  it("starts every joint at zero and lets the viewer keep the camera they choose", () => {
+    for (const name of ["pan", "lift", "elbow", "wristFlex", "wristRoll", "gripper"]) {
+      expect(schema[name]!.default).toBe(0);
+      expect(schema[name]!.ownership).toBe("script");
+    }
+    expect(schema["camera"]!.ownership).toBe("viewer");
+    expect(schema["camera"]!.interpolate).toBe("orbit");
   });
 });

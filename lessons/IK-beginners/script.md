@@ -89,12 +89,15 @@ From the equation of the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(
 Now think about LeRobot, when is IK used?
 
 @scene(so101)
+@cue(lift -> -0.75) @cue(elbow -> 1.35) @cue(wristFlex -> 0.45) @cue(gripper -> 0.5)
 This actually depends on the teleoperator. Here is the SO-101 follower arm.
 
 @cue(teleop = phone)
+@cue(pan -> 0.7, over: 2.5s) @cue(lift -> -0.35, over: 2.5s) @cue(elbow -> 0.95, over: 2.5s)
 If we use the phone as teleoperator, then we need IK.
 
 @cue(teleop = leader)
+@cue(pan -> -0.6, over: 3s) @cue(lift -> -1.0, over: 3s) @cue(elbow -> 1.5, over: 3s) @cue(wristRoll -> 1.1, over: 3s)
 But if we use another arm, let's say the SO-101 leader, the follower just has to copy-paste the joint angles directly, we say that planning is made in the joint space.
 
 Classical robotics has focused on planning in the Cartesian space, but most of the recent Vision Language Action models, core of the imitation learning for vision, directly output joint goal positions.
