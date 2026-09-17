@@ -88,6 +88,7 @@ From the equation of the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(
 
 Now think about LeRobot, when is IK used?
 
+@clear(board)
 @scene(so101)
 @cue(lift -> -0.75) @cue(elbow -> 1.35) @cue(wristFlex -> 0.45) @cue(gripper -> 0.5)
 This actually depends on the teleoperator. Here is the SO-101 follower arm.

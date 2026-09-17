@@ -5,6 +5,9 @@ import { INK, LINK1, MUTED, TIP } from "./controls.js";
 import { RobotView } from "./so101-view.js";
 
 const SOURCE = "https://huggingface.co/spaces/lerobot/visualize_dataset";
+// LeRobot's own mark, from the organisation that publishes the robot
+// description this scene loads. Shown as attribution, beside the credit.
+const LOGO = "https://cdn-avatars.huggingface.co/v1/production/uploads/631ce4b244503b72277fc89f/pcLUTLsvMQiR-ujlTgLYF.png";
 
 /** Joint ranges as the published SO-101 description declares them. */
 const JOINTS = [
@@ -69,7 +72,10 @@ export const scene: SceneModule = {
     root.className = "so101-scene";
     root.innerHTML = `
       <header>
-        <p class="so101-kicker">The real robot</p>
+        <div class="so101-brand">
+          <img class="so101-logo" src="${LOGO}" alt="LeRobot" referrerpolicy="no-referrer" width="34" height="34">
+          <p class="so101-kicker">The real robot</p>
+        </div>
         <h1>An SO-101, six joints in three dimensions</h1>
       </header>
       <p class="so101-status">Loading the SO-101 model…</p>
@@ -131,8 +137,8 @@ export const scene: SceneModule = {
             const angle = state[entry.param] as number;
             for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
           }
-          view.arrange(pair, 0.46);
           const camera = state.camera as OrbitState;
+          view.arrange(pair, 0.46, camera.azimuth);
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
           view.render();
         } else if (!failed) {
@@ -163,7 +169,9 @@ const STYLE = `
 .so101-player { background: #eef1f2; color: ${INK}; }
 .so101-scene { font-family: system-ui, sans-serif; }
 .so101-scene header { position: absolute; top: 4%; left: 3%; width: 52%; }
-.so101-kicker { margin: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: ${MUTED}; }
+.so101-brand { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+.so101-logo { display: block; width: 34px; height: 34px; border-radius: 7px; object-fit: contain; background: #fff; }
+.so101-kicker { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: ${MUTED}; }
 .so101-scene h1 { margin: 0; font-size: clamp(16px, 2.2vw, 26px); line-height: 1.15; font-weight: 600; }
 .so101-status { position: absolute; left: 3%; top: 48%; width: 62%; margin: 0; text-align: center; font-size: 14px; color: ${MUTED}; }
 .so101-status.so101-failed { color: ${TIP}; }

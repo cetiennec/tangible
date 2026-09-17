@@ -154,12 +154,20 @@ export class RobotView {
       .multiply(new THREE.Quaternion().setFromAxisAngle(pivot.axis, angle));
   }
 
-  /** Stand the arms side by side, or hide all but the first. */
-  arrange(showSecond: boolean, gap: number): void {
+  /**
+   * Stand the arms side by side, or hide all but the first. They are separated
+   * along the camera's own sideways direction rather than a fixed world axis,
+   * so one never ends up hidden behind the other as the view turns.
+   */
+  arrange(showSecond: boolean, gap: number, azimuth: number): void {
     const [first, second] = this.arms;
-    if (first) first.root.position.x = showSecond ? gap / 2 : 0;
+    // The group is tipped a quarter turn about x, so the screen-sideways
+    // direction lands on local (cos, sin, 0).
+    const half = gap / 2;
+    const sideways = { x: Math.cos(azimuth) * half, y: Math.sin(azimuth) * half };
+    if (first) first.root.position.set(showSecond ? sideways.x : 0, showSecond ? sideways.y : 0, 0);
     if (second) {
-      second.root.position.x = -gap / 2;
+      second.root.position.set(-sideways.x, -sideways.y, 0);
       second.root.visible = showSecond;
     }
   }
