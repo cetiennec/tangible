@@ -6,8 +6,12 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { movingJoints, parseUrdf, type Triple, type UrdfRobot } from "./urdf.js";
 
-const BASE = "https://huggingface.co/buckets/lerobot/robot-urdfs/resolve/so101";
-export const URDF_URL = `${BASE}/so101_new_calib.urdf`;
+const FOLLOWER_BASE = "https://huggingface.co/buckets/lerobot/robot-urdfs/resolve/so101";
+export const URDF_URL = `${FOLLOWER_BASE}/so101_new_calib.urdf`;
+// The leader, converted from the published CAD parts. It shares most of its
+// meshes with the follower, so only the handle, trigger and wrist roll are new.
+const LEADER_BASE = "https://huggingface.co/datasets/cetiennec/so101-leader-urdf/resolve/main";
+const LEADER_URDF = `${LEADER_BASE}/so101_leader_new_calib.urdf`;
 
 /** URDF fixed-axis roll, pitch and yaw, composed as Rz then Ry then Rx. */
 export function rpyQuaternion(rpy: Triple): THREE.Quaternion {
@@ -28,6 +32,9 @@ interface Arm {
   root: THREE.Object3D;
   pivots: Map<string, Pivot>;
   links: Map<string, THREE.Object3D>;
+  /** Each arm keeps its own travel, because the leader's trigger is not the
+   *  follower's jaw and must not be driven past what it can do. */
+  limits: Map<string, [number, number]>;
 }
 
 export class RobotView {
@@ -39,10 +46,12 @@ export class RobotView {
   private pair = new THREE.Group();
   private arms: Arm[] = [];
   private meshes: THREE.BufferGeometry[] = [];
+  /** Keyed by mesh file name, so a part shared by both arms is fetched once. */
+  private geometries = new Map<string, THREE.BufferGeometry>();
+  private sharedMaterials = new Map<string, THREE.Material>();
   private materials: THREE.Material[] = [];
   private sized = "";
   private brick?: THREE.Group;
-  private handle?: THREE.Group;
 
   constructor(private overlay: HTMLElement) {
     this.canvas = overlay.ownerDocument.createElement("canvas");
@@ -63,43 +72,44 @@ export class RobotView {
     overlay.append(this.canvas);
   }
 
-  /**
-   * Fetch the description and every mesh it names, then assemble `count` arms.
-   * The geometries are loaded once and shared, so a second arm costs no extra
-   * download and almost no extra memory.
-   */
-  async load(count = 1, fetchImpl: typeof fetch = fetch): Promise<UrdfRobot> {
-    const response = await fetchImpl(URDF_URL);
-    if (!response.ok) throw new Error(`the robot description returned ${response.status}`);
+  /** Read one description and whatever meshes it names that are not loaded yet. */
+  private async read(url: string, base: string, fetchImpl: typeof fetch): Promise<UrdfRobot> {
+    const response = await fetchImpl(url);
+    if (!response.ok) throw new Error(`${url} returned ${response.status}`);
     const robot = parseUrdf(await response.text());
-
-    const names = [...new Set(robot.links.flatMap((link) => link.visuals.map((visual) => visual.mesh)))];
+    const wanted = [...new Set(robot.links.flatMap((link) => link.visuals.map((visual) => visual.mesh)))];
     const loader = new STLLoader();
-    const geometries = new Map<string, THREE.BufferGeometry>();
     await Promise.all(
-      names.map(async (name) => {
-        const geometry = await loader.loadAsync(`${BASE}/${name}`);
-        geometry.computeVertexNormals();
-        this.meshes.push(geometry);
-        geometries.set(name, geometry);
-      }),
+      wanted
+        .filter((name) => !this.geometries.has(name))
+        .map(async (name) => {
+          const geometry = await loader.loadAsync(`${base}/${name}`);
+          geometry.computeVertexNormals();
+          this.meshes.push(geometry);
+          this.geometries.set(name, geometry);
+        }),
     );
-
-    const shared = new Map<string, THREE.Material>();
-    for (let index = 0; index < count; index += 1) {
-      this.arms.push(this.assemble(robot, geometries, shared));
-    }
-    for (const arm of this.arms) {
-      for (const joint of movingJoints(robot)) this.setJoint(joint.name, 0, this.arms.indexOf(arm));
-    }
     return robot;
   }
 
-  private assemble(
-    robot: UrdfRobot,
-    geometries: Map<string, THREE.BufferGeometry>,
-    shared: Map<string, THREE.Material>,
-  ): Arm {
+  /**
+   * Build the follower and, beside it, the leader. They share every mesh but
+   * the handle, trigger and wrist roll, so the second arm costs little.
+   */
+  async load(fetchImpl: typeof fetch = fetch): Promise<UrdfRobot> {
+    const follower = await this.read(URDF_URL, FOLLOWER_BASE, fetchImpl);
+    this.arms.push(this.assemble(follower));
+    const leader = await this.read(LEADER_URDF, LEADER_BASE, fetchImpl);
+    this.arms.push(this.assemble(leader));
+    for (const [index, robot] of [follower, leader].entries()) {
+      for (const joint of movingJoints(robot)) this.setJoint(joint.name, 0, index);
+    }
+    return follower;
+  }
+
+  private assemble(robot: UrdfRobot): Arm {
+    const geometries = this.geometries;
+    const shared = this.sharedMaterials;
     const objects = new Map<string, THREE.Object3D>();
     for (const link of robot.links) {
       const group = new THREE.Group();
@@ -142,16 +152,22 @@ export class RobotView {
       }
     }
 
+    const limits = new Map<string, [number, number]>(
+      robot.joints.filter((joint) => joint.type !== "fixed").map((joint) => [joint.name, [joint.lower, joint.upper]]),
+    );
     const root = new THREE.Group();
     const base = objects.get(robot.root);
     if (base) root.add(base);
     this.pair.add(root);
-    return { root, pivots, links: objects };
+    return { root, pivots, links: objects, limits };
   }
 
   setJoint(name: string, angle: number, arm = 0): void {
-    const pivot = this.arms[arm]?.pivots.get(name);
-    if (!pivot) return;
+    const target = this.arms[arm];
+    const pivot = target?.pivots.get(name);
+    if (!target || !pivot) return;
+    const travel = target.limits.get(name);
+    if (travel) angle = Math.min(travel[1], Math.max(travel[0], angle));
     pivot.object.quaternion
       .copy(pivot.fixed)
       .multiply(new THREE.Quaternion().setFromAxisAngle(pivot.axis, angle));
@@ -173,12 +189,6 @@ export class RobotView {
       second.root.position.set(-sideways.x, -sideways.y, 0);
       second.root.visible = showSecond;
     }
-  }
-
-  /** Hide a named link on one arm, for parts a given variant does not have. */
-  setLinkVisible(arm: number, link: string, visible: boolean): void {
-    const object = this.arms[arm]?.links.get(link);
-    if (object) object.visible = visible;
   }
 
   get armCount(): number {
@@ -228,41 +238,6 @@ export class RobotView {
     return this.gripPoint(arm);
   }
 
-  /**
-   * The leader ends in a handle and trigger for a person to hold, where the
-   * follower has jaws. No kinematic description of the leader is published and
-   * its parts are CAD and print files, so this is a plain stand-in.
-   */
-  setHandle(arm: number, visible: boolean, color: string): void {
-    if (visible && !this.handle) {
-      const group = new THREE.Group();
-      const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.55 });
-      this.materials.push(material);
-      const grip = new THREE.CylinderGeometry(0.014, 0.016, 0.075, 16);
-      const lever = new THREE.BoxGeometry(0.03, 0.01, 0.012);
-      this.meshes.push(grip, lever);
-      group.add(new THREE.Mesh(grip, material));
-      const trigger = new THREE.Mesh(lever, material);
-      trigger.position.set(0.022, -0.012, 0);
-      group.add(trigger);
-      this.scene.add(group);
-      this.handle = group;
-    }
-    if (!this.handle) return;
-    this.handle.visible = visible;
-    if (!visible) return;
-    const wrist = this.arms[arm]?.links.get("wrist_link");
-    const end = this.arms[arm]?.links.get("gripper_frame_link");
-    if (!wrist || !end) return;
-    wrist.updateWorldMatrix(true, false);
-    end.updateWorldMatrix(true, false);
-    const from = wrist.getWorldPosition(new THREE.Vector3());
-    const along = end.getWorldPosition(new THREE.Vector3()).sub(from);
-    if (along.lengthSq() < 1e-9) return;
-    this.handle.position.copy(from).addScaledVector(along, 0.75);
-    this.handle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), along.normalize());
-  }
-
   setCamera(azimuth: number, elevation: number, distance: number): void {
     const target = new THREE.Vector3(0, 0.12, 0);
     this.camera.position.set(
@@ -296,7 +271,6 @@ export class RobotView {
     for (const geometry of this.meshes) geometry.dispose();
     for (const material of this.materials) material.dispose();
     this.brick = undefined;
-    this.handle = undefined;
     this.renderer.dispose();
     this.canvas.remove();
     void this.overlay;

@@ -157,14 +157,13 @@ export const scene: SceneModule = {
       }));
     };
     view
-      .load(2)
+      .load()
       .then(() => {
         ready = true;
         status.hidden = true;
         // Only the follower carries gripper jaws. The leader is held by a
         // person and ends in a handle, so its jaws are left off rather than
         // showing a second follower and calling it a leader.
-        view.setLinkVisible(1, "moving_jaw_so101_v1_link", false);
         // Read the two table spots off the arm itself, so the brick always sits
         // exactly where the gripper closes and opens.
         pickAt = view.measureGrip(jointsFor(GRASP_AT));
@@ -198,8 +197,6 @@ export const scene: SceneModule = {
             const angle = frame ? frame[TASK_JOINTS[index]!] : (state[entry.param] as number);
             for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
           }
-          // The leader is held by a person, so it carries a handle, not jaws.
-          view.setHandle(1, pair, MUTED);
           if (!running) view.setBrick(undefined, TIP);
           else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
           else view.setBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, TIP);
