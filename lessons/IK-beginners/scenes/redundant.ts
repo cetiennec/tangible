@@ -70,7 +70,7 @@ export const schema: Schema = {
   },
   camera: {
     type: { kind: "orbit" },
-    default: { target: [0.45, 0.5, 0.15], distance: 2.6, azimuth: 0.95, elevation: 0.3 },
+    default: { target: [0.45, 0.48, 0.15], distance: 2.55, azimuth: 1.4, elevation: 0.38 },
     interpolate: "orbit",
     ownership: "viewer",
     label: "viewpoint on the arm in space",

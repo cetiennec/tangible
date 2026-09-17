@@ -69,11 +69,11 @@ export function armControls(ctx: SceneContext) {
           <path d="M86 68 L52 104"></path>
           <path d="M52 104 L52 152"></path>
         </g>
-        <path class="ik-upper" d="M86 68 L130 112"></path>
-        <path class="ik-fore" d="M130 112 L130 174"></path>
-        <circle class="ik-elbow" cx="130" cy="112" r="6"></circle>
-        <text class="ik-human-label ik-upper-label" x="140" y="88">upper arm</text>
-        <text class="ik-human-label ik-fore-label" x="142" y="148">forearm</text>
+        <path class="ik-upper" d="M86 68 L121 103"></path>
+        <path class="ik-fore" d="M121 103 L121 152"></path>
+        <circle class="ik-elbow" cx="121" cy="103" r="6"></circle>
+        <text class="ik-human-label ik-upper-label" x="131" y="80">upper arm</text>
+        <text class="ik-human-label ik-fore-label" x="131" y="132">forearm</text>
       </svg>
       <figcaption>Nearly the same length &mdash; which is why you can touch your own shoulder.</figcaption>
     </figure>

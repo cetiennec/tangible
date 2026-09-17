@@ -43,11 +43,11 @@ Pause and think a bit about cases where the number of solutions could be 0?
 @pause(prompt: "When can the arm not reach a point at all?", speak: false)
 
 @clear(kwIk)
-For our 2 DOF robot, we either have 0 or 2 solutions.
+For our 2 DOF robot, we either have @cue(show.workspace = true) @cue(show.solutions = true) 0 or 2 solutions.
 
-We have @cue(show.unreachable = true) 0 solutions outside of the @cue(show.workspace = true) @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach.
+We have @cue(show.unreachable = true) 0 solutions outside of the @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach.
 
-@cue(show.unreachable = false)
+@cue(show.unreachable = false) @cue(show.solutions = false)
 Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length of the links. Pause and play with the link lengths to see how the reachable space evolve.
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)

@@ -16,6 +16,7 @@ import {
   JOINT_LIMITS,
   limitedRadii,
   reachableRadii,
+  reachableSamples,
   unreachableSamples,
   TAU,
   wrapAngle,
@@ -93,6 +94,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "name the end-effector and show its coordinates",
+  },
+  "show.solutions": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "mark sample points the tip can reach, each in two ways",
   },
   "show.unreachable": {
     type: { kind: "boolean" },
@@ -222,6 +230,7 @@ export const scene: SceneModule = {
           else drawWorkspace(g, geometry, l1, l2);
         }
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.solutions"]) drawSolutionSamples(g, geometry, state.l1 as number, state.l2 as number);
         if (state["show.unreachable"]) drawUnreachable(g, geometry, state.l1 as number, state.l2 as number);
         drawAxes(g, geometry);
         if (flags.tip) drawTipProjection(g, geometry, pose.tip);
@@ -295,6 +304,26 @@ function drawLimitedReach(g: CanvasRenderingContext2D, geometry: Geometry, l1: n
   g.fillText("reachable with joint limits", geometry.cx, geometry.cy - (outer * geometry.pxPerCm + 12));
   g.font = "11px system-ui, sans-serif";
   g.fillText(`no closer than ${inner.toFixed(1)} cm`, geometry.cx, geometry.cy + inner * geometry.pxPerCm * 0.5);
+}
+
+/** Dots on points the tip can reach, each of which it can reach two ways. */
+function drawSolutionSamples(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
+  const points = reachableSamples(l1, l2);
+  for (const point of points) {
+    const at = toScreen(geometry, point);
+    g.fillStyle = WORKSPACE;
+    g.beginPath();
+    g.arc(at.x, at.y, 5.5, 0, TAU);
+    g.fill();
+    g.strokeStyle = "#ffffff";
+    g.lineWidth = 1.8;
+    g.stroke();
+  }
+  const first = toScreen(geometry, points[0]!);
+  g.fillStyle = WORKSPACE;
+  g.font = "700 12px system-ui, sans-serif";
+  g.textAlign = "left";
+  g.fillText("2 solutions", first.x + 11, first.y - 8);
 }
 
 /** Crosses on points the tip cannot reach, both too far out and too far in. */

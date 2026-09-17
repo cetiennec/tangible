@@ -9,6 +9,7 @@ import {
   JOINT_LIMITS,
   limitedRadii,
   MAX_REACH_CM,
+  reachableSamples,
   reachCoverage,
   reachableRadii,
   TAU,
@@ -291,5 +292,36 @@ describe("naming the two elbow solutions", () => {
     expect(elbowBranch(down.q2)).toBe("down");
     expect(elbowSide(up.q1, up.q2, 9, 7)).toBeGreaterThan(0);
     expect(elbowSide(down.q1, down.q2, 9, 7)).toBeLessThan(0);
+  });
+});
+
+describe("sample points the tip can reach", () => {
+  it("places every sample strictly inside the reachable annulus", () => {
+    for (const [l1, l2] of [[9, 7], [12, 3], [5, 11], [8, 8]]) {
+      const { inner, outer } = reachableRadii(l1!, l2!);
+      for (const point of reachableSamples(l1!, l2!)) {
+        const radius = Math.hypot(point.x, point.y);
+        expect(radius).toBeGreaterThan(inner);
+        expect(radius).toBeLessThan(outer);
+      }
+    }
+  });
+
+  it("never coincides with a point marked unreachable", () => {
+    const reachable = reachableSamples(9, 7);
+    for (const miss of unreachableSamples(9, 7)) {
+      for (const hit of reachable) {
+        expect(Math.hypot(hit.x - miss.x, hit.y - miss.y)).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it("spreads them around the ring rather than bunching them", () => {
+    const angles = reachableSamples(9, 7).map((p) => Math.atan2(p.y, p.x));
+    for (let i = 0; i < angles.length; i += 1) {
+      for (let j = i + 1; j < angles.length; j += 1) {
+        expect(Math.abs(angles[i]! - angles[j]!)).toBeGreaterThan(0.5);
+      }
+    }
   });
 });

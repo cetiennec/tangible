@@ -141,6 +141,22 @@ export function unreachableSamples(l1: number, l2: number): Point[] {
 }
 
 /**
+ * A handful of points the tip can reach, for the narration to point at while
+ * it says every such point has two solutions. They are spread around the ring
+ * and set at different distances, so none of them looks like a special case.
+ */
+export function reachableSamples(l1: number, l2: number): Point[] {
+  const { inner, outer } = reachableRadii(l1, l2);
+  const between = (fraction: number) => inner + (outer - inner) * fraction;
+  return [
+    { angle: 0.85, radius: between(0.5) },
+    { angle: 2.35, radius: between(0.74) },
+    { angle: 3.75, radius: between(0.34) },
+    { angle: 5.15, radius: between(0.6) },
+  ].map(({ angle, radius }) => ({ x: radius * Math.cos(angle), y: radius * Math.sin(angle) }));
+}
+
+/**
  * Which of the two solutions an elbow angle represents, named for where the
  * elbow actually sits: "up" puts it above the line from shoulder to hand.
  * A negative q2 is what does that, since turning the elbow the positive way
