@@ -9,7 +9,7 @@ First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(lab
 
 The tip of the robot is called the @cue(label.tip = true) end-effector.
 
-See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 4.200, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
+See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
 This means that there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and centimeters.
 
 The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
@@ -65,7 +65,7 @@ Getting back to the IK problem, how could there be multiple solutions? In our ca
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)
 
-@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> 4.783, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
+@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
 @scene(redundant)
 If the robot has more degrees of freedom than the space, the number of @cue(spread -> 0.92, over: 2.4s) solutions can actually go to infinity.
