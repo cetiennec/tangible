@@ -28,7 +28,7 @@ With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L
 @clear(board)
 But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space, for instance, drawing a circle will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) (x,y) equation: 
 
-But this does not tell us what motor action we should apply to the robot.
+But this does not tell us what motor action we should apply to the robot to make it follow this circle.
 
 This is where the inverse kinematics (or IK) problem comes in.
 @clear(board)
