@@ -9,8 +9,8 @@ First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(lab
 
 The tip of the robot is called the @cue(label.tip = true) end-effector.
 
-See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 4.083, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
-This means that there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and cm.
+See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 4.200, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
+This means that there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and centimeters.
 
 The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
@@ -25,8 +25,7 @@ And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_
 With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
 
 
-@clear(board)
-But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space, for instance, drawing a circle will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) (x,y) equation: 
+But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space, for instance, @cue(show.circle = true) drawing a circle will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) (x,y) equation: 
 
 But this does not tell us what motor action we should apply to the robot to make it follow this circle.
 
@@ -34,7 +33,8 @@ This is where the inverse kinematics (or IK) problem comes in.
 @clear(board)
 IK is @board(ik: $\theta = f^{-1}(x)$) the inverse relationship of FK.
 
-And this does not always have a solution or even a unique solution.
+@cue(show.circle = false)
+And this does not always have a unique solution or even a solution.
 
 Pause and think a bit about cases where the number of solutions could be 0?
 
@@ -42,9 +42,10 @@ Pause and think a bit about cases where the number of solutions could be 0?
 
 For our 2 DOF robot, we either have 0 or 2 solutions.
 
-We have 0 solutions outside of the @cue(show.workspace = true) reachable space, which is all the points that the end-effector can reach.
+We have @cue(show.unreachable = true) 0 solutions outside of the @cue(show.workspace = true) reachable space, which is all the points that the end-effector can reach.
 
-Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length of the links. Pause and play with the link lengths.
+@cue(show.unreachable = false)
+Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length of the links. Pause and play with the link lengths to see how the reachable space evolve.
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 

@@ -29,7 +29,7 @@ interface SliderSpec {
 
 const ANGLE_SLIDERS: SliderSpec[] = [
   { param: "q1", label: "q₁", aria: "Motor 1 angle q1 in radians", min: 0, max: TAU, step: 0.001, digits: 2, unit: "rad" },
-  { param: "q2", label: "q₂", aria: "Motor 2 angle q2 in radians", min: 0, max: TAU, step: 0.001, digits: 2, unit: "rad" },
+  { param: "q2", label: "q₂", aria: "Motor 2 angle q2 in radians", min: -Math.PI, max: Math.PI, step: 0.001, digits: 2, unit: "rad" },
 ];
 
 const LINK_SLIDERS: SliderSpec[] = [

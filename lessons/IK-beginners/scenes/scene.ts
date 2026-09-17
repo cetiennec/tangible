@@ -14,8 +14,10 @@ import {
   MAX_REACH_CM,
   MIN_LINK_CM,
   reachableRadii,
+  unreachableSamples,
   TAU,
   wrapAngle,
+  wrapSigned,
   type ArmPose,
   type Point,
 } from "./kinematics.js";
@@ -29,7 +31,7 @@ export const schema: Schema = {
     label: "shoulder angle q1, in radians, measured from the x axis",
   },
   q2: {
-    type: { kind: "scalar", range: [0, TAU] },
+    type: { kind: "scalar", range: [-Math.PI, Math.PI] },
     default: 0.9,
     interpolate: "lerp",
     ownership: "script",
@@ -90,6 +92,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "name the end-effector and show its coordinates",
+  },
+  "show.unreachable": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "mark sample points the tip cannot reach",
   },
   "show.circle": {
     type: { kind: "boolean" },
@@ -194,6 +203,7 @@ export const scene: SceneModule = {
         };
         if (state["show.workspace"]) drawWorkspace(g, geometry, state.l1 as number, state.l2 as number);
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.unreachable"]) drawUnreachable(g, geometry, state.l1 as number, state.l2 as number);
         drawAxes(g, geometry);
         if (flags.tip) drawTipProjection(g, geometry, pose.tip);
         drawArm(g, geometry, state, pose, frame);
@@ -235,6 +245,25 @@ function drawWorkspace(g: CanvasRenderingContext2D, geometry: Geometry, l1: numb
   g.font = "600 13px system-ui, sans-serif";
   g.textAlign = "center";
   g.fillText("reachable space", geometry.cx, geometry.cy - (outer * geometry.pxPerCm + 12));
+}
+
+/** Crosses on points the tip cannot reach, both too far out and too far in. */
+function drawUnreachable(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
+  const points = unreachableSamples(l1, l2);
+  g.strokeStyle = TIP;
+  g.lineWidth = 2.5;
+  g.lineCap = "round";
+  for (const point of points) {
+    const at = toScreen(geometry, point);
+    const arm = 6;
+    line(g, at.x - arm, at.y - arm, at.x + arm, at.y + arm);
+    line(g, at.x - arm, at.y + arm, at.x + arm, at.y - arm);
+  }
+  const first = toScreen(geometry, points[0]!);
+  g.fillStyle = TIP;
+  g.font = "700 12px system-ui, sans-serif";
+  g.textAlign = "left";
+  g.fillText("no solution", first.x + 12, first.y - 8);
 }
 
 /** The circle the end-effector is asked to follow. */

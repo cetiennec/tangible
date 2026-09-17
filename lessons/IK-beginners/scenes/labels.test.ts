@@ -36,12 +36,12 @@ function collisions(labels: ReturnType<typeof armLabels>): string[] {
 // The poses the narration actually visits, plus the awkward extremes.
 const POSES: [string, number, number, number, number][] = [
   ["defaults", 0.6, 0.9, 9, 7],
-  ["first cue", 2.4, 5.2, 9, 7],
-  ["motor 1 cue", 1.2, 5.2, 9, 7],
-  ["short link 2", 1.2, 5.2, 9, 4],
-  ["equal links", 1.2, 5.2, 12, 12],
+  ["first cue", 2.4, -1.083, 9, 7],
+  ["motor 1 cue", 1.2, -1.083, 9, 7],
+  ["short link 2", 1.2, -1.083, 9, 4],
+  ["equal links", 1.2, -1.083, 12, 12],
   ["elbow up demo", 0.55, 1.5, 12, 12],
-  ["elbow down demo", 2.05, 4.783, 12, 12],
+  ["elbow down demo", 2.05, -1.5, 12, 12],
   ["straight arm", 0, 0, 9, 7],
   ["folded arm", 1, Math.PI, 9, 7],
   ["shortest links", 2, 1, 3, 3],
@@ -71,8 +71,8 @@ describe("label placement", () => {
   // poses it cues. Showing every label at once can crowd a folded arm, which is
   // why the narration turns groups on and off rather than leaving them all on.
   it.each([
-    ["link-length section", 1.2, 5.2, 9, 4],
-    ["equal links", 1.2, 5.2, 12, 12],
+    ["link-length section", 1.2, -1.083, 9, 4],
+    ["equal links", 1.2, -1.083, 12, 12],
   ] as const)("keeps lengths and angles apart where the narration shows both, at %s", (_name, q1, q2, l1, l2) => {
     const found = collisions(labelsFor(q1, q2, l1, l2, { motors: true, angles: true, links: true, tip: false, dof: false }));
     expect(found.filter((pair) => pair === "l1/l2")).toEqual([]);
@@ -91,9 +91,9 @@ describe("label placement", () => {
 
   it("puts each length label on the far side of its link from the angle arc", () => {
     const up = labelsFor(0.55, 1.5, 12, 12, ALL).find((l) => l.key === "l2")!;
-    const down = labelsFor(2.05, 4.783, 12, 12, ALL).find((l) => l.key === "l2")!;
+    const down = labelsFor(2.05, -1.5, 12, 12, ALL).find((l) => l.key === "l2")!;
     const upPose = screenPose(0.55, 1.5, 12, 12);
-    const downPose = screenPose(2.05, 4.783, 12, 12);
+    const downPose = screenPose(2.05, -1.5, 12, 12);
     const side = (l: { x: number; y: number }, p: ScreenPose) =>
       Math.sign((p.tip.x - p.elbow.x) * (l.y - p.elbow.y) - (p.tip.y - p.elbow.y) * (l.x - p.elbow.x));
     expect(side(up, upPose)).not.toBe(side(down, downPose));

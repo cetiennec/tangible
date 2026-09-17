@@ -5,8 +5,10 @@ import {
   elbowBranch,
   forwardKinematics,
   inverseKinematics,
+  MAX_REACH_CM,
   reachableRadii,
   TAU,
+  unreachableSamples,
   wrapAngle,
 } from "./kinematics.js";
 
@@ -125,7 +127,7 @@ describe("inverse kinematics", () => {
   });
 
   it("recovers the pose that produced a point, for either branch", () => {
-    for (const q2 of [0.9, 2.6, 3.9, 5.4]) {
+    for (const q2 of [-2.4, -0.9, 0.9, 2.6]) {
       const { tip } = forwardKinematics(1.1, q2, l1, l2);
       const solved = inverseKinematics(tip, l1, l2, elbowBranch(q2));
       expect(solved.q1).toBeCloseTo(1.1, 9);
@@ -169,6 +171,43 @@ describe("clamping to the reachable annulus", () => {
       const radius = Math.hypot(...Object.values(clampToReach(target, 9, 7)));
       expect(radius).toBeGreaterThanOrEqual(inner - 1e-12);
       expect(radius).toBeLessThanOrEqual(outer + 1e-12);
+    }
+  });
+});
+
+describe("sample points the tip cannot reach", () => {
+  it("places every sample outside the reachable annulus", () => {
+    for (const [l1, l2] of [[9, 7], [12, 3], [5, 11]]) {
+      const { inner, outer } = reachableRadii(l1!, l2!);
+      for (const point of unreachableSamples(l1!, l2!)) {
+        const radius = Math.hypot(point.x, point.y);
+        expect(radius < inner || radius > outer).toBe(true);
+      }
+    }
+  });
+
+  it("offers points that are too far out and points that are too far in", () => {
+    const { inner, outer } = unreachableSamples(9, 7).reduce(
+      (acc, p) => {
+        const r = Math.hypot(p.x, p.y);
+        return { inner: acc.inner || r < 2, outer: acc.outer || r > 16 };
+      },
+      { inner: false, outer: false },
+    );
+    expect(outer).toBe(true);
+    expect(inner).toBe(true);
+  });
+
+  it("drops the inner samples when equal links leave no dead zone", () => {
+    // With l1 === l2 the annulus closes to a full disc, so nothing is too close.
+    for (const point of unreachableSamples(8, 8)) {
+      expect(Math.hypot(point.x, point.y)).toBeGreaterThan(16);
+    }
+  });
+
+  it("keeps every sample inside the drawn area", () => {
+    for (const point of unreachableSamples(12, 12)) {
+      expect(Math.hypot(point.x, point.y)).toBeLessThanOrEqual(MAX_REACH_CM * 1.25);
     }
   });
 });

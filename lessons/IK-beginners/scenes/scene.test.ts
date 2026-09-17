@@ -84,7 +84,7 @@ describe("dragging the arm", () => {
     expect(elbowBranch(q2)).toBe("up");
 
     // Starting from an elbow-down pose, the drag stays elbow-down.
-    const down = { ...defaults, q2: 5.2 };
+    const down = { ...defaults, q2: -1.083 };
     const solved = tip.onDrag(at.x, at.y, down) as { q2: number };
     expect(elbowBranch(solved.q2)).toBe("down");
     instance.dispose();

@@ -42,6 +42,15 @@ export function wrapAngle(angle: number): number {
 }
 
 /**
+ * The same angle expressed in (-PI, PI]. The elbow is held this way, because
+ * bending one way or the other is then simply the sign of the angle.
+ */
+export function wrapSigned(angle: number): number {
+  const shifted = (angle + Math.PI) % TAU;
+  return (shifted <= 0 ? shifted + Math.PI : shifted - Math.PI);
+}
+
+/**
  * Area of the reachable annulus, in square centimetres. Subtracting the two
  * squared radii cancels the squared link lengths, so the area is always
  * 4 * PI * l1 * l2: it depends on the product of the links, not their sum.
@@ -73,6 +82,27 @@ export function circlePath(l1: number, l2: number) {
 export function circlePoint(l1: number, l2: number, lap: number): Point {
   const { centre, radius } = circlePath(l1, l2);
   return { x: centre.x + radius * Math.cos(lap * TAU), y: centre.y + radius * Math.sin(lap * TAU) };
+}
+
+/**
+ * A handful of points the tip cannot reach, for the narration to point at.
+ * Some lie beyond the outer edge, and some inside the dead zone at the centre,
+ * which is the case people tend to forget: a target can be too close as well
+ * as too far. The inner ones are omitted when the links are equal, because
+ * then there is no dead zone.
+ */
+export function unreachableSamples(l1: number, l2: number): Point[] {
+  const { inner, outer } = reachableRadii(l1, l2);
+  const beyond = [0.6, 2.1, 3.9, 5.4].map((angle) => ({
+    x: outer * 1.18 * Math.cos(angle),
+    y: outer * 1.18 * Math.sin(angle),
+  }));
+  if (inner < 1) return beyond;
+  const within = [1.3, 4.6].map((angle) => ({
+    x: inner * 0.45 * Math.cos(angle),
+    y: inner * 0.45 * Math.sin(angle),
+  }));
+  return [...beyond, ...within];
 }
 
 /**
@@ -111,7 +141,7 @@ export function inverseKinematics(target: Point, l1: number, l2: number, branch:
   const sine = Math.sqrt(1 - cosine * cosine) * (branch === "up" ? 1 : -1);
   const q2 = Math.atan2(sine, cosine);
   const q1 = Math.atan2(reached.y, reached.x) - Math.atan2(l2 * sine, l1 + l2 * cosine);
-  return { q1: wrapAngle(q1), q2: wrapAngle(q2), reached };
+  return { q1: wrapAngle(q1), q2: wrapSigned(q2), reached };
 }
 
 /** The angle of the vector from `from` to `to`, measured from the positive x axis. */
