@@ -44,6 +44,23 @@ hf repos create <namespace>/qwen-tts-endpoint --type model
 # push the image to your registry of choice, then point an Inference Endpoint at it
 ```
 
+## Why the Space is public, and how the voice stays protected
+
+A private Space is reached only through a signed browser URL. Requests carrying
+an ordinary bearer token never reach the container, so a private Space cannot be
+called as an API at all. The Space is therefore public and the guarding happens
+in the app:
+
+1. Set `ENDPOINT_TOKEN` as a **Space secret** — any long random string.
+2. Put the same string in the lesson's `.env` as `HF_TTS_TOKEN`.
+
+The app then refuses every request whose bearer does not match. The code is
+public; the voice is not, and nobody who finds the address can make it speak.
+
+Keep reference recordings out of the public Space. Either mount them from a
+private dataset the Space reads with its own token, or use a URL only the Space
+knows.
+
 ## Create the endpoint
 
 Create a Hugging Face Inference Endpoint from the image, on a GPU instance, and

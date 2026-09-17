@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -27,6 +27,11 @@ MODEL_ID = os.environ.get("QWEN_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoic
 ATTENTION = os.environ.get("QWEN_TTS_ATTENTION", "sdpa")
 DEFAULT_SPEAKER = os.environ.get("QWEN_TTS_SPEAKER", "default")
 SPEAKERS_FILE = Path(os.environ.get("QWEN_TTS_SPEAKERS", "speakers/speakers.json"))
+# A private Space is reached only through a signed browser URL, so it cannot be
+# called as an API. The Space is therefore public and the guarding happens here:
+# set ENDPOINT_TOKEN as a Space secret and only that bearer gets through, so a
+# cloned voice cannot be driven by anyone who finds the address.
+ENDPOINT_TOKEN = os.environ.get("ENDPOINT_TOKEN", "")
 
 app = FastAPI()
 _model = None
@@ -83,15 +88,31 @@ class GenerateRequest(BaseModel):
     top_p: float = 0.95
 
 
+def guard(authorization: str | None) -> None:
+    if not ENDPOINT_TOKEN:
+        return
+    expected = f"Bearer {ENDPOINT_TOKEN}"
+    if authorization != expected:
+        raise HTTPException(status_code=401, detail="bad or missing token")
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    """Hugging Face probes this; it says nothing a caller could use."""
+    return {"service": "qwen-tts-endpoint"}
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
+def health(authorization: str | None = Header(default=None)) -> dict[str, str]:
     """Answers only once the weights are in memory, so the caller's wait is real."""
+    guard(authorization)
     load()
     return {"status": "ready", "model": MODEL_ID}
 
 
 @app.post("/generate")
-def generate(request: GenerateRequest) -> Response:
+def generate(request: GenerateRequest, authorization: str | None = Header(default=None)) -> Response:
+    guard(authorization)
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="text is empty")
     voices = speakers()
