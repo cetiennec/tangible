@@ -1,9 +1,10 @@
-// The reachable area as a surface over the two link lengths, drawn as an
-// isometric wireframe. The point of the picture is that the surface climbs
-// with the product of the links, so with link 2 never longer than link 1 the
-// best you can do lies on the diagonal, where the two links are equal.
+// How much of its reach the arm can actually get to, as a surface over the two
+// link lengths, drawn as an isometric wireframe. Plain area is not the right
+// quantity here: it simply grows with both links and never peaks. Coverage does
+// peak, and it peaks exactly where the links are equal, which is the claim the
+// narration makes.
 
-import { MAX_LINK_CM, MIN_LINK_CM, reachableArea } from "./kinematics.js";
+import { MAX_LINK_CM, MIN_LINK_CM, reachCoverage } from "./kinematics.js";
 
 export interface SurfaceBox {
   left: number;
@@ -13,7 +14,6 @@ export interface SurfaceBox {
 }
 
 const DIVISIONS = 12;
-const PEAK_AREA = reachableArea(MAX_LINK_CM, MAX_LINK_CM);
 
 /** A link length expressed as a fraction of the slider's range. */
 export function linkFraction(cm: number): number {
@@ -34,9 +34,9 @@ export function projectSurface(box: SurfaceBox, u: number, v: number, z: number)
   };
 }
 
-/** Height of the surface above its base, as a fraction of the highest point. */
+/** Height of the surface: the fraction of its reach the arm can get to. */
 function heightAt(u: number, v: number): number {
-  return reachableArea(linkAt(u), linkAt(v)) / PEAK_AREA;
+  return reachCoverage(linkAt(u), linkAt(v));
 }
 
 function point(box: SurfaceBox, u: number, v: number) {
@@ -53,15 +53,13 @@ export function drawAreaSurface(
   g.save();
   drawBasePlane(g, box, colors);
 
-  // Wireframe. Lines over the half where link 2 exceeds link 1 are drawn faintly,
-  // because that arm would fold below the ground.
   for (let i = 0; i <= DIVISIONS; i += 1) {
     const t = i / DIVISIONS;
     strokeCurve(g, box, (s) => [t, s], colors);
     strokeCurve(g, box, (s) => [s, t], colors);
   }
 
-  // The diagonal where the two links are equal: the ridge of the allowed half.
+  // The diagonal where the two links are equal: the crest of the surface.
   g.strokeStyle = colors.ridge;
   g.lineWidth = 2.5;
   g.beginPath();
@@ -106,15 +104,13 @@ function strokeCurve(
   g.beginPath();
   for (let i = 0; i <= steps; i += 1) {
     const [u, v] = at(i / steps);
-    const allowed = v <= u;
     const p = point(box, u, v);
-    if (allowed !== previousAllowed) {
-      if (previousAllowed !== undefined) g.stroke();
+    if (previousAllowed === undefined) {
       g.strokeStyle = colors.allowed;
-      g.globalAlpha = allowed ? 0.85 : 0.18;
+      g.globalAlpha = 0.8;
       g.beginPath();
       g.moveTo(p.x, p.y);
-      previousAllowed = allowed;
+      previousAllowed = true;
     } else {
       g.lineTo(p.x, p.y);
     }
@@ -151,7 +147,7 @@ function drawMarker(
   g.fillStyle = colors.ink;
   g.font = "700 12px system-ui, sans-serif";
   g.textAlign = "center";
-  g.fillText(`${reachableArea(l1, l2).toFixed(0)} cm²`, top.x, top.y - 12);
+  g.fillText(`${Math.round(reachCoverage(l1, l2) * 100)}% reached`, top.x, top.y - 12);
 }
 
 function drawLabels(g: CanvasRenderingContext2D, box: SurfaceBox, colors: { muted: string; ridge: string }) {
@@ -163,7 +159,7 @@ function drawLabels(g: CanvasRenderingContext2D, box: SurfaceBox, colors: { mute
   g.fillText("L₁", l1End.x + 16, l1End.y + 6);
   g.fillText("L₂", l2End.x - 16, l2End.y + 6);
   g.textAlign = "left";
-  g.fillText("reachable area", box.left, box.top + 12);
+  g.fillText("share of its reach", box.left, box.top + 12);
   g.fillStyle = colors.ridge;
   g.fillText("L₁ = L₂", box.left, box.top + 28);
 }

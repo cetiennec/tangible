@@ -49,8 +49,9 @@ Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length o
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 
-Let's assume L2 can never be longer than L1, so that the forearm does not hit the ground.
+This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) joint limits. The reachable space is no longer a ring here.
 
+Of course, the larger the links the bigger the area. But there is a relationship between L1 and l2 that allows the robot to reach both close and farer places. 
 What value of L2 would give the largest reachable space according to you?
 
 @pause(prompt: "Pick your answer before we plot it.", speak: false)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { linkFraction, projectSurface } from "./area-surface.js";
-import { MAX_LINK_CM, MIN_LINK_CM, reachableArea } from "./kinematics.js";
+import { MAX_LINK_CM, MIN_LINK_CM, reachCoverage } from "./kinematics.js";
 
 const box = { left: 0, right: 300, top: 0, bottom: 200 };
 
@@ -36,18 +36,22 @@ describe("the area surface projection", () => {
 });
 
 describe("what the surface is meant to show", () => {
-  it("peaks at equal links once link 2 may not exceed link 1", () => {
+  it("crests where the links are equal, for any first link", () => {
     for (const l1 of [5, 8, 12]) {
-      let best = { l2: 0, area: -1 };
-      for (let l2 = MIN_LINK_CM; l2 <= l1 + 1e-9; l2 += 0.05) {
-        const area = reachableArea(l1, l2);
-        if (area > best.area) best = { l2, area };
+      let best = { l2: 0, value: -1 };
+      for (let l2 = MIN_LINK_CM; l2 <= MAX_LINK_CM; l2 += 0.05) {
+        const value = reachCoverage(l1, l2);
+        if (value > best.value) best = { l2, value };
       }
       expect(best.l2).toBeCloseTo(l1, 1);
     }
   });
 
-  it("puts the highest point of the allowed half at the longest equal links", () => {
-    expect(reachableArea(MAX_LINK_CM, MAX_LINK_CM)).toBeGreaterThan(reachableArea(MAX_LINK_CM, MIN_LINK_CM));
+  it("is a fraction, so the surface has a natural ceiling", () => {
+    for (const [l1, l2] of [[3, 12], [9, 7], [12, 12]]) {
+      const value = reachCoverage(l1!, l2!);
+      expect(value).toBeGreaterThan(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
   });
 });

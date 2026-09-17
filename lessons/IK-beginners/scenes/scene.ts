@@ -13,11 +13,12 @@ import {
   MAX_LINK_CM,
   MAX_REACH_CM,
   MIN_LINK_CM,
+  JOINT_LIMITS,
+  limitedRadii,
   reachableRadii,
   unreachableSamples,
   TAU,
   wrapAngle,
-  wrapSigned,
   type ArmPose,
   type Point,
 } from "./kinematics.js";
@@ -99,6 +100,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "mark sample points the tip cannot reach",
+  },
+  "show.limits": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "apply joint limits, so the reachable space is no longer a ring",
   },
   "show.circle": {
     type: { kind: "boolean" },
@@ -201,7 +209,11 @@ export const scene: SceneModule = {
           tip: state["label.tip"] as boolean,
           dof: state["label.dof"] as boolean,
         };
-        if (state["show.workspace"]) drawWorkspace(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.workspace"]) {
+          const [l1, l2] = [state.l1 as number, state.l2 as number];
+          if (state["show.limits"]) drawLimitedReach(g, geometry, l1, l2);
+          else drawWorkspace(g, geometry, l1, l2);
+        }
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
         if (state["show.unreachable"]) drawUnreachable(g, geometry, state.l1 as number, state.l2 as number);
         drawAxes(g, geometry);
@@ -245,6 +257,37 @@ function drawWorkspace(g: CanvasRenderingContext2D, geometry: Geometry, l1: numb
   g.font = "600 13px system-ui, sans-serif";
   g.textAlign = "center";
   g.fillText("reachable space", geometry.cx, geometry.cy - (outer * geometry.pxPerCm + 12));
+}
+
+/**
+ * The reachable space once the joints are limited. It is no longer a ring, so
+ * it is built from what the arm can actually do: for each shoulder angle the
+ * tip sweeps an arc, and those arcs together are the region.
+ */
+function drawLimitedReach(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
+  const [q1Min, q1Max] = JOINT_LIMITS.q1;
+  const [q2Min, q2Max] = JOINT_LIMITS.q2;
+  const steps = 160;
+  g.save();
+  g.strokeStyle = WORKSPACE;
+  g.globalAlpha = 0.14;
+  g.lineWidth = Math.max(3, (l2 * geometry.pxPerCm * 0.06));
+  for (let i = 0; i <= steps; i += 1) {
+    const q1 = q1Min + ((q1Max - q1Min) * i) / steps;
+    const elbow = toScreen(geometry, { x: l1 * Math.cos(q1), y: l1 * Math.sin(q1) });
+    g.beginPath();
+    g.arc(elbow.x, elbow.y, l2 * geometry.pxPerCm, -(q1 + q2Max), -(q1 + q2Min));
+    g.stroke();
+  }
+  g.restore();
+
+  const { inner, outer } = limitedRadii(l1, l2);
+  g.fillStyle = WORKSPACE;
+  g.font = "600 13px system-ui, sans-serif";
+  g.textAlign = "center";
+  g.fillText("reachable with joint limits", geometry.cx, geometry.cy - (outer * geometry.pxPerCm + 12));
+  g.font = "11px system-ui, sans-serif";
+  g.fillText(`no closer than ${inner.toFixed(1)} cm`, geometry.cx, geometry.cy + inner * geometry.pxPerCm * 0.5);
 }
 
 /** Crosses on points the tip cannot reach, both too far out and too far in. */

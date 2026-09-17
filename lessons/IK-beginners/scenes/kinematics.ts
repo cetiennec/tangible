@@ -63,6 +63,33 @@ export function reachableArea(l1: number, l2: number): number {
 }
 
 /**
+ * Joint limits standing in for a real robot's: the shoulder stays above the
+ * table, and the elbow cannot fold all the way back on itself.
+ */
+export const JOINT_LIMITS = { q1: [0, Math.PI], q2: [-2.3, 2.3] } as const;
+
+/**
+ * Nearest and furthest the tip can get with a limited elbow. The elbow can no
+ * longer fold flat, so the dead zone in the middle is larger than |l1 - l2|.
+ */
+export function limitedRadii(l1: number, l2: number, elbowLimit = JOINT_LIMITS.q2[1]) {
+  return {
+    inner: Math.sqrt(l1 * l1 + l2 * l2 + 2 * l1 * l2 * Math.cos(elbowLimit)),
+    outer: l1 + l2,
+  };
+}
+
+/**
+ * How much of the circle it could sweep the arm can actually reach: one when
+ * the dead zone closes completely, less as the links grow unequal. This is the
+ * quantity that peaks at equal links, whereas the area simply grows with both.
+ */
+export function reachCoverage(l1: number, l2: number, elbowLimit = JOINT_LIMITS.q2[1]): number {
+  const { inner, outer } = limitedRadii(l1, l2, elbowLimit);
+  return 1 - (inner / outer) ** 2;
+}
+
+/**
  * A circle for the end-effector to trace, sized and placed to sit inside the
  * reachable annulus for any link lengths. The centre is lifted away from the
  * positive x axis because a circle placed there drives q1 through zero, and a

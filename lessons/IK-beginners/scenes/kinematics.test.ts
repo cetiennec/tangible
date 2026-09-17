@@ -5,7 +5,9 @@ import {
   elbowBranch,
   forwardKinematics,
   inverseKinematics,
+  limitedRadii,
   MAX_REACH_CM,
+  reachCoverage,
   reachableRadii,
   TAU,
   unreachableSamples,
@@ -209,5 +211,32 @@ describe("sample points the tip cannot reach", () => {
     for (const point of unreachableSamples(12, 12)) {
       expect(Math.hypot(point.x, point.y)).toBeLessThanOrEqual(MAX_REACH_CM * 1.25);
     }
+  });
+});
+
+describe("reach coverage under joint limits", () => {
+  it("is highest when the links are equal, whatever the elbow limit", () => {
+    for (const elbowLimit of [Math.PI, 2.8, 2.3, 1.8]) {
+      let best = { l2: 0, value: -1 };
+      for (let l2 = 3; l2 <= 12; l2 += 0.25) {
+        const value = reachCoverage(9, l2, elbowLimit);
+        if (value > best.value) best = { l2, value };
+      }
+      expect(best.l2).toBeCloseTo(9, 1);
+    }
+  });
+
+  it("closes the dead zone completely only when the elbow can fold flat", () => {
+    expect(reachCoverage(9, 9, Math.PI)).toBeCloseTo(1, 9);
+    expect(reachCoverage(9, 9, 2.3)).toBeLessThan(1);
+    expect(limitedRadii(9, 9, Math.PI).inner).toBeCloseTo(0, 9);
+    expect(limitedRadii(9, 9, 2.3).inner).toBeGreaterThan(5);
+  });
+
+  it("agrees with the unlimited radii when the elbow is free", () => {
+    const limited = limitedRadii(9, 7, Math.PI);
+    const free = reachableRadii(9, 7);
+    expect(limited.inner).toBeCloseTo(free.inner, 9);
+    expect(limited.outer).toBeCloseTo(free.outer, 9);
   });
 });
