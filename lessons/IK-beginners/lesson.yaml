@@ -15,6 +15,9 @@ defaults:
   anticipation: -0.2
   ease: inOutCubic
   transition: 1.0
+tts:
+  provider: hf-endpoint
+  voice: default
 deployment:
   provider: huggingface
   space: cetiennec/ik-beginners
