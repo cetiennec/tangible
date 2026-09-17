@@ -21,7 +21,14 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-MODEL_ID = os.environ.get("QWEN_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
+# Inference Endpoints mount the chosen model at /repository and expect the
+# container not to download anything. A Space has no such mount, so fall back to
+# fetching by name. The same image then works in both places.
+MOUNTED = Path("/repository")
+MODEL_ID = os.environ.get(
+    "QWEN_TTS_MODEL",
+    str(MOUNTED) if MOUNTED.is_dir() and any(MOUNTED.iterdir()) else "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+)
 # Flash attention needs a long compile; scaled dot-product attention ships with
 # torch and is fast enough for building narration.
 ATTENTION = os.environ.get("QWEN_TTS_ATTENTION", "sdpa")

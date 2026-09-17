@@ -61,6 +61,30 @@ Keep reference recordings out of the public Space. Either mount them from a
 private dataset the Space reads with its own token, or use a URL only the Space
 knows.
 
+## Option B: an Inference Endpoint, which stays private
+
+Endpoints are built to be called as APIs, so unlike a Space they are private and
+token-authenticated at once. Hugging Face's own custom-container guide uses the
+same two routes this app serves, so the shape is already right. The cost is that
+the image must reach a registry Endpoints can pull from — Docker Hub, Amazon
+ECR, Azure ACR or Google GCR. The Spaces registry is not one of them.
+
+```bash
+# On an x86 machine, or on a Mac with emulation, which is slow for a CUDA image.
+docker build --platform linux/amd64 -t <dockerhub-user>/qwen-tts-endpoint:v1 tools/qwen-tts-endpoint
+docker push <dockerhub-user>/qwen-tts-endpoint:v1
+```
+
+Then at https://endpoints.huggingface.co: **Deploy**, choose
+`Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` as the model, pick GPU hardware, and
+under **Custom Container** give the image URL and port **7860**. Set the
+endpoint to scale to zero after a few idle minutes.
+
+The chosen model is mounted at `/repository`, and this app loads from there when
+that directory exists, so nothing is downloaded at start-up and cold starts are
+shorter. Point the lesson at the endpoint URL, with your Hugging Face token as
+`HF_TTS_TOKEN`.
+
 ## Create the endpoint
 
 Create a Hugging Face Inference Endpoint from the image, on a GPU instance, and
