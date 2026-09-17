@@ -3,8 +3,8 @@ title: "Where does the arm's tip end up?"
 emoji: 📚
 colorFrom: blue
 colorTo: indigo
-sdk: static
-app_file: index.html
+sdk: docker
+app_port: 7860
 fullWidth: true
 header: default
 pinned: false

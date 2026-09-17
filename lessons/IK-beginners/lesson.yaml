@@ -18,3 +18,16 @@ defaults:
 deployment:
   provider: huggingface
   space: cetiennec/ik-beginners
+assistant:
+  provider: huggingface
+  model: google/gemma-4-31B-it:cerebras
+  context: assistant.md
+  commandable:
+    - planar.q1
+    - planar.q2
+    - planar.l1
+    - planar.l2
+    - planar.show.workspace
+    - planar.show.limits
+    - planar.show.unreachable
+    - redundant.spread
