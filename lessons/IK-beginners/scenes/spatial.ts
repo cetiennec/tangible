@@ -6,20 +6,47 @@
 export type Vec3 = [number, number, number];
 type Mat3 = [Vec3, Vec3, Vec3];
 
-/** Axes alternate so the chain genuinely leaves a plane. */
+/**
+ * Built like a real manipulator rather than a free chain: a turntable at the
+ * base carrying a column, then a shoulder, elbow and two wrist joints that all
+ * bend in the same plane. That plane is what the turntable swings around, which
+ * is how most arms are laid out and what makes one read as an arm.
+ */
 const AXES: Vec3[] = [
-  [0, 0, 1],
-  [0, 1, 0],
   [0, 1, 0],
   [0, 0, 1],
-  [0, 1, 0],
+  [0, 0, 1],
+  [0, 0, 1],
+  [0, 0, 1],
 ];
-const LENGTHS = [0.82, 0.72, 0.62, 0.5, 0.34];
-const SEED = [0.35, -0.55, 0.95, 0.25, 0.45];
-/** A fixed direction in joint space; walking along it changes the arm's shape. */
-const WALK = [1.35, -0.95, 1.2, -1.5, 1.05];
+/** Where each joint sits relative to the one before it. */
+const OFFSETS: Vec3[] = [
+  [0, 0.34, 0],
+  [0.58, 0, 0],
+  [0.5, 0, 0],
+  [0.3, 0, 0],
+  [0.18, 0, 0],
+];
+/** Keeps the arm in poses a real one could hold: the shoulder never dives
+ * below its own base, and no joint doubles back on itself. */
+const LIMITS: [number, number][] = [
+  [-2.4, 2.4],
+  [0.05, 1.9],
+  [-2.5, -0.15],
+  [-2.0, 2.0],
+  [-2.2, 2.2],
+];
+const SEED = [0.5, 1.15, -1.55, 0.7, 0.2];
 
-export const TARGET: Vec3 = [1.05, 0.3, 0.62];
+function clamp(angles: number[]): number[] {
+  return angles.map((value, i) => Math.min(LIMITS[i]![1], Math.max(LIMITS[i]![0], value)));
+}
+/** The direction the arm reconfigures along while holding its tip still. */
+const WALK = [1, -0.7, 1.1, -0.9, 0.6];
+const SELF_MOTION_STEPS = 40;
+const SELF_MOTION_SPAN = 2.6;
+
+export const TARGET: Vec3 = [0.86, 0.54, 0.3];
 
 export interface SpatialPose {
   joints: Vec3[];
@@ -80,11 +107,26 @@ export function spatialFk(angles: number[]): SpatialPose {
   const joints: Vec3[] = [at];
   for (let i = 0; i < AXES.length; i += 1) {
     frame = multiply(frame, rotation(AXES[i]!, angles[i] ?? 0));
-    const step = apply(frame, [LENGTHS[i]!, 0, 0]);
+    const step = apply(frame, OFFSETS[i]!);
     at = [at[0] + step[0], at[1] + step[1], at[2] + step[2]];
     joints.push(at);
   }
   return { joints, tip: at, angles: [...angles] };
+}
+
+/** World axis of each joint, for drawing the housings along them. */
+export function jointAxes(angles: number[]): Vec3[] {
+  let frame: Mat3 = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ];
+  const axes: Vec3[] = [];
+  for (let i = 0; i < AXES.length; i += 1) {
+    axes.push(apply(frame, AXES[i]!));
+    frame = multiply(frame, rotation(AXES[i]!, angles[i] ?? 0));
+  }
+  return axes;
 }
 
 /** World axis of every joint, needed for the Jacobian. */
@@ -146,19 +188,43 @@ function step(rows: number[][], error: Vec3, damping: number): number[] {
   );
 }
 
+/** Pull the tip onto the target from wherever it is. */
+function converge(angles: number[]): number[] {
+  let q = [...angles];
+  for (let i = 0; i < 60; i += 1) {
+    const pose = spatialFk(q);
+    const error = sub(TARGET, pose.tip);
+    if (norm(error) < 1e-12) break;
+    const delta = step(jacobian(pose), error, 0.05);
+    q = clamp(q.map((value, k) => value + delta[k]!));
+  }
+  return q;
+}
+
+/** How the tip would move for a given turn of every joint. */
+function tipVelocity(rows: number[][], joints: number[]): Vec3 {
+  return [0, 1, 2].map((row) => rows[row]!.reduce((sum, value, k) => sum + value * joints[k]!, 0)) as Vec3;
+}
+
 /**
- * One member of the family, chosen by `spread`. The walk through joint space
- * moves the arm's shape, and the solver then pulls the tip back onto the
- * target, so every pose this returns reaches the same point.
+ * One member of the family, chosen by `spread`. The arm is walked along the
+ * null space of its own Jacobian: the combination of joint turns that leaves
+ * the tip exactly where it is. That is what a redundant arm can do freely, and
+ * it looks like the arm rearranging itself around a fixed hand.
  */
 export function solveSpatial(spread: number): SpatialPose {
-  let angles = SEED.map((value, i) => value + spread * WALK[i]!);
-  for (let iteration = 0; iteration < 96; iteration += 1) {
-    const pose = spatialFk(angles);
-    const error = sub(TARGET, pose.tip);
-    if (norm(error) < 1e-10) return pose;
-    const delta = step(jacobian(pose), error, 0.06);
-    angles = angles.map((value, i) => value + delta[i]!);
+  let q = converge(SEED);
+  const rate = (spread * SELF_MOTION_SPAN) / SELF_MOTION_STEPS;
+  for (let i = 0; i < SELF_MOTION_STEPS; i += 1) {
+    const pose = spatialFk(q);
+    const rows = jacobian(pose);
+    // Remove the part of the walk that would move the tip, leaving self-motion.
+    const correction = step(rows, tipVelocity(rows, WALK), 0.02);
+    q = clamp(q.map((value, k) => value + rate * (WALK[k]! - correction[k]!)));
+    // Nudge back onto the target, against the drift a finite step leaves.
+    const after = spatialFk(q);
+    const fix = step(jacobian(after), sub(TARGET, after.tip), 0.02);
+    q = clamp(q.map((value, k) => value + fix[k]!));
   }
-  return spatialFk(angles);
+  return spatialFk(converge(q));
 }

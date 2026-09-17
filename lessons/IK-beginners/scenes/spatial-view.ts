@@ -2,13 +2,17 @@
 // the mathematics can be tested without a graphics context.
 
 import * as THREE from "three";
-import type { SpatialPose, Vec3 } from "./spatial.js";
+import { jointAxes, type SpatialPose, type Vec3 } from "./spatial.js";
 
 interface Arm {
   group: THREE.Group;
   bones: THREE.Mesh[];
-  joints: THREE.Mesh[];
+  /** Short barrels sitting on each joint, turned along the axis it rotates about. */
+  housings: THREE.Mesh[];
 }
+
+/** Links thin out towards the tip, as a real arm's do. */
+const BONE_RADII = [0.05, 0.045, 0.038, 0.03, 0.024];
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -35,8 +39,21 @@ export class SpatialView {
     key.position.set(1.2, 1.6, 1.1);
     this.scene.add(key);
 
-    for (let i = 0; i < ghostCount; i += 1) this.ghosts.push(this.buildArm(colors.bone, 0.14, 0.022));
-    this.live = this.buildArm(colors.bone, 1, 0.038, colors.joint);
+    // A ground plane and a base plate, so the arm is standing somewhere.
+    const grid = new THREE.GridHelper(3.2, 16, 0xa8b4ba, 0xd2dade);
+    (grid.material as THREE.Material).transparent = true;
+    (grid.material as THREE.Material).opacity = 0.5;
+    this.owned.push(grid.material as THREE.Material, grid.geometry);
+    this.scene.add(grid);
+    const plate = new THREE.Mesh(
+      this.own(new THREE.CylinderGeometry(0.19, 0.22, 0.06, 28)),
+      this.own(new THREE.MeshStandardMaterial({ color: new THREE.Color(colors.joint), roughness: 0.65 })),
+    );
+    plate.position.y = 0.03;
+    this.scene.add(plate);
+
+    for (let i = 0; i < ghostCount; i += 1) this.ghosts.push(this.buildArm(colors.bone, 0.13, false));
+    this.live = this.buildArm(colors.bone, 1, true, colors.joint);
 
     const target = new THREE.Mesh(
       this.own(new THREE.SphereGeometry(0.06, 20, 14)),
@@ -51,33 +68,38 @@ export class SpatialView {
     return item;
   }
 
-  private buildArm(bone: string, opacity: number, radius: number, jointColor?: string): Arm {
+  private buildArm(bone: string, opacity: number, detailed: boolean, jointColor?: string): Arm {
     const group = new THREE.Group();
     const boneMaterial = this.own(
       new THREE.MeshStandardMaterial({
         color: new THREE.Color(bone),
-        roughness: 0.5,
+        roughness: 0.45,
+        metalness: 0.1,
         transparent: opacity < 1,
         opacity,
       }),
     );
     const bones: THREE.Mesh[] = [];
-    const joints: THREE.Mesh[] = [];
+    const housings: THREE.Mesh[] = [];
     for (let i = 0; i < 5; i += 1) {
-      const mesh = new THREE.Mesh(this.own(new THREE.CylinderGeometry(radius, radius, 1, 12)), boneMaterial);
+      const radius = detailed ? BONE_RADII[i]! : 0.018;
+      const mesh = new THREE.Mesh(this.own(new THREE.CylinderGeometry(radius, radius, 1, detailed ? 16 : 8)), boneMaterial);
       bones.push(mesh);
       group.add(mesh);
     }
-    if (jointColor) {
-      const jointMaterial = this.own(new THREE.MeshStandardMaterial({ color: new THREE.Color(jointColor), roughness: 0.4 }));
+    if (detailed && jointColor) {
+      const housingMaterial = this.own(
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(jointColor), roughness: 0.5, metalness: 0.15 }),
+      );
       for (let i = 0; i < 5; i += 1) {
-        const mesh = new THREE.Mesh(this.own(new THREE.SphereGeometry(radius * 1.7, 16, 12)), jointMaterial);
-        joints.push(mesh);
+        const radius = BONE_RADII[i]! * 1.65;
+        const mesh = new THREE.Mesh(this.own(new THREE.CylinderGeometry(radius, radius, radius * 2.1, 20)), housingMaterial);
+        housings.push(mesh);
         group.add(mesh);
       }
     }
     this.scene.add(group);
-    return { group, bones, joints };
+    return { group, bones, housings };
   }
 
   /** Stretch one cylinder so it spans from a to b. */
@@ -95,8 +117,14 @@ export class SpatialView {
     for (let i = 0; i < arm.bones.length; i += 1) {
       this.span(arm.bones[i]!, pose.joints[i]!, pose.joints[i + 1]!);
     }
-    for (let i = 0; i < arm.joints.length; i += 1) {
-      arm.joints[i]!.position.set(...pose.joints[i]!);
+    if (arm.housings.length === 0) return;
+    const axes = jointAxes(pose.angles);
+    for (let i = 0; i < arm.housings.length; i += 1) {
+      const housing = arm.housings[i]!;
+      housing.position.set(...pose.joints[i]!);
+      // A barrel lies along the axis its joint turns about, which is what makes
+      // the direction of each rotation readable.
+      housing.quaternion.setFromUnitVectors(UP, new THREE.Vector3(...axes[i]!).normalize());
     }
   }
 

@@ -57,7 +57,7 @@ import { INK, LINK1, LINK2, MUTED, TIP } from "./controls.js";
 import { TAU } from "./kinematics.js";
 import { orbitHandle } from "@tangible/ingredients";
 import type { OrbitState } from "@tangible/core";
-import { solveSpatial, TARGET as SPATIAL_TARGET } from "./spatial.js";
+import { solveSpatial } from "./spatial.js";
 import { SpatialView } from "./spatial-view.js";
 
 export const schema: Schema = {
@@ -70,7 +70,7 @@ export const schema: Schema = {
   },
   camera: {
     type: { kind: "orbit" },
-    default: { target: [...SPATIAL_TARGET], distance: 3.1, azimuth: 0.85, elevation: 0.42 },
+    default: { target: [0.45, 0.5, 0.15], distance: 2.6, azimuth: 0.95, elevation: 0.3 },
     interpolate: "orbit",
     ownership: "viewer",
     label: "viewpoint on the arm in space",
@@ -200,7 +200,7 @@ export const scene: SceneModule = {
           state["show.family"] ? [0, 0.34, 0.67, 1].map((s) => solveSpatial(s)) : [],
         );
         const camera = state.camera as OrbitState;
-        spatial.setCamera(camera.azimuth, camera.elevation, camera.distance, SPATIAL_TARGET);
+        spatial.setCamera(camera.azimuth, camera.elevation, camera.distance, camera.target as [number, number, number]);
         spatial.render();
 
         slider.value = String(state.spread as number);
