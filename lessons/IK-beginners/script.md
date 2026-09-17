@@ -13,12 +13,15 @@ See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 5.2, over: 2.4s) changing the an
 
 The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
+@clear(board)
+@cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false)
 For serial robots, like ours, it can be obtained by modeling each joint position.
-For instance, motor 1 is at the base (0,0).
-But motor 2 position @cue(q1 -> 1.2, over: 2s) depends on motor 1 angle.
-And end-effector position on motor 2 position and angle.
+For instance, @board(p1: $p_1 = (0,\ 0)$) motor 1 is at the base (0,0).
+But motor 2 position @cue(q1 -> 1.2, over: 2s) @cue(label.angles = true) @cue(label.links = true) @board(p2: $p_2 = L_1(\cos q_1,\ \sin q_1)$) depends on motor 1 angle.
+And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_1{+}q_2))$) end-effector position on motor 2 position and angle.
 
-With this we have the full relation that gives angle to position.
+@clear(board)
+With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
 
 
 But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space, for instance, drawing a circle will give the following (x,y) equation : ..
