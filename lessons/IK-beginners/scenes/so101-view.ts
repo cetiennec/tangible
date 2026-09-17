@@ -24,14 +24,21 @@ interface Pivot {
   axis: THREE.Vector3;
 }
 
+interface Arm {
+  root: THREE.Object3D;
+  pivots: Map<string, Pivot>;
+}
+
 export class RobotView {
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(38, 1, 0.01, 50);
   private root = new THREE.Group();
-  private pivots = new Map<string, Pivot>();
+  private pair = new THREE.Group();
+  private arms: Arm[] = [];
   private meshes: THREE.BufferGeometry[] = [];
+  private materials: THREE.Material[] = [];
   private sized = "";
 
   constructor(private overlay: HTMLElement) {
@@ -48,12 +55,17 @@ export class RobotView {
     this.scene.add(key);
     // The description is Z-up; tip the whole robot so the view is Y-up.
     this.root.rotation.x = -Math.PI / 2;
+    this.root.add(this.pair);
     this.scene.add(this.root);
     overlay.append(this.canvas);
   }
 
-  /** Fetch the description and every mesh it names, then assemble the arm. */
-  async load(fetchImpl: typeof fetch = fetch): Promise<UrdfRobot> {
+  /**
+   * Fetch the description and every mesh it names, then assemble `count` arms.
+   * The geometries are loaded once and shared, so a second arm costs no extra
+   * download and almost no extra memory.
+   */
+  async load(count = 1, fetchImpl: typeof fetch = fetch): Promise<UrdfRobot> {
     const response = await fetchImpl(URDF_URL);
     if (!response.ok) throw new Error(`the robot description returned ${response.status}`);
     const robot = parseUrdf(await response.text());
@@ -70,17 +82,40 @@ export class RobotView {
       }),
     );
 
+    const shared = new Map<string, THREE.Material>();
+    for (let index = 0; index < count; index += 1) {
+      this.arms.push(this.assemble(robot, geometries, shared));
+    }
+    for (const arm of this.arms) {
+      for (const joint of movingJoints(robot)) this.setJoint(joint.name, 0, this.arms.indexOf(arm));
+    }
+    return robot;
+  }
+
+  private assemble(
+    robot: UrdfRobot,
+    geometries: Map<string, THREE.BufferGeometry>,
+    shared: Map<string, THREE.Material>,
+  ): Arm {
     const objects = new Map<string, THREE.Object3D>();
     for (const link of robot.links) {
       const group = new THREE.Group();
       for (const visual of link.visuals) {
         const geometry = geometries.get(visual.mesh);
         if (!geometry) continue;
-        const rgb = robot.materials[visual.material ?? ""] ?? [0.72, 0.74, 0.76];
-        const mesh = new THREE.Mesh(
-          geometry,
-          new THREE.MeshStandardMaterial({ color: new THREE.Color(...rgb), roughness: 0.62, metalness: 0.08 }),
-        );
+        const key = visual.material ?? "default";
+        let material = shared.get(key);
+        if (!material) {
+          const rgb = robot.materials[key] ?? [0.72, 0.74, 0.76];
+          material = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(...rgb),
+            roughness: 0.62,
+            metalness: 0.08,
+          });
+          shared.set(key, material);
+          this.materials.push(material);
+        }
+        const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(...visual.xyz);
         mesh.quaternion.copy(rpyQuaternion(visual.rpy));
         group.add(mesh);
@@ -88,6 +123,7 @@ export class RobotView {
       objects.set(link.name, group);
     }
 
+    const pivots = new Map<string, Pivot>();
     for (const joint of robot.joints) {
       const parent = objects.get(joint.parent);
       const child = objects.get(joint.child);
@@ -99,25 +135,40 @@ export class RobotView {
       pivot.add(child);
       parent.add(pivot);
       if (joint.type !== "fixed") {
-        this.pivots.set(joint.name, { object: pivot, fixed, axis: new THREE.Vector3(...joint.axis).normalize() });
+        pivots.set(joint.name, { object: pivot, fixed, axis: new THREE.Vector3(...joint.axis).normalize() });
       }
     }
 
+    const root = new THREE.Group();
     const base = objects.get(robot.root);
-    if (base) this.root.add(base);
-    for (const joint of movingJoints(robot)) this.setJoint(joint.name, 0);
-    return robot;
+    if (base) root.add(base);
+    this.pair.add(root);
+    return { root, pivots };
   }
 
-  setJoint(name: string, angle: number): void {
-    const pivot = this.pivots.get(name);
+  setJoint(name: string, angle: number, arm = 0): void {
+    const pivot = this.arms[arm]?.pivots.get(name);
     if (!pivot) return;
     pivot.object.quaternion
       .copy(pivot.fixed)
       .multiply(new THREE.Quaternion().setFromAxisAngle(pivot.axis, angle));
   }
 
-  /** Place the camera on an orbit around the arm. */
+  /** Stand the arms side by side, or hide all but the first. */
+  arrange(showSecond: boolean, gap: number): void {
+    const [first, second] = this.arms;
+    if (first) first.root.position.x = showSecond ? gap / 2 : 0;
+    if (second) {
+      second.root.position.x = -gap / 2;
+      second.root.visible = showSecond;
+    }
+  }
+
+  get armCount(): number {
+    return this.arms.length;
+  }
+
+  /** Place the camera on an orbit around the arms. */
   setCamera(azimuth: number, elevation: number, distance: number): void {
     const target = new THREE.Vector3(0, 0.12, 0);
     this.camera.position.set(
@@ -149,10 +200,7 @@ export class RobotView {
 
   dispose(): void {
     for (const geometry of this.meshes) geometry.dispose();
-    this.scene.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (mesh.material) (mesh.material as THREE.Material).dispose();
-    });
+    for (const material of this.materials) material.dispose();
     this.renderer.dispose();
     this.canvas.remove();
     void this.overlay;

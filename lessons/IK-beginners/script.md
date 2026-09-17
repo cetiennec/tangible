@@ -97,6 +97,8 @@ This actually depends on the teleoperator. Here is the SO-101 follower arm.
 If we use the phone as teleoperator, then we need IK.
 
 @cue(teleop = leader)
+@cue(show.leader = true)
+@camera(distance: 1.05, over: 2s)
 @cue(pan -> -0.6, over: 3s) @cue(lift -> -1.0, over: 3s) @cue(elbow -> 1.5, over: 3s) @cue(wristRoll -> 1.1, over: 3s)
 But if we use another arm, let's say the SO-101 leader, the follower just has to copy-paste the joint angles directly, we say that planning is made in the joint space.
 

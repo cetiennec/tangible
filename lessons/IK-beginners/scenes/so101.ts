@@ -32,6 +32,13 @@ export const schema: Schema = {
     ]),
   ),
   camera: { type: { kind: "orbit" }, default: HOME, interpolate: "orbit", ownership: "viewer", label: "viewpoint on the arm" },
+  "show.leader": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "stand a second arm beside the first, driven by the same joint angles",
+  },
   teleop: {
     type: { kind: "enum", values: ["none", "phone", "leader"] },
     default: "none",
@@ -66,6 +73,10 @@ export const scene: SceneModule = {
         <h1>An SO-101, six joints in three dimensions</h1>
       </header>
       <p class="so101-status">Loading the SO-101 model…</p>
+      <div class="so101-names" hidden>
+        <span class="so101-name so101-name-leader">leader</span>
+        <span class="so101-name so101-name-follower">follower</span>
+      </div>
       <aside class="so101-note" hidden>
         <p class="so101-note-title"></p>
         <p class="so101-note-body"></p>
@@ -85,12 +96,13 @@ export const scene: SceneModule = {
     const note = root.querySelector<HTMLElement>(".so101-note")!;
     const noteTitle = root.querySelector<HTMLElement>(".so101-note-title")!;
     const noteBody = root.querySelector<HTMLElement>(".so101-note-body")!;
+    const names = root.querySelector<HTMLElement>(".so101-names")!;
 
     const view = new RobotView(ctx.overlay);
     let ready = false;
     let failed = false;
     view
-      .load()
+      .load(2)
       .then(() => {
         ready = true;
         status.hidden = true;
@@ -111,14 +123,22 @@ export const scene: SceneModule = {
       render(state: Readonly<PlainState>) {
         const size = ctx.size();
         view.place(box(), size);
+        const pair = state["show.leader"] as boolean;
         if (ready) {
-          for (const entry of JOINTS) view.setJoint(entry.joint, state[entry.param] as number);
+          // Both arms are driven by the same numbers: that is the whole point of
+          // the sentence this scene illustrates.
+          for (const entry of JOINTS) {
+            const angle = state[entry.param] as number;
+            for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
+          }
+          view.arrange(pair, 0.46);
           const camera = state.camera as OrbitState;
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
           view.render();
         } else if (!failed) {
           status.hidden = false;
         }
+        names.hidden = !pair || !ready;
 
         const chosen = NOTES[String(state.teleop)];
         note.hidden = !chosen;
@@ -150,6 +170,10 @@ const STYLE = `
 .so101-note { position: absolute; right: 3%; top: 32%; width: 28%; padding: 14px 16px; border-left: 4px solid var(--accent, ${LINK1}); border-radius: 0 8px 8px 0; background: rgba(255, 255, 255, .92); }
 .so101-note-title { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--accent, ${LINK1}); }
 .so101-note-body { margin: 0; font-size: 13px; line-height: 1.45; color: ${INK}; }
+.so101-names { position: absolute; left: 3%; top: 76%; width: 62%; display: flex; justify-content: space-around; pointer-events: none; }
+.so101-name { padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.85); font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.so101-name-leader { color: ${LINK1}; }
+.so101-name-follower { color: ${TIP}; }
 .so101-credit { position: absolute; left: 3%; bottom: 58px; margin: 0; font-size: 11px; color: ${MUTED}; }
 .so101-credit a { color: ${MUTED}; }
 .so101-player .xv-board { top: 4%; right: 3%; width: 30%; height: 20%; padding: 0; font-size: 15px; }
