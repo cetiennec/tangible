@@ -55,6 +55,10 @@ import type { PlainState, Schema } from "@tangible/core";
 import type { SceneContext, SceneModule } from "@tangible/player";
 import { INK, LINK1, LINK2, MUTED, TIP } from "./controls.js";
 import { TAU } from "./kinematics.js";
+import { orbitHandle } from "@tangible/ingredients";
+import type { OrbitState } from "@tangible/core";
+import { solveSpatial, TARGET as SPATIAL_TARGET } from "./spatial.js";
+import { SpatialView } from "./spatial-view.js";
 
 export const schema: Schema = {
   spread: {
@@ -63,6 +67,13 @@ export const schema: Schema = {
     interpolate: "lerp",
     ownership: "script",
     label: "which member of the family of solutions is shown",
+  },
+  camera: {
+    type: { kind: "orbit" },
+    default: { target: [...SPATIAL_TARGET], distance: 3.1, azimuth: 0.85, elevation: 0.42 },
+    interpolate: "orbit",
+    ownership: "viewer",
+    label: "viewpoint on the arm in space",
   },
   "show.family": {
     type: { kind: "boolean" },
@@ -77,8 +88,8 @@ const GHOSTS = 7;
 
 function plot(ctx: SceneContext) {
   const { width, height, canvasScale } = ctx.size();
-  const [left, right] = [width * 0.04, width * 0.64];
-  const [top, bottom] = [height * 0.18, height - 96];
+  const [left, right] = [width * 0.02, width * 0.34];
+  const [top, bottom] = [height * 0.2, height - 96];
   const span = LINKS.l1 + LINKS.l2 + LINKS.l3;
   return {
     cx: (left + right) / 2,
@@ -99,14 +110,16 @@ export const scene: SceneModule = {
     root.className = "red-scene";
     root.innerHTML = `
       <header>
-        <p class="red-kicker">3 DOF, 2 coordinates</p>
+        <p class="red-kicker">Spare joints</p>
         <h1>One point, endlessly many ways to reach it</h1>
       </header>
+      <p class="red-caption red-caption-flat">3 joints, in a plane</p>
+      <p class="red-caption red-caption-space">5 joints, in space</p>
       <div class="red-panel">
         <label class="red-label" for="red-spread">Flex the arm</label>
         <input id="red-spread" type="range" min="0" max="1" step="0.001"
           aria-label="Move through the family of solutions that all reach the same point">
-        <p class="red-note">Every pose puts the tip on the same red point. With a spare joint the solutions form a continuous family, not a list.</p>
+        <p class="red-note">Both tips stay on their red point. Spare joints turn the solutions into a continuous family rather than a list, and the more spare joints, the wider that family. Drag the right-hand view to turn it.</p>
       </div>
     `;
     const style = document.createElement("style");
@@ -120,6 +133,11 @@ export const scene: SceneModule = {
     );
     ctx.overlay.append(style, root);
     const slider = root.querySelector("input")!;
+    const spatial = new SpatialView(ctx.overlay, { bone: LINK1, joint: INK, target: TIP }, 4);
+    const spatialBox = () => {
+      const { width, height } = ctx.size();
+      return { left: width * 0.36, top: height * 0.2, width: width * 0.32, height: height - height * 0.2 - 96 };
+    };
     const onInput = () => ctx.write("spread", Number(slider.value));
     slider.addEventListener("input", onInput);
 
@@ -173,10 +191,38 @@ export const scene: SceneModule = {
         g.textAlign = "left";
         g.fillText("target", target.x + 15, target.y - 10);
 
+        // Both arms are driven by the same number, so they step through their
+        // families together.
+        const spread = state.spread as number;
+        spatial.place(spatialBox(), ctx.size());
+        spatial.setPoses(
+          solveSpatial(spread),
+          state["show.family"] ? [0, 0.34, 0.67, 1].map((s) => solveSpatial(s)) : [],
+        );
+        const camera = state.camera as OrbitState;
+        spatial.setCamera(camera.azimuth, camera.elevation, camera.distance, SPATIAL_TARGET);
+        spatial.render();
+
         slider.value = String(state.spread as number);
       },
-      handles: () => [],
+      handles: () => [
+        orbitHandle({
+          speed: 0.006,
+          minElevation: -0.3,
+          maxElevation: 1.3,
+          zoomSpeed: 0.004,
+          minDistance: 1.8,
+          maxDistance: 5,
+          // Dragging turns the spatial arm only; the flat one keeps its slider.
+          hitTest(px, _py) {
+            const box = spatialBox();
+            const at = px / ctx.size().canvasScale;
+            return at >= box.left && at <= box.left + box.width;
+          },
+        }),
+      ],
       dispose() {
+        spatial.dispose();
         slider.removeEventListener("input", onInput);
         root.remove();
         style.remove();
@@ -197,6 +243,9 @@ const STYLE = `
 .red-panel input { display: block; box-sizing: border-box; width: 100%; height: 44px; margin: 2px 0 8px; accent-color: ${LINK1}; cursor: pointer; }
 .red-panel input:focus-visible { outline: 3px solid ${TIP}; outline-offset: 2px; }
 .red-note { margin: 0; font-size: 12px; line-height: 1.45; color: ${MUTED}; }
+.red-caption { position: absolute; bottom: 74px; margin: 0; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: ${MUTED}; }
+.red-caption-flat { left: 2%; width: 32%; }
+.red-caption-space { left: 36%; width: 32%; }
 .red-player .xv-board { top: 4%; right: 3%; width: 28%; height: 20%; padding: 0; font-size: 15px; }
 .red-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
