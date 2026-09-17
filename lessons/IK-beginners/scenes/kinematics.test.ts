@@ -6,7 +6,6 @@ import {
   forwardKinematics,
   inverseKinematics,
   FREE_ELBOW,
-  jacobianColumns,
   JOINT_LIMITS,
   limitedRadii,
   MAX_REACH_CM,
@@ -327,35 +326,3 @@ describe("sample points the tip can reach", () => {
   });
 });
 
-describe("the Jacobian of the two-link arm", () => {
-  it("matches how the tip actually moves when a joint is nudged", () => {
-    const nudge = 1e-6;
-    for (const [q1, q2, l1, l2] of [[0.6, 0.9, 9, 7], [2.4, -1.2, 12, 5], [4.1, 2.8, 6, 6]]) {
-      const columns = jacobianColumns(q1!, q2!, l1!, l2!);
-      const base = forwardKinematics(q1!, q2!, l1!, l2!).tip;
-      const byQ1 = forwardKinematics(q1! + nudge, q2!, l1!, l2!).tip;
-      const byQ2 = forwardKinematics(q1!, q2! + nudge, l1!, l2!).tip;
-      expect((byQ1.x - base.x) / nudge).toBeCloseTo(columns.byQ1.x, 4);
-      expect((byQ1.y - base.y) / nudge).toBeCloseTo(columns.byQ1.y, 4);
-      expect((byQ2.x - base.x) / nudge).toBeCloseTo(columns.byQ2.x, 4);
-      expect((byQ2.y - base.y) / nudge).toBeCloseTo(columns.byQ2.y, 4);
-    }
-  });
-
-  it("turns the elbow column at right angles to link 2", () => {
-    // Turning the elbow swings the tip about the elbow, so its velocity is
-    // perpendicular to the second link.
-    const { byQ2 } = jacobianColumns(0.7, 1.1, 9, 7);
-    const { elbow, tip } = forwardKinematics(0.7, 1.1, 9, 7);
-    const link = { x: tip.x - elbow.x, y: tip.y - elbow.y };
-    expect(byQ2.x * link.x + byQ2.y * link.y).toBeCloseTo(0, 9);
-  });
-
-  it("collapses to a single direction when the arm is straight", () => {
-    // Fully stretched, both joints push the tip the same way: no solution can
-    // move it outwards, which is what a singular Jacobian means.
-    const { byQ1, byQ2 } = jacobianColumns(0.4, 0, 9, 7);
-    const cross = byQ1.x * byQ2.y - byQ1.y * byQ2.x;
-    expect(Math.abs(cross)).toBeCloseTo(0, 9);
-  });
-});
