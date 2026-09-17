@@ -38,7 +38,48 @@ const KEYS: Key[] = [
 export const GRASP_AT = 0.34;
 export const RELEASE_AT = 0.86;
 
-const ease = (t: number) => t * t * (3 - 2 * t);
+/**
+ * Slopes for a shape-preserving cubic. Easing each segment on its own brought
+ * the arm to a halt at every keyframe, which read as a stutter; this carries
+ * speed through them. It is monotone, so a joint never overshoots a key and
+ * flat runs stay exactly flat, which the grasp depends on.
+ */
+function slopes(times: number[], values: number[]): number[] {
+  const n = values.length;
+  const gaps = times.slice(1).map((t, i) => t - times[i]!);
+  const deltas = values.slice(1).map((v, i) => (v - values[i]!) / gaps[i]!);
+  const out = new Array<number>(n).fill(0);
+  out[0] = deltas[0] ?? 0;
+  out[n - 1] = deltas[n - 2] ?? 0;
+  for (let i = 1; i < n - 1; i += 1) {
+    const before = deltas[i - 1]!;
+    const after = deltas[i]!;
+    // A turning point, or a flat run, gets a flat slope: no overshoot.
+    if (before * after <= 0) {
+      out[i] = 0;
+      continue;
+    }
+    const w1 = 2 * gaps[i]! + gaps[i - 1]!;
+    const w2 = gaps[i]! + 2 * gaps[i - 1]!;
+    out[i] = (w1 + w2) / (w1 / before + w2 / after);
+  }
+  return out;
+}
+
+/** Hermite piece between two keys, given the slopes at each end. */
+function hermite(t: number, t0: number, t1: number, v0: number, v1: number, m0: number, m1: number): number {
+  const h = t1 - t0;
+  if (h <= 0) return v1;
+  const u = (t - t0) / h;
+  const u2 = u * u;
+  const u3 = u2 * u;
+  return (
+    (2 * u3 - 3 * u2 + 1) * v0 + (u3 - 2 * u2 + u) * h * m0 + (-2 * u3 + 3 * u2) * v1 + (u3 - u2) * h * m1
+  );
+}
+
+const TIMES = KEYS.map((key) => key.at);
+const SLOPES = [0, 1, 2, 3, 4, 5].map((i) => slopes(TIMES, KEYS.map((key) => key.pose[i]!)));
 
 /** The arms' pose at a point in the task, with both arms sharing it. */
 export function taskFrame(progress: number): TaskFrame {
@@ -52,9 +93,10 @@ export function taskFrame(progress: number): TaskFrame {
       break;
     }
   }
-  const span = after.at - before.at;
-  const blend = span <= 0 ? 0 : ease((t - before.at) / span);
-  const at = (i: number) => before.pose[i]! + (after.pose[i]! - before.pose[i]!) * blend;
+  const lower = KEYS.indexOf(before);
+  const upper = KEYS.indexOf(after);
+  const at = (i: number) =>
+    hermite(t, before.at, after.at, before.pose[i]!, after.pose[i]!, SLOPES[i]![lower]!, SLOPES[i]![upper]!);
   return {
     pan: at(0),
     lift: at(1),

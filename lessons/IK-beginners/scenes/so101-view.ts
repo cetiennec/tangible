@@ -51,6 +51,7 @@ export class RobotView {
   private sharedMaterials = new Map<string, THREE.Material>();
   private materials: THREE.Material[] = [];
   private sized = "";
+  private angleArcs: THREE.Line[] = [];
   private brick?: THREE.Group;
 
   constructor(private overlay: HTMLElement) {
@@ -196,6 +197,60 @@ export class RobotView {
   }
 
   /** Place the camera on an orbit around the arms. */
+  /**
+   * Draw the bend at two joints, as an arc between the link coming in and the
+   * link going out. These are the angles teleoperation copies across.
+   */
+  showJointAngles(arm: number, visible: boolean, color: string): void {
+    if (visible && this.angleArcs.length === 0) {
+      const material = new THREE.LineBasicMaterial({ color: new THREE.Color(color) });
+      this.materials.push(material);
+      for (let i = 0; i < 2; i += 1) {
+        const geometry = new THREE.BufferGeometry();
+        this.meshes.push(geometry);
+        const arc = new THREE.Line(geometry, material);
+        this.angleArcs.push(arc);
+        this.scene.add(arc);
+      }
+    }
+    for (const arc of this.angleArcs) arc.visible = visible;
+    if (!visible) return;
+
+    const at = (name: string) => {
+      const link = this.arms[arm]?.links.get(name);
+      if (!link) return undefined;
+      link.updateWorldMatrix(true, false);
+      return link.getWorldPosition(new THREE.Vector3());
+    };
+    const chain: [string, string, string][] = [
+      ["shoulder_link", "upper_arm_link", "lower_arm_link"],
+      ["upper_arm_link", "lower_arm_link", "wrist_link"],
+    ];
+    for (const [index, [before, corner, after]] of chain.entries()) {
+      const a = at(before);
+      const b = at(corner);
+      const c = at(after);
+      const line = this.angleArcs[index];
+      if (!a || !b || !c || !line) continue;
+      const first = a.clone().sub(b);
+      const second = c.clone().sub(b);
+      const radius = Math.min(first.length(), second.length()) * 0.42;
+      if (radius < 1e-4) continue;
+      first.normalize();
+      second.normalize();
+      const total = first.angleTo(second);
+      const axis = new THREE.Vector3().crossVectors(first, second);
+      if (axis.lengthSq() < 1e-9) continue;
+      axis.normalize();
+      const points: THREE.Vector3[] = [];
+      for (let step = 0; step <= 24; step += 1) {
+        const spoke = first.clone().applyAxisAngle(axis, (total * step) / 24).multiplyScalar(radius);
+        points.push(b.clone().add(spoke));
+      }
+      line.geometry.setFromPoints(points);
+    }
+  }
+
   /** A brick for the pair to move between two spots. */
   setBrick(at: [number, number, number] | undefined, color: string): void {
     if (at && !this.brick) {
@@ -271,6 +326,7 @@ export class RobotView {
     for (const geometry of this.meshes) geometry.dispose();
     for (const material of this.materials) material.dispose();
     this.brick = undefined;
+    this.angleArcs = [];
     this.renderer.dispose();
     this.canvas.remove();
     void this.overlay;

@@ -38,6 +38,21 @@ describe("the scripted pick and place", () => {
     }
   });
 
+  it("carries its speed through the keyframes instead of stopping at each one", () => {
+    const speed = (t: number) => {
+      const a = taskFrame(Math.max(0, t - 0.002));
+      const b = taskFrame(Math.min(1, t + 0.002));
+      return (["pan", "lift", "elbow", "wristFlex"] as const).reduce((sum, k) => sum + Math.abs(b[k] - a[k]), 0) / 0.004;
+    };
+    // Mid-descent and mid-swing the arm should still be moving. Easing every
+    // segment on its own brought it to a halt here, which read as a stutter.
+    expect(speed(0.16)).toBeGreaterThan(1);
+    expect(speed(0.55)).toBeGreaterThan(1);
+    // At the grasp and the release it should be still, so the brick is not knocked.
+    expect(speed(0.3)).toBeLessThan(0.5);
+    expect(speed(0.82)).toBeLessThan(0.5);
+  });
+
   it("stays inside the joint ranges the SO-101 declares", () => {
     const limits = { pan: 1.91986, lift: 1.74533, elbow: 1.69, wristFlex: 1.65806, wristRoll: 2.74385 };
     for (let i = 0; i <= 100; i += 1) {

@@ -115,6 +115,10 @@ If we use the phone as teleoperator, then we need IK.
 @cue(pan -> -0.6, over: 3s) @cue(lift -> -1.0, over: 3s) @cue(elbow -> 1.5, over: 3s) @cue(wristRoll -> 1.1, over: 3s)
 But if we use another arm, let's say the SO-101 leader, the follower just has to copy-paste the joint angles directly, we say that planning is made in the joint space.
 
+@cue(show.angles = true)
+Every angle is mimicked, one for one, and since both arms are the same shape, anything the leader can hold the follower can hold too.
+
+@cue(show.angles = false)
 @cue(show.task = true)
 @cue(task -> 1, over: 13s)
 This is also how a dataset gets recorded. A person teleoperates the arms through a task, again and again, and every run is kept.

@@ -50,6 +50,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "let the pair run the task, with a brick on the table",
   },
+  "show.angles": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "draw the bend at two joints, the angles teleoperation copies",
+  },
   "show.leader": {
     type: { kind: "boolean" },
     default: false,
@@ -197,6 +204,7 @@ export const scene: SceneModule = {
             const angle = frame ? frame[TASK_JOINTS[index]!] : (state[entry.param] as number);
             for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
           }
+          view.showJointAngles(0, state["show.angles"] as boolean, TIP);
           if (!running) view.setBrick(undefined, TIP);
           else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
           else view.setBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, TIP);
