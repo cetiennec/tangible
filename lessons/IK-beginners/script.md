@@ -5,14 +5,15 @@ Today we will discuss Forward and Inverse Kinematics on robots, which is the art
 
 @pause(prompt: "Turn both joints and watch where the tip goes.")
 
-First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(label.motors = true) motors that can move the @cue(label.angles = true) angles q1 and q2, it is thus said to be 2 @cue(label.dof = true) degrees of freedom or 2 DOF.
+First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(label.motors = true) motors that can move the @cue(label.angles = true) angles q1 and q2, it is thus said to be 2 @cue(label.dof = true) @board(kwDof: "2 degrees of freedom (DOF)") degrees of freedom or 2 DOF.
 
-The tip of the robot is called the @cue(label.tip = true) end-effector.
+The tip of the robot is called the @cue(label.tip = true) @board(kwEnd: "end-effector") end-effector.
 
 See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
+@clear(board)
 This means that there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and centimeters.
 
-The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
+The relation between angles and end-effector position is called the @board(kwFk: "Forward Kinematics (FK)") @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
 @clear(board)
 @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false)
@@ -31,7 +32,7 @@ But this does not tell us what motor action we should apply to the robot to make
 
 This is where the inverse kinematics (or IK) problem comes in.
 @clear(board)
-IK is @board(ik: $\theta = f^{-1}(x)$) the inverse relationship of FK.
+IK is @board(kwIk: "Inverse Kinematics (IK)") @board(ik: $\theta = f^{-1}(x)$) the inverse relationship of FK.
 
 @cue(show.circle = false)
 And this does not always have a unique solution or even a solution.
@@ -42,7 +43,7 @@ Pause and think a bit about cases where the number of solutions could be 0?
 
 For our 2 DOF robot, we either have 0 or 2 solutions.
 
-We have @cue(show.unreachable = true) 0 solutions outside of the @cue(show.workspace = true) reachable space, which is all the points that the end-effector can reach.
+We have @cue(show.unreachable = true) 0 solutions outside of the @cue(show.workspace = true) @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach.
 
 @cue(show.unreachable = false)
 Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length of the links. Pause and play with the link lengths to see how the reachable space evolve.
@@ -61,7 +62,7 @@ Yeah, this is actually @cue(l1 -> 12, over: 2s) @cue(l2 -> 12, over: 2s) L1=L2, 
 Look at your arms, this is actually a feature human arms have.
 
 @cue(show.areaSurface = false) @cue(show.human = false)
-This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) joint limits. The reachable space is no longer a ring here.
+This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
 
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
 
@@ -83,7 +84,7 @@ In the 2 DOF example, one can invert the equations of the FK with a bit of maths
 The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of the acos function.
 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
-the best known is Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
+the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
 @clear(board)
 OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!

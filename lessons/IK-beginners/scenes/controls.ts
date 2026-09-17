@@ -221,6 +221,12 @@ const STYLE = `
 .ik-upper-label { fill: ${LINK1}; }
 .ik-fore-label { fill: ${LINK2}; }
 .ik-human figcaption { margin-top: 6px; font-size: 12px; line-height: 1.4; text-align: center; color: ${MUTED}; }
+/* Vocabulary the narration introduces, shown as a chip above its maths. */
+.ik-player .xv-board-inner { gap: 8px; }
+.ik-player .xv-board-item[data-id^="kw"] {
+  padding: 7px 11px; border-left: 4px solid ${TIP}; border-radius: 0 8px 8px 0;
+  background: rgba(255, 255, 255, .92); font: 700 14px system-ui, sans-serif; color: ${INK};
+}
 .ik-player .xv-board { top: 3%; right: 3%; width: 30%; height: 21%; padding: 0; font-size: 15px; }
 .ik-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
@@ -239,6 +245,12 @@ const STYLE = `
 .ik-upper-label { fill: ${LINK1}; }
 .ik-fore-label { fill: ${LINK2}; }
 .ik-human figcaption { margin-top: 6px; font-size: 12px; line-height: 1.4; text-align: center; color: ${MUTED}; }
+/* Vocabulary the narration introduces, shown as a chip above its maths. */
+.ik-player .xv-board-inner { gap: 8px; }
+.ik-player .xv-board-item[data-id^="kw"] {
+  padding: 7px 11px; border-left: 4px solid ${TIP}; border-radius: 0 8px 8px 0;
+  background: rgba(255, 255, 255, .92); font: 700 14px system-ui, sans-serif; color: ${INK};
+}
 .ik-player .xv-board { font-size: 12px; }
 }
 `;
