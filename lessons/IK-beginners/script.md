@@ -3,8 +3,6 @@
 @cue(label.motors = false) @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false) @cue(label.dof = false)
 Today we will discuss Forward and Inverse Kinematics on robots, which is the art of switching between the joint and the Cartesian space. You'll be able to play with the simulation while I speak and pause to ask questions.
 
-@pause(prompt: "Turn both joints and watch where the tip goes.")
-
 First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(label.motors = true) motors that can move the @cue(label.angles = true) angles q1 and q2, it is thus said to be 2 @cue(label.dof = true) @board(kwDof: "2 degrees of freedom (DOF)") degrees of freedom or 2 DOF.
 
 The tip of the robot is called the @cue(label.tip = true) @board(kwEnd: "end-effector") end-effector.
@@ -13,9 +11,12 @@ See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the
 @clear(board)
 This means that there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and centimeters.
 
-The relation between angles and end-effector position is called the @board(kwFk: "Forward Kinematics (FK)") @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
+@pause(prompt: "Turn q1 and q2, and watch the end-effector move.", speak: false)
+
+The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
 @clear(board)
+@board(kwFk: "Forward Kinematics (FK)")
 @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false)
 For serial robots, like ours, it can be obtained by modeling each joint position.
 For instance, @board(p1: $p_1 = (0,\ 0)$) motor 1 is at the base (0,0).
@@ -41,6 +42,7 @@ Pause and think a bit about cases where the number of solutions could be 0?
 
 @pause(prompt: "When can the arm not reach a point at all?", speak: false)
 
+@clear(kwIk)
 For our 2 DOF robot, we either have 0 or 2 solutions.
 
 We have @cue(show.unreachable = true) 0 solutions outside of the @cue(show.workspace = true) @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach.
@@ -50,6 +52,7 @@ Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length o
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 
+@clear(kwReach)
 Of course, the larger the links the bigger the area. But there is a relationship between L1 and L2 that allows the robot to reach both close and farther places.
 What value of L2 would let the robot reach closest to itself, according to you?
 
@@ -64,6 +67,7 @@ Look at your arms, this is actually a feature human arms have.
 @cue(show.areaSurface = false) @cue(show.human = false)
 This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
 
+@clear(kwLimits)
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)
