@@ -177,6 +177,8 @@ export const scene: SceneModule = {
             const angle = frame ? frame[TASK_JOINTS[index]!] : (state[entry.param] as number);
             for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
           }
+          // The leader is held by a person, so it carries a handle, not jaws.
+          view.setHandle(1, pair, MUTED);
           if (!running) view.setBrick(undefined, TIP);
           else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
           else view.setBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, TIP);
