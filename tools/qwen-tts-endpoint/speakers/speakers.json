@@ -1,0 +1,6 @@
+{
+  "default": {
+    "ref_audio": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-TTS-Repo/clone.wav",
+    "ref_text": "Okay. Yeah. I resent you. I love you. I respect you."
+  }
+}
