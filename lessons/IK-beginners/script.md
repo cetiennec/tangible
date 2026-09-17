@@ -105,8 +105,10 @@ If we use the phone as teleoperator, then we need IK.
 @cue(pan -> -0.6, over: 3s) @cue(lift -> -1.0, over: 3s) @cue(elbow -> 1.5, over: 3s) @cue(wristRoll -> 1.1, over: 3s)
 But if we use another arm, let's say the SO-101 leader, the follower just has to copy-paste the joint angles directly, we say that planning is made in the joint space.
 
-Classical robotics has focused on planning in the Cartesian space, but most of the recent Vision Language Action models, core of the imitation learning for vision, directly output joint goal positions.
+@clear(board)
+@board(later: "Coming in a later series")
+Classical robotics has focused on planning in the Cartesian space, but most of the recent @board(t1: "Vision Language Action models") Vision Language Action models, core of the @board(t2: "Imitation learning") imitation learning for vision, directly output joint goal positions.
 
 Will this be transferable to every robot?
 
-Most of them use an action expert separately from the VLA itself, which can be fine-tuned on any robot.
+Most of them use an @board(t3: "Action experts") action expert separately from the VLA itself, which can be fine-tuned on any robot.

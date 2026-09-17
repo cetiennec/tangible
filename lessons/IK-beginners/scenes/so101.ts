@@ -188,7 +188,17 @@ const STYLE = `
 .so101-name-follower { color: ${TIP}; }
 .so101-credit { position: absolute; left: 3%; bottom: 58px; margin: 0; font-size: 11px; color: ${MUTED}; }
 .so101-credit a { color: ${MUTED}; }
-.so101-player .xv-board { top: 4%; right: 3%; width: 30%; height: 20%; padding: 0; font-size: 15px; }
+.so101-player .xv-board { top: 4%; right: 3%; width: 30%; height: 34%; padding: 0; font-size: 15px; }
+/* The closing names topics this lesson does not cover; they are shown as
+   labelled blocks under a heading rather than passed over in speech. */
+.so101-player .xv-board-inner { gap: 7px; }
+.so101-player .xv-board-item[data-id="later"] { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: ${MUTED}; }
+.so101-player .xv-board-item[data-id="t1"],
+.so101-player .xv-board-item[data-id="t2"],
+.so101-player .xv-board-item[data-id="t3"] {
+  padding: 8px 12px; border-left: 3px solid ${LINK1}; border-radius: 0 7px 7px 0;
+  background: rgba(255, 255, 255, .9); font-size: 14px; font-weight: 600; color: ${INK};
+}
 .so101-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
   .so101-scene h1 { font-size: 15px; }

@@ -51,8 +51,8 @@ export function armControls(ctx: SceneContext) {
   root.className = "ik-scene";
   root.innerHTML = `
     <header>
-      <p class="ik-kicker">2 DOF planar arm</p>
-      <h1>Joint angles and end-effector position</h1>
+      <p class="ik-kicker">Planar robot arm</p>
+      <h1>Joint angles and where the tip reaches</h1>
       <p class="ik-lede">Drag the elbow to turn link 1. Drag the end-effector and both angles solve themselves.</p>
     </header>
     <div class="ik-panel">
@@ -78,6 +78,7 @@ export function armControls(ctx: SceneContext) {
   const values = new Map(ALL_SLIDERS.map((spec) => [spec.param, root.querySelector<HTMLElement>(`[data-value="${spec.param}"]`)!]));
   const workspaceButton = root.querySelector<HTMLButtonElement>(`button[data-param="show.workspace"]`)!;
   const flipButton = root.querySelector<HTMLButtonElement>(`button[data-action="flip-elbow"]`)!;
+  const kicker = root.querySelector<HTMLElement>(".ik-kicker")!;
 
   let current: Readonly<PlainState> = {};
 
@@ -117,6 +118,9 @@ export function armControls(ctx: SceneContext) {
       workspaceButton.classList.toggle("ik-active", Boolean(activity["show.workspace"]));
       flipButton.textContent =
         elbowBranch(state.q2 as number) === "up" ? "Flip to elbow-down" : "Flip to elbow-up";
+      // The heading must not announce the degrees of freedom before the
+      // narration gets there.
+      kicker.textContent = state["label.dof"] ? "2 DOF planar arm" : "Planar robot arm";
     },
     dispose() {
       for (const input of sliders.values()) input.removeEventListener("input", onSlider);
