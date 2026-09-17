@@ -19,21 +19,53 @@ The provider measures each segment's length from the WAV byte count, so the
 audio must be uncompressed 16-bit PCM. `app.py` converts the model's float
 output accordingly; nothing else will be accepted.
 
-## Adding your voice
+## Two checkpoints, two jobs
 
-`speakers/speakers.json` maps a speaker name to a reference clip and its
-transcript. Add your own:
+Qwen ships separate checkpoints and each one refuses the other's method, so the
+checkpoint you load decides what the endpoint can do.
+
+| checkpoint | method | what it does |
+|---|---|---|
+| `…-1.7B-CustomVoice` | `generate_custom_voice` | speaks in one of nine built-in timbres |
+| `…-1.7B-Base` | `generate_voice_clone` | imitates a three-second recording |
+| `…-1.7B-VoiceDesign` | `generate_voice_design` | invents a voice from a written description |
+
+`CustomVoice` is loaded by default, which is why narration can be built before
+anyone records anything. Its two English timbres are **Aiden**, described as a
+sunny American male voice with a clear midrange, and **Ryan**, described as a
+dynamic male voice with strong rhythmic drive. The rest are Chinese (Vivian,
+Serena, Uncle_Fu, Dylan, Eric), Japanese (Ono_Anna) and Korean (Sohee). Call
+`model.get_supported_speakers()` for the current list.
+
+## Choosing a voice
+
+`speakers/speakers.json` names the voices a lesson may ask for. An entry naming
+a `speaker` is a built-in timbre and needs the `CustomVoice` checkpoint; an
+entry naming `ref_audio` is a clone and needs `Base`. The app reads the entry
+and calls the matching method:
 
 ```json
 {
-  "default": { "ref_audio": "https://…/clone.wav", "ref_text": "…" },
+  "aiden": { "speaker": "Aiden" },
+  "ryan": { "speaker": "Ryan", "instruct": "Speak calmly, like a patient teacher." },
   "etienne": { "ref_audio": "speakers/etienne.wav", "ref_text": "Exactly what is said in the clip." }
 }
 ```
 
-Qwen3-TTS clones from roughly three seconds of clean speech. `ref_text` must
-match the recording word for word. Paths may be local files in this directory,
-URLs, or base64.
+The optional `instruct` field steers tone and pace in plain language, and only
+`CustomVoice` reads it. Ask for a voice by its key, through `voice:` in
+`lesson.yaml`.
+
+## Switching to your own voice later
+
+Record roughly three seconds of clean speech, add an entry with `ref_audio` and
+a `ref_text` matching the recording word for word, and set the Space variable
+`QWEN_TTS_MODEL` to `Qwen/Qwen3-TTS-12Hz-1.7B-Base`. Paths may be local files in
+this directory, URLs, or base64. Nothing else changes.
+
+Asking for a clone while `CustomVoice` is loaded, or a built-in timbre while
+`Base` is loaded, returns **409** naming the checkpoint you need rather than an
+unexplained failure.
 
 ## Build and push
 
@@ -122,7 +154,7 @@ credentials and must never reach a release artifact.
 |---|---|---|
 | `QWEN_TTS_MODEL` | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` | the checkpoint to load |
 | `QWEN_TTS_ATTENTION` | `sdpa` | set to `flash_attention_2` if the image has it built |
-| `QWEN_TTS_SPEAKER` | `default` | used when a request names no speaker |
+| `QWEN_TTS_SPEAKER` | `aiden` | used when a request names no speaker |
 | `QWEN_TTS_SPEAKERS` | `speakers/speakers.json` | where the voices are listed |
 
 The provider sends a different seed per segment and the same seeds on a rebuild,

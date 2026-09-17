@@ -17,7 +17,7 @@ defaults:
   transition: 1.0
 tts:
   provider: hf-endpoint
-  voice: default
+  voice: aiden
 deployment:
   provider: huggingface
   space: cetiennec/ik-beginners

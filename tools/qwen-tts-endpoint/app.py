@@ -32,7 +32,7 @@ MODEL_ID = os.environ.get(
 # Flash attention needs a long compile; scaled dot-product attention ships with
 # torch and is fast enough for building narration.
 ATTENTION = os.environ.get("QWEN_TTS_ATTENTION", "sdpa")
-DEFAULT_SPEAKER = os.environ.get("QWEN_TTS_SPEAKER", "default")
+DEFAULT_SPEAKER = os.environ.get("QWEN_TTS_SPEAKER", "aiden")
 SPEAKERS_FILE = Path(os.environ.get("QWEN_TTS_SPEAKERS", "speakers/speakers.json"))
 # A private Space is reached only through a signed browser URL, so it cannot be
 # called as an API. The Space is therefore public and the guarding happens here:
@@ -132,20 +132,39 @@ def generate(request: GenerateRequest, authorization: str | None = Header(defaul
     # so the same script produces the same narration twice running.
     torch.manual_seed(request.seed)
 
-    arguments = dict(
-        text=request.text,
-        language=request.language,
-        ref_audio=voice["ref_audio"],
-        ref_text=voice["ref_text"],
-    )
+    # The two checkpoints do different jobs and each rejects the other's method.
+    # CustomVoice speaks in one of nine built-in timbres; Base imitates a
+    # recording. A voice naming ref_audio wants Base, one naming a speaker wants
+    # CustomVoice, so the voice entry decides which call to make.
+    cloning = bool(voice.get("ref_audio"))
     with _lock:
         try:
-            wavs, sample_rate = model.generate_voice_clone(
-                **arguments, temperature=request.temperature, top_p=request.top_p
-            )
-        except TypeError:
-            # Older builds of qwen-tts do not take the sampling arguments.
-            wavs, sample_rate = model.generate_voice_clone(**arguments)
+            if cloning:
+                wavs, sample_rate = model.generate_voice_clone(
+                    text=request.text,
+                    language=request.language,
+                    ref_audio=voice["ref_audio"],
+                    ref_text=voice.get("ref_text", ""),
+                    temperature=request.temperature,
+                    top_p=request.top_p,
+                )
+            else:
+                wavs, sample_rate = model.generate_custom_voice(
+                    text=request.text,
+                    language=request.language,
+                    speaker=voice["speaker"],
+                    temperature=request.temperature,
+                    top_p=request.top_p,
+                    **({"instruct": voice["instruct"]} if voice.get("instruct") else {}),
+                )
+        except ValueError as exc:
+            # The model raises this when the checkpoint cannot do this kind of
+            # work, which otherwise surfaces as an unexplained 500.
+            wanted = "Base" if cloning else "CustomVoice"
+            raise HTTPException(
+                status_code=409,
+                detail=f"speaker {request.speaker!r} needs a {wanted} checkpoint, but {MODEL_ID} is loaded ({exc})",
+            ) from exc
 
     first = wavs[0] if isinstance(wavs, (list, tuple)) else wavs
     return Response(content=to_pcm_wav(first, int(sample_rate)), media_type="audio/wav")
