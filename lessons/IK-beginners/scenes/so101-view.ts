@@ -27,6 +27,7 @@ interface Pivot {
 interface Arm {
   root: THREE.Object3D;
   pivots: Map<string, Pivot>;
+  links: Map<string, THREE.Object3D>;
 }
 
 export class RobotView {
@@ -143,7 +144,7 @@ export class RobotView {
     const base = objects.get(robot.root);
     if (base) root.add(base);
     this.pair.add(root);
-    return { root, pivots };
+    return { root, pivots, links: objects };
   }
 
   setJoint(name: string, angle: number, arm = 0): void {
@@ -170,6 +171,12 @@ export class RobotView {
       second.root.position.set(-sideways.x, -sideways.y, 0);
       second.root.visible = showSecond;
     }
+  }
+
+  /** Hide a named link on one arm, for parts a given variant does not have. */
+  setLinkVisible(arm: number, link: string, visible: boolean): void {
+    const object = this.arms[arm]?.links.get(link);
+    if (object) object.visible = visible;
   }
 
   get armCount(): number {

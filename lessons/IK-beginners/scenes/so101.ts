@@ -112,6 +112,10 @@ export const scene: SceneModule = {
       .then(() => {
         ready = true;
         status.hidden = true;
+        // Only the follower carries gripper jaws. The leader is held by a
+        // person and ends in a handle, so its jaws are left off rather than
+        // showing a second follower and calling it a leader.
+        view.setLinkVisible(1, "moving_jaw_so101_v1_link", false);
       })
       .catch((error: unknown) => {
         failed = true;
