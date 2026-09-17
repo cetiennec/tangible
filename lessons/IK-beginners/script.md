@@ -108,6 +108,15 @@ If we use the phone as teleoperator, then we need IK.
 @cue(pan -> -0.6, over: 3s) @cue(lift -> -1.0, over: 3s) @cue(elbow -> 1.5, over: 3s) @cue(wristRoll -> 1.1, over: 3s)
 But if we use another arm, let's say the SO-101 leader, the follower just has to copy-paste the joint angles directly, we say that planning is made in the joint space.
 
+@cue(show.task = true)
+@cue(task -> 1, over: 13s)
+This is also how a dataset gets recorded. A person teleoperates the arms through a task, again and again, and every run is kept.
+
+Here the pair move a brick from one spot to another.
+
+Each demonstration is just a stream of joint angles over time, and that is what the robot learns from.
+
+@cue(show.task = false)
 @clear(board)
 @board(later: "Coming in a later series")
 Classical robotics has focused on planning in the Cartesian space, but most of the recent @board(t1: "Vision Language Action models") Vision Language Action models, core of the @board(t2: "Imitation learning") imitation learning for vision, directly output joint goal positions.

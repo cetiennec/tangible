@@ -3,6 +3,7 @@ import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
 import { INK, LINK1, MUTED, TIP } from "./controls.js";
 import { RobotView } from "./so101-view.js";
+import { GRASP_AT, RELEASE_AT, taskFrame, TASK_JOINTS } from "./task.js";
 
 const SOURCE = "https://huggingface.co/spaces/lerobot/visualize_dataset";
 // LeRobot's own mark, from the organisation that publishes the robot
@@ -35,6 +36,20 @@ export const schema: Schema = {
     ]),
   ),
   camera: { type: { kind: "orbit" }, default: HOME, interpolate: "orbit", ownership: "viewer", label: "viewpoint on the arm" },
+  task: {
+    type: { kind: "scalar", range: [0, 1] },
+    default: 0,
+    interpolate: "lerp",
+    ownership: "script",
+    label: "progress through the pick-and-place the pair performs",
+  },
+  "show.task": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "let the pair run the task, with a brick on the table",
+  },
   "show.leader": {
     type: { kind: "boolean" },
     default: false,
@@ -110,6 +125,16 @@ export const scene: SceneModule = {
     const view = new RobotView(ctx.overlay);
     let ready = false;
     let failed = false;
+    // Where the brick waits before the grasp, and where it is left afterwards.
+    let pickAt: [number, number, number] | undefined;
+    let placeAt: [number, number, number] | undefined;
+    const jointsFor = (progress: number) => {
+      const frame = taskFrame(progress);
+      return TASK_JOINTS.map((param, i) => ({
+        joint: JOINTS[i]!.joint,
+        angle: frame[param],
+      }));
+    };
     view
       .load(2)
       .then(() => {
@@ -119,6 +144,10 @@ export const scene: SceneModule = {
         // person and ends in a handle, so its jaws are left off rather than
         // showing a second follower and calling it a leader.
         view.setLinkVisible(1, "moving_jaw_so101_v1_link", false);
+        // Read the two table spots off the arm itself, so the brick always sits
+        // exactly where the gripper closes and opens.
+        pickAt = view.measureGrip(jointsFor(GRASP_AT));
+        placeAt = view.measureGrip(jointsFor(RELEASE_AT));
       })
       .catch((error: unknown) => {
         failed = true;
@@ -140,10 +169,17 @@ export const scene: SceneModule = {
         if (ready) {
           // Both arms are driven by the same numbers: that is the whole point of
           // the sentence this scene illustrates.
-          for (const entry of JOINTS) {
-            const angle = state[entry.param] as number;
+          const running = state["show.task"] as boolean;
+          const frame = running ? taskFrame(state.task as number) : undefined;
+          for (const [index, entry] of JOINTS.entries()) {
+            // During the task both arms follow the script; otherwise they follow
+            // the narration's own joint cues. Either way they share the numbers.
+            const angle = frame ? frame[TASK_JOINTS[index]!] : (state[entry.param] as number);
             for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
           }
+          if (!running) view.setBrick(undefined, TIP);
+          else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
+          else view.setBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, TIP);
           const camera = state.camera as OrbitState;
           view.arrange(pair, 0.46, camera.azimuth);
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
