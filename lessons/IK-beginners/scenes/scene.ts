@@ -5,6 +5,7 @@ import { drawAreaSurface, type SurfaceBox } from "./area-surface.js";
 import { armLabels, type LabelFlags, type ScreenPose } from "./labels.js";
 import {
   circlePath,
+  jacobianColumns,
   circlePoint,
   directionOf,
   elbowBranch,
@@ -94,6 +95,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "name the end-effector and show its coordinates",
+  },
+  "show.jacobian": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "show how the tip moves for a small turn of each joint",
   },
   "show.solutions": {
     type: { kind: "boolean" },
@@ -236,6 +244,7 @@ export const scene: SceneModule = {
         if (flags.tip) drawTipProjection(g, geometry, pose.tip);
         drawArm(g, geometry, state, pose, frame);
         if (flags.angles) drawAngles(g, geometry, state, pose);
+        if (state["show.jacobian"]) drawJacobian(g, geometry, state, pose);
         drawLabels(g, geometry, state, pose, flags);
         if (surfaceShown) {
           drawAreaSurface(g, surfaceBox(ctx), state.l1 as number, state.l2 as number, {
@@ -304,6 +313,37 @@ function drawLimitedReach(g: CanvasRenderingContext2D, geometry: Geometry, l1: n
   g.fillText("reachable with joint limits", geometry.cx, geometry.cy - (outer * geometry.pxPerCm + 12));
   g.font = "11px system-ui, sans-serif";
   g.fillText(`no closer than ${inner.toFixed(1)} cm`, geometry.cx, geometry.cy + inner * geometry.pxPerCm * 0.5);
+}
+
+/**
+ * The two columns of the Jacobian, drawn from the end-effector: where the tip
+ * would head if each joint alone turned a little. These two arrows are what J
+ * holds, and Newton's method works by inverting them.
+ */
+function drawJacobian(g: CanvasRenderingContext2D, geometry: Geometry, state: Readonly<PlainState>, pose: ArmPose) {
+  const columns = jacobianColumns(state.q1 as number, state.q2 as number, state.l1 as number, state.l2 as number);
+  const from = toScreen(geometry, pose.tip);
+  const scale = geometry.pxPerCm * 0.42;
+  for (const [column, color, label] of [
+    [columns.byQ1, LINK1, "turn q\u2081"],
+    [columns.byQ2, LINK2, "turn q\u2082"],
+  ] as const) {
+    const to = { x: from.x + column.x * scale, y: from.y - column.y * scale };
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    g.strokeStyle = color;
+    g.fillStyle = color;
+    g.lineWidth = 3;
+    line(g, from.x, from.y, to.x, to.y);
+    g.beginPath();
+    g.moveTo(to.x, to.y);
+    g.lineTo(to.x - 10 * Math.cos(angle - 0.4), to.y - 10 * Math.sin(angle - 0.4));
+    g.lineTo(to.x - 10 * Math.cos(angle + 0.4), to.y - 10 * Math.sin(angle + 0.4));
+    g.closePath();
+    g.fill();
+    g.font = "700 12px system-ui, sans-serif";
+    g.textAlign = "center";
+    g.fillText(label, to.x + 8 * Math.cos(angle), to.y + 8 * Math.sin(angle) - 9);
+  }
 }
 
 /** Dots on points the tip can reach, each of which it can reach two ways. */

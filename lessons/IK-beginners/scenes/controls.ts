@@ -125,7 +125,10 @@ export function armControls(ctx: SceneContext) {
   // Reach the same point with the elbow bent the other way: solve the inverse
   // problem again for the tip the arm is already touching.
   const onFlip = () => {
-    const [q1, q2, l1, l2] = ["q1", "q2", "l1", "l2"].map((key) => current[key] as number);
+    const q1 = current.q1 as number;
+    const q2 = current.q2 as number;
+    const l1 = current.l1 as number;
+    const l2 = current.l2 as number;
     const { tip } = forwardKinematics(q1, q2, l1, l2);
     const other = elbowBranch(q2) === "up" ? "down" : "up";
     const solved = inverseKinematics(tip, l1, l2, other);

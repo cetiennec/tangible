@@ -66,6 +66,25 @@ export const schema: Schema = {
   },
 } as Schema;
 
+/** Simple drawings of the things a person teleoperates with. */
+const DEVICES: Record<string, string> = {
+  phone: `<svg viewBox="0 0 120 190" role="img" aria-label="A phone held as a teleoperator.">
+      <rect x="22" y="8" width="76" height="174" rx="13" class="dev-body"></rect>
+      <rect x="30" y="24" width="60" height="134" rx="5" class="dev-screen"></rect>
+      <circle cx="60" cy="170" r="6" class="dev-detail"></circle>
+      <path d="M46 62 L60 48 L74 62" class="dev-mark"></path>
+      <path d="M60 48 L60 118" class="dev-mark"></path>
+    </svg>`,
+  controller: `<svg viewBox="0 0 190 130" role="img" aria-label="A hand controller held as a teleoperator.">
+      <path d="M38 30 h114 a34 34 0 0 1 0 68 h-16 l-14 -18 h-54 l-14 18 h-16 a34 34 0 0 1 0 -68 z" class="dev-body"></path>
+      <circle cx="62" cy="58" r="12" class="dev-screen"></circle>
+      <circle cx="62" cy="58" r="5" class="dev-detail"></circle>
+      <circle cx="128" cy="58" r="12" class="dev-screen"></circle>
+      <circle cx="128" cy="58" r="5" class="dev-detail"></circle>
+      <path d="M86 78 h18 M95 69 v18" class="dev-mark"></path>
+    </svg>`,
+};
+
 const NOTES: Record<string, { title: string; body: string; accent: string }> = {
   phone: {
     title: "Phone as teleoperator",

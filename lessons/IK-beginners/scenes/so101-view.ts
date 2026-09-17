@@ -41,6 +41,8 @@ export class RobotView {
   private meshes: THREE.BufferGeometry[] = [];
   private materials: THREE.Material[] = [];
   private sized = "";
+  private brick?: THREE.Group;
+  private handle?: THREE.Group;
 
   constructor(private overlay: HTMLElement) {
     this.canvas = overlay.ownerDocument.createElement("canvas");
@@ -184,6 +186,83 @@ export class RobotView {
   }
 
   /** Place the camera on an orbit around the arms. */
+  /** A brick for the pair to move between two spots. */
+  setBrick(at: [number, number, number] | undefined, color: string): void {
+    if (at && !this.brick) {
+      const group = new THREE.Group();
+      const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.42 });
+      this.materials.push(material);
+      const body = new THREE.BoxGeometry(0.05, 0.022, 0.032);
+      this.meshes.push(body);
+      group.add(new THREE.Mesh(body, material));
+      const stud = new THREE.CylinderGeometry(0.0075, 0.0075, 0.007, 14);
+      this.meshes.push(stud);
+      for (const dx of [-0.0125, 0.0125]) {
+        for (const dz of [-0.008, 0.008]) {
+          const pin = new THREE.Mesh(stud, material);
+          pin.position.set(dx, 0.0145, dz);
+          group.add(pin);
+        }
+      }
+      this.scene.add(group);
+      this.brick = group;
+    }
+    if (!this.brick) return;
+    this.brick.visible = Boolean(at);
+    if (at) this.brick.position.set(...at);
+  }
+
+  /** Where the gripper is right now, in the frame the brick lives in. */
+  gripPoint(arm = 0): [number, number, number] | undefined {
+    const link = this.arms[arm]?.links.get("gripper_frame_link");
+    if (!link) return undefined;
+    link.updateWorldMatrix(true, false);
+    const at = link.getWorldPosition(new THREE.Vector3());
+    return [at.x, at.y, at.z];
+  }
+
+  /** Hold a pose just long enough to read where the gripper lands. */
+  measureGrip(pose: { joint: string; angle: number }[], arm = 0): [number, number, number] | undefined {
+    for (const entry of pose) this.setJoint(entry.joint, entry.angle, arm);
+    this.pair.updateWorldMatrix(true, true);
+    return this.gripPoint(arm);
+  }
+
+  /**
+   * The leader ends in a handle and trigger for a person to hold, where the
+   * follower has jaws. No kinematic description of the leader is published and
+   * its parts are CAD and print files, so this is a plain stand-in.
+   */
+  setHandle(arm: number, visible: boolean, color: string): void {
+    if (visible && !this.handle) {
+      const group = new THREE.Group();
+      const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.55 });
+      this.materials.push(material);
+      const grip = new THREE.CylinderGeometry(0.014, 0.016, 0.075, 16);
+      const lever = new THREE.BoxGeometry(0.03, 0.01, 0.012);
+      this.meshes.push(grip, lever);
+      group.add(new THREE.Mesh(grip, material));
+      const trigger = new THREE.Mesh(lever, material);
+      trigger.position.set(0.022, -0.012, 0);
+      group.add(trigger);
+      this.scene.add(group);
+      this.handle = group;
+    }
+    if (!this.handle) return;
+    this.handle.visible = visible;
+    if (!visible) return;
+    const wrist = this.arms[arm]?.links.get("wrist_link");
+    const end = this.arms[arm]?.links.get("gripper_frame_link");
+    if (!wrist || !end) return;
+    wrist.updateWorldMatrix(true, false);
+    end.updateWorldMatrix(true, false);
+    const from = wrist.getWorldPosition(new THREE.Vector3());
+    const along = end.getWorldPosition(new THREE.Vector3()).sub(from);
+    if (along.lengthSq() < 1e-9) return;
+    this.handle.position.copy(from).addScaledVector(along, 0.75);
+    this.handle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), along.normalize());
+  }
+
   setCamera(azimuth: number, elevation: number, distance: number): void {
     const target = new THREE.Vector3(0, 0.12, 0);
     this.camera.position.set(
@@ -216,6 +295,8 @@ export class RobotView {
   dispose(): void {
     for (const geometry of this.meshes) geometry.dispose();
     for (const material of this.materials) material.dispose();
+    this.brick = undefined;
+    this.handle = undefined;
     this.renderer.dispose();
     this.canvas.remove();
     void this.overlay;

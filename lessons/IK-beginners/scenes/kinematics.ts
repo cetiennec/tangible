@@ -157,6 +157,19 @@ export function reachableSamples(l1: number, l2: number): Point[] {
 }
 
 /**
+ * The two columns of the Jacobian: how fast, and in which direction, the tip
+ * moves for a small turn of each joint. Units are centimetres per radian. This
+ * is the J that Newton's method inverts.
+ */
+export function jacobianColumns(q1: number, q2: number, l1: number, l2: number) {
+  const outer = q1 + q2;
+  return {
+    byQ1: { x: -l1 * Math.sin(q1) - l2 * Math.sin(outer), y: l1 * Math.cos(q1) + l2 * Math.cos(outer) },
+    byQ2: { x: -l2 * Math.sin(outer), y: l2 * Math.cos(outer) },
+  };
+}
+
+/**
  * Which of the two solutions an elbow angle represents, named for where the
  * elbow actually sits: "up" puts it above the line from shoulder to hand.
  * A negative q2 is what does that, since turning the elbow the positive way
