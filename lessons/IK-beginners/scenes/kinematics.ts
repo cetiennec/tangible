@@ -106,7 +106,7 @@ export function reachCoverage(l1: number, l2: number, elbow: readonly [number, n
 export function circlePath(l1: number, l2: number) {
   const { inner, outer } = reachableRadii(l1, l2);
   const distance = (inner + outer) / 2;
-  const direction = (120 * Math.PI) / 180;
+  const direction = (45 * Math.PI) / 180;
   return {
     centre: { x: distance * Math.cos(direction), y: distance * Math.sin(direction) },
     radius: (outer - inner) * 0.25,

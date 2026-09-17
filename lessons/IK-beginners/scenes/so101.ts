@@ -72,8 +72,10 @@ const DEVICES: Record<string, string> = {
       <rect x="22" y="8" width="76" height="174" rx="13" class="dev-body"></rect>
       <rect x="30" y="24" width="60" height="134" rx="5" class="dev-screen"></rect>
       <circle cx="60" cy="170" r="6" class="dev-detail"></circle>
-      <path d="M46 62 L60 48 L74 62" class="dev-mark"></path>
-      <path d="M60 48 L60 118" class="dev-mark"></path>
+      <path d="M60 91 L60 63 M53 71 L60 63 L67 71" class="dev-mark"></path>
+      <path d="M60 91 L60 119 M53 111 L60 119 L67 111" class="dev-mark"></path>
+      <path d="M60 91 L37 91 M45 84 L37 91 L45 98" class="dev-mark"></path>
+      <path d="M60 91 L83 91 M75 84 L83 91 L75 98" class="dev-mark"></path>
     </svg>`,
   controller: `<svg viewBox="0 0 190 130" role="img" aria-label="A hand controller held as a teleoperator.">
       <path d="M38 30 h114 a34 34 0 0 1 0 68 h-16 l-14 -18 h-54 l-14 18 h-16 a34 34 0 0 1 0 -68 z" class="dev-body"></path>

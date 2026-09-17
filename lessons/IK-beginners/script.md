@@ -43,11 +43,11 @@ Pause and think a bit about cases where the number of solutions could be 0?
 @pause(prompt: "When can the arm not reach a point at all?", speak: false)
 
 @clear(kwIk)
-For our 2 DOF robot, we either have @cue(show.workspace = true) @cue(show.solutions = true) 0 or 2 solutions.
+For our 2 DOF robot, we either have @cue(show.workspace = true) 0 or 2 solutions.
 
 We have @cue(show.unreachable = true) 0 solutions outside of the @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach.
 
-@cue(show.unreachable = false) @cue(show.solutions = false)
+@cue(show.unreachable = false)
 Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length of the links. Pause and play with the link lengths to see how the reachable space evolve.
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
@@ -72,8 +72,9 @@ Getting back to the IK problem, how could there be multiple solutions? In our ca
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)
 
-@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
+@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the @cue(show.solutions = true) reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
+@cue(show.solutions = false)
 @scene(redundant)
 If the robot has more degrees of freedom than the space, the number of @cue(spread -> 0.92, over: 2.4s) solutions can actually go to infinity.
 
@@ -88,7 +89,7 @@ In the 2 DOF example, one can invert the equations of the FK with a bit of maths
 The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of the acos function.
 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
-the best known is @board(kwNewton: "Newton's method") @board(jac: $J = \begin{bmatrix} \frac{\partial x}{\partial q_1} & \frac{\partial x}{\partial q_2} \\[2pt] \frac{\partial y}{\partial q_1} & \frac{\partial y}{\partial q_2} \end{bmatrix}$) Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
+the best known is @board(kwNewton: "Newton's method") @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
 @clear(board)
 OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
