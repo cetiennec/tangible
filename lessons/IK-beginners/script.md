@@ -114,4 +114,4 @@ Classical robotics has focused on planning in the Cartesian space, but most of t
 
 Will this be transferable to every robot?
 
-Most of them use an @board(t3: "Action experts") action expert separately from the VLA itself, which can be fine-tuned on any robot.
+Most of them use an @board(t3: "Action experts") action expert separately from the VLA itself, which can be @board(t4: "Calibration and motor counts") @board(t5: "Planning a path, not just a point") fine-tuned on any robot.

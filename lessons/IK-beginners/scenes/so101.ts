@@ -43,7 +43,7 @@ export const schema: Schema = {
     label: "stand a second arm beside the first, driven by the same joint angles",
   },
   teleop: {
-    type: { kind: "enum", values: ["none", "phone", "leader"] },
+    type: { kind: "enum", values: ["none", "phone", "controller", "leader"] },
     default: "none",
     interpolate: "snap",
     ownership: "script",
@@ -83,6 +83,7 @@ export const scene: SceneModule = {
         <span class="so101-name so101-name-leader">leader</span>
         <span class="so101-name so101-name-follower">follower</span>
       </div>
+      <figure class="so101-device" hidden></figure>
       <aside class="so101-note" hidden>
         <p class="so101-note-title"></p>
         <p class="so101-note-body"></p>
@@ -103,6 +104,8 @@ export const scene: SceneModule = {
     const noteTitle = root.querySelector<HTMLElement>(".so101-note-title")!;
     const noteBody = root.querySelector<HTMLElement>(".so101-note-body")!;
     const names = root.querySelector<HTMLElement>(".so101-names")!;
+    const device = root.querySelector<HTMLElement>(".so101-device")!;
+    let shownDevice = "";
 
     const view = new RobotView(ctx.overlay);
     let ready = false;
@@ -150,7 +153,15 @@ export const scene: SceneModule = {
         }
         names.hidden = !pair || !ready;
 
-        const chosen = NOTES[String(state.teleop)];
+        const teleop = String(state.teleop);
+        const drawing = DEVICES[teleop];
+        device.hidden = !drawing;
+        if (drawing && shownDevice !== teleop) {
+          device.innerHTML = drawing;
+          shownDevice = teleop;
+        }
+
+        const chosen = NOTES[teleop];
         note.hidden = !chosen;
         if (chosen) {
           noteTitle.textContent = chosen.title;
@@ -179,6 +190,12 @@ const STYLE = `
 .so101-scene h1 { margin: 0; font-size: clamp(16px, 2.2vw, 26px); line-height: 1.15; font-weight: 600; }
 .so101-status { position: absolute; left: 3%; top: 48%; width: 62%; margin: 0; text-align: center; font-size: 14px; color: ${MUTED}; }
 .so101-status.so101-failed { color: ${TIP}; }
+.so101-device { position: absolute; right: 3%; top: 54%; width: 13%; margin: 0; }
+.so101-device svg { display: block; width: 100%; height: auto; }
+.so101-device .dev-body { fill: #ffffff; stroke: ${INK}; stroke-width: 5; stroke-linejoin: round; }
+.so101-device .dev-screen { fill: rgba(31, 111, 139, .16); stroke: none; }
+.so101-device .dev-detail { fill: ${MUTED}; }
+.so101-device .dev-mark { fill: none; stroke: ${TIP}; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .so101-note { position: absolute; right: 3%; top: 32%; width: 28%; padding: 14px 16px; border-left: 4px solid var(--accent, ${LINK1}); border-radius: 0 8px 8px 0; background: rgba(255, 255, 255, .92); }
 .so101-note-title { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--accent, ${LINK1}); }
 .so101-note-body { margin: 0; font-size: 13px; line-height: 1.45; color: ${INK}; }
@@ -188,16 +205,18 @@ const STYLE = `
 .so101-name-follower { color: ${TIP}; }
 .so101-credit { position: absolute; left: 3%; bottom: 58px; margin: 0; font-size: 11px; color: ${MUTED}; }
 .so101-credit a { color: ${MUTED}; }
-.so101-player .xv-board { top: 4%; right: 3%; width: 30%; height: 34%; padding: 0; font-size: 15px; }
+.so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 46%; padding: 0; font-size: 16px; }
 /* The closing names topics this lesson does not cover; they are shown as
    labelled blocks under a heading rather than passed over in speech. */
 .so101-player .xv-board-inner { gap: 7px; }
-.so101-player .xv-board-item[data-id="later"] { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: ${MUTED}; }
+.so101-player .xv-board-item[data-id="later"] { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: ${MUTED}; }
 .so101-player .xv-board-item[data-id="t1"],
 .so101-player .xv-board-item[data-id="t2"],
-.so101-player .xv-board-item[data-id="t3"] {
-  padding: 8px 12px; border-left: 3px solid ${LINK1}; border-radius: 0 7px 7px 0;
-  background: rgba(255, 255, 255, .9); font-size: 14px; font-weight: 600; color: ${INK};
+.so101-player .xv-board-item[data-id="t3"],
+.so101-player .xv-board-item[data-id="t4"],
+.so101-player .xv-board-item[data-id="t5"] {
+  padding: 11px 14px; border-left: 4px solid ${LINK1}; border-radius: 0 9px 9px 0;
+  background: rgba(255, 255, 255, .92); font-size: 16px; font-weight: 600; line-height: 1.25; color: ${INK};
 }
 .so101-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
