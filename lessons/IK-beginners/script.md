@@ -49,10 +49,8 @@ Of course this reachable space @cue(l2 -> 4, over: 2.5s) depends on the length o
 
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 
-This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) joint limits. The reachable space is no longer a ring here.
-
-Of course, the larger the links the bigger the area. But there is a relationship between L1 and l2 that allows the robot to reach both close and farer places. 
-What value of L2 would give the largest reachable space according to you?
+Of course, the larger the links the bigger the area. But there is a relationship between L1 and L2 that allows the robot to reach both close and farther places.
+What value of L2 would let the robot reach closest to itself, according to you?
 
 @pause(prompt: "Pick your answer before we plot it.", speak: false)
 
@@ -62,6 +60,8 @@ Yeah, this is actually @cue(l1 -> 12, over: 2s) @cue(l2 -> 12, over: 2s) L1=L2, 
 Look at your arms, this is actually a feature human arms have.
 
 @cue(show.areaSurface = false)
+This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) joint limits. The reachable space is no longer a ring here.
+
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)

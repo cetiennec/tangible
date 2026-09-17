@@ -34,9 +34,14 @@ export function projectSurface(box: SurfaceBox, u: number, v: number, z: number)
   };
 }
 
-/** Height of the surface: the fraction of its reach the arm can get to. */
+/**
+ * Height of the surface: the fraction of its reach the arm can get to. The
+ * elbow is taken as free here, because the narration reaches this picture
+ * before joint limits are introduced; equal links then leave no blind spot at
+ * all, and the surface touches its ceiling along the diagonal.
+ */
 function heightAt(u: number, v: number): number {
-  return reachCoverage(linkAt(u), linkAt(v));
+  return reachCoverage(linkAt(u), linkAt(v), Math.PI);
 }
 
 function point(box: SurfaceBox, u: number, v: number) {
@@ -147,7 +152,7 @@ function drawMarker(
   g.fillStyle = colors.ink;
   g.font = "700 12px system-ui, sans-serif";
   g.textAlign = "center";
-  g.fillText(`${Math.round(reachCoverage(l1, l2) * 100)}% reached`, top.x, top.y - 12);
+  g.fillText(`${Math.round(reachCoverage(l1, l2, Math.PI) * 100)}% reached`, top.x, top.y - 12);
 }
 
 function drawLabels(g: CanvasRenderingContext2D, box: SurfaceBox, colors: { muted: string; ridge: string }) {
