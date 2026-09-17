@@ -1,15 +1,16 @@
 @chapter(Introduction)
 
-Today we will discuss Forward and Inverse Kinematics on robots, which is the art of working between the joint and the Cartesian space. You'll be able to play with the simulation while I speak and pause to ask questions.
-
+@cue(label.motors = false) @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false) @cue(label.dof = false)
+Today we will discuss Forward and Inverse Kinematics on robots, which is the art of switching between the joint and the Cartesian space. You'll be able to play with the simulation while I speak and pause to ask questions.
 
 @pause(prompt: "Turn both joints and watch where the tip goes.")
 
-First look at our robot, the robot is said to be 2 degrees of freedom or 2 DOF, it has 2 links and 2 motors that can move the angles q1 and q2.
+First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(label.motors = true) motors that can move the @cue(label.angles = true) angles q1 and q2, it is thus said to be 2 @cue(label.dof = true) degrees of freedom or 2 DOF.
 
-The tip of the robot is called the end-effector.
+The tip of the robot is called the @cue(label.tip = true) end-effector.
 
-See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 5.2, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. So there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and cm.
+See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> 4.083, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
+This means that there exists a @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) mapping between radians and cm.
 
 The relation between angles and end-effector position is called the @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
@@ -24,7 +25,8 @@ And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_
 With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
 
 
-But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space, for instance, drawing a circle will give the following (x,y) equation : ..
+@clear(board)
+But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space, for instance, drawing a circle will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) (x,y) equation: 
 
 But this does not tell us what motor action we should apply to the robot.
 

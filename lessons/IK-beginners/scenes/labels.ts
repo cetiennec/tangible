@@ -17,6 +17,7 @@ export interface LabelFlags {
   angles: boolean;
   links: boolean;
   tip: boolean;
+  dof: boolean;
 }
 
 export interface Label {
@@ -91,6 +92,11 @@ export function armLabels(
     const l2At = besideLink(pose.elbow, pose.tip, angles.q1 + angles.q2, Math.sin(angles.q2) >= 0 ? 1 : -1, 0.74, 22);
     add("l1", "L₁", l1At.x, l1At.y, style.link1, 14, 700);
     add("l2", "L₂", l2At.x, l2At.y, style.link2, 14, 700);
+  }
+
+  if (flags.dof) {
+    // Sits under the base, clear of the arm whichever way it is pointing.
+    add("dof", "2 DOF", pose.base.x, pose.base.y + 42, style.muted, 12, 700);
   }
 
   if (flags.tip) {

@@ -3,7 +3,7 @@ import { armLabels, boxesOverlap, labelBox, type LabelFlags, type ScreenPose } f
 import { forwardKinematics } from "./kinematics.js";
 
 const STYLE = { ink: "#000", muted: "#666", link1: "#00f", link2: "#f80", tip: "#f00" };
-const ALL: LabelFlags = { motors: true, angles: true, links: true, tip: true };
+const ALL: LabelFlags = { motors: true, angles: true, links: true, tip: true, dof: true };
 
 /** The on-screen pose the scene would draw, at the real layout scale. */
 function screenPose(q1: number, q2: number, l1: number, l2: number, pxPerCm = 9.4): ScreenPose {
@@ -54,7 +54,7 @@ describe("label placement", () => {
       // At the shortest links the arm is under 30 pixels long, which is not
       // wide enough for both length labels. The narration never cues that pose.
       if (group === "links" && l1 === 3 && l2 === 3) continue;
-      const flags = { motors: true, angles: false, links: false, tip: false, [group]: true } as LabelFlags;
+      const flags = { motors: true, angles: false, links: false, tip: false, dof: false, [group]: true } as LabelFlags;
       expect(collisions(labelsFor(q1, q2, l1, l2, flags))).toEqual([]);
     }
   });
@@ -63,7 +63,7 @@ describe("label placement", () => {
   it.each(POSES.filter(([name]) => name !== "shortest links"))(
     "keeps the default label set clear at %s",
     (_name, q1, q2, l1, l2) => {
-      expect(collisions(labelsFor(q1, q2, l1, l2, { motors: true, angles: true, links: false, tip: true }))).toEqual([]);
+      expect(collisions(labelsFor(q1, q2, l1, l2, { motors: true, angles: true, links: false, tip: true, dof: false }))).toEqual([]);
     },
   );
 
@@ -74,14 +74,19 @@ describe("label placement", () => {
     ["link-length section", 1.2, 5.2, 9, 4],
     ["equal links", 1.2, 5.2, 12, 12],
   ] as const)("keeps lengths and angles apart where the narration shows both, at %s", (_name, q1, q2, l1, l2) => {
-    const found = collisions(labelsFor(q1, q2, l1, l2, { motors: true, angles: true, links: true, tip: false }));
+    const found = collisions(labelsFor(q1, q2, l1, l2, { motors: true, angles: true, links: true, tip: false, dof: false }));
     expect(found.filter((pair) => pair === "l1/l2")).toEqual([]);
   });
 
   it("shows only what the narration asks for", () => {
-    expect(labelsFor(0.6, 0.9, 9, 7, { motors: false, angles: false, links: false, tip: false })).toEqual([]);
-    expect(labelsFor(0.6, 0.9, 9, 7, { ...ALL, links: false, tip: false }).map((l) => l.key)).toEqual(["q1", "q2"]);
-    expect(labelsFor(0.6, 0.9, 9, 7, { ...ALL, angles: false, links: false }).map((l) => l.key)).toEqual(["tipName", "tipValue"]);
+    expect(labelsFor(0.6, 0.9, 9, 7, { motors: false, angles: false, links: false, tip: false, dof: false })).toEqual([]);
+    expect(labelsFor(0.6, 0.9, 9, 7, { ...ALL, links: false, tip: false, dof: false }).map((l) => l.key)).toEqual(["q1", "q2"]);
+    expect(labelsFor(0.6, 0.9, 9, 7, { ...ALL, angles: false, links: false, dof: false }).map((l) => l.key)).toEqual([
+      "tipName",
+      "tipValue",
+    ]);
+    // Each part is named only once the narration reaches it.
+    expect(labelsFor(0.6, 0.9, 9, 7, { ...ALL, angles: false, links: false, tip: false }).map((l) => l.key)).toEqual(["dof"]);
   });
 
   it("puts each length label on the far side of its link from the angle arc", () => {

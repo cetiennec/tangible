@@ -77,6 +77,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "show the link lengths on the drawing",
   },
+  "label.dof": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "mark the arm's two degrees of freedom on the drawing",
+  },
   "label.tip": {
     type: { kind: "boolean" },
     default: true,
@@ -183,6 +190,7 @@ export const scene: SceneModule = {
           angles: state["label.angles"] as boolean,
           links: state["label.links"] as boolean,
           tip: state["label.tip"] as boolean,
+          dof: state["label.dof"] as boolean,
         };
         if (state["show.workspace"]) drawWorkspace(g, geometry, state.l1 as number, state.l2 as number);
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
