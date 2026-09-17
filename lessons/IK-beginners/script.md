@@ -68,6 +68,7 @@ Look at your arms, this is actually a feature human arms have.
 This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
 
 @clear(kwLimits)
+@cue(show.limits = false)
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)

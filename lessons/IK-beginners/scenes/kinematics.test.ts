@@ -326,3 +326,28 @@ describe("sample points the tip can reach", () => {
   });
 });
 
+
+describe("sample points against the region actually on screen", () => {
+  it("sits inside the free ring, which is what is drawn without joint limits", () => {
+    // The lesson shows these with the joints free, where the reachable space is
+    // a ring and every point in it genuinely has two solutions.
+    const { inner, outer } = reachableRadii(12, 12);
+    for (const point of reachableSamples(12, 12)) {
+      const radius = Math.hypot(point.x, point.y);
+      expect(radius).toBeGreaterThan(inner);
+      expect(radius).toBeLessThan(outer);
+    }
+  });
+
+  it("would fall outside the limited region, which is why limits are off there", () => {
+    // Guards the ordering: with lopsided limits the shoulder sweeps only part of
+    // the plane, so some samples are unreachable and the two-solution claim fails.
+    const [low, high] = JOINT_LIMITS.q1;
+    const outside = reachableSamples(12, 12).filter((point) => {
+      const angle = Math.atan2(point.y, point.x);
+      const turned = angle < 0 ? angle + Math.PI * 2 : angle;
+      return turned < low || turned > high;
+    });
+    expect(outside.length).toBeGreaterThan(0);
+  });
+});
