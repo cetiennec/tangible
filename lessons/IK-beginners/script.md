@@ -61,10 +61,12 @@ Getting back to the IK problem, how could there be multiple solutions? In our ca
 
 @cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> 4.783, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
-If the robot has more degrees of freedom than the space, the number of solutions can actually go to infinity.
+@scene(redundant)
+If the robot has more degrees of freedom than the space, the number of @cue(spread -> 0.92, over: 2.4s) solutions can actually go to infinity.
 
-[[Display a 3 DOF robot and show that we can reach a point with different angles.]]
+@pause(prompt: "Flex the arm with the slider. The tip never leaves the target.", speak: false)
 
+@scene(planar)
 The solution for the IK can sometimes be found analytically.
 
 @clear(board)
@@ -75,9 +77,11 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-OK, so now we fully know our robot's FK and IK, we can make it draw a circle!
+@clear(board)
+OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
 
-From the equation of the circle with regard to time t, we know x and y, and obtain q1 and q2 for this.
+@bake(circle, steps: 32, over: 7s)
+From the equation of the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) circle with regard to time t, we know x and y, and obtain q1 and q2 for this.
 
 Now think about LeRobot, when is IK used?
 

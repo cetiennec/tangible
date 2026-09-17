@@ -1,9 +1,11 @@
-import type { Handle, PlainState, Schema } from "@tangible/core";
+import type { Bakers, Handle, PlainState, Schema } from "@tangible/core";
 import type { SceneContext, SceneFrame, SceneModule } from "@tangible/player";
 import { armControls, INK, LINK1, LINK2, MUTED, TIP, WORKSPACE } from "./controls.js";
 import { drawAreaSurface, type SurfaceBox } from "./area-surface.js";
 import { armLabels, type LabelFlags, type ScreenPose } from "./labels.js";
 import {
+  circlePath,
+  circlePoint,
   directionOf,
   elbowBranch,
   forwardKinematics,
@@ -82,12 +84,39 @@ export const schema: Schema = {
     ownership: "script",
     label: "name the end-effector and show its coordinates",
   },
+  "show.circle": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "draw the circle the end-effector is asked to trace",
+  },
   "show.areaSurface": {
     type: { kind: "boolean" },
     default: false,
     interpolate: "snap",
     ownership: "script",
     label: "plot the reachable area against both link lengths",
+  },
+};
+
+/**
+ * Walk the end-effector once round the circle, solving the inverse problem at
+ * each step, so the narration can play a real trajectory rather than a guess.
+ */
+export const bakers: Bakers = {
+  circle: {
+    reads: ["l1", "l2"],
+    writes: ["q1", "q2"],
+    run(input, { steps }) {
+      const l1 = input.l1 as number;
+      const l2 = input.l2 as number;
+      return Array.from({ length: steps }, (_unused, index) => {
+        const target = circlePoint(l1, l2, (index + 1) / steps);
+        const solved = inverseKinematics(target, l1, l2, "up");
+        return { q1: solved.q1, q2: solved.q2 };
+      });
+    },
   },
 };
 
@@ -156,6 +185,7 @@ export const scene: SceneModule = {
           tip: state["label.tip"] as boolean,
         };
         if (state["show.workspace"]) drawWorkspace(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
         drawAxes(g, geometry);
         if (flags.tip) drawTipProjection(g, geometry, pose.tip);
         drawArm(g, geometry, state, pose, frame);
@@ -197,6 +227,21 @@ function drawWorkspace(g: CanvasRenderingContext2D, geometry: Geometry, l1: numb
   g.font = "600 13px system-ui, sans-serif";
   g.textAlign = "center";
   g.fillText("reachable space", geometry.cx, geometry.cy - (outer * geometry.pxPerCm + 12));
+}
+
+/** The circle the end-effector is asked to follow. */
+function drawCircle(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
+  const { centre, radius } = circlePath(l1, l2);
+  const middle = toScreen(geometry, centre);
+  g.strokeStyle = TIP;
+  g.globalAlpha = 0.55;
+  g.lineWidth = 2;
+  g.setLineDash([6, 5]);
+  g.beginPath();
+  g.arc(middle.x, middle.y, radius * geometry.pxPerCm, 0, TAU);
+  g.stroke();
+  g.setLineDash([]);
+  g.globalAlpha = 1;
 }
 
 function drawAxes(g: CanvasRenderingContext2D, geometry: Geometry) {

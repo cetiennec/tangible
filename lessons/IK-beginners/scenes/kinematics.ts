@@ -54,6 +54,28 @@ export function reachableArea(l1: number, l2: number): number {
 }
 
 /**
+ * A circle for the end-effector to trace, sized and placed to sit inside the
+ * reachable annulus for any link lengths. The centre is lifted away from the
+ * positive x axis because a circle placed there drives q1 through zero, and a
+ * joint angle held in [0, TAU) would jump a whole turn part-way round.
+ */
+export function circlePath(l1: number, l2: number) {
+  const { inner, outer } = reachableRadii(l1, l2);
+  const distance = (inner + outer) / 2;
+  const direction = (120 * Math.PI) / 180;
+  return {
+    centre: { x: distance * Math.cos(direction), y: distance * Math.sin(direction) },
+    radius: (outer - inner) * 0.25,
+  };
+}
+
+/** A point on that circle, with the turn measured in fractions of a full lap. */
+export function circlePoint(l1: number, l2: number, lap: number): Point {
+  const { centre, radius } = circlePath(l1, l2);
+  return { x: centre.x + radius * Math.cos(lap * TAU), y: centre.y + radius * Math.sin(lap * TAU) };
+}
+
+/**
  * Which of the two solutions an elbow angle represents. "up" is the solution
  * where the elbow bends counterclockwise, meaning the sine of q2 is positive.
  * A straight or fully folded arm sits on the boundary, where both agree.

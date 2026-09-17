@@ -8,6 +8,7 @@ tags:
   - mathematics
 scenes:
   planar: ./scenes/scene.ts
+  redundant: ./scenes/redundant.ts
   so101: ./scenes/so101.ts
 initialScene: planar
 defaults:
