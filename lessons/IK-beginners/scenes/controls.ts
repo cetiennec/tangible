@@ -2,6 +2,7 @@ import type { PlainState } from "@tangible/core";
 import type { ParameterActivityMap, SceneContext } from "@tangible/player";
 import {
   elbowBranch,
+  JOINT_LIMITS,
   forwardKinematics,
   inverseKinematics,
   MAX_LINK_CM,
@@ -25,11 +26,13 @@ interface SliderSpec {
   step: number;
   digits: number;
   unit: string;
+  /** The joint's real travel, shaded on the slider when limits are in force. */
+  limit?: readonly [number, number];
 }
 
 const ANGLE_SLIDERS: SliderSpec[] = [
-  { param: "q1", label: "q₁", aria: "Motor 1 angle q1 in radians", min: 0, max: TAU, step: 0.001, digits: 2, unit: "rad" },
-  { param: "q2", label: "q₂", aria: "Motor 2 angle q2 in radians", min: -Math.PI, max: Math.PI, step: 0.001, digits: 2, unit: "rad" },
+  { param: "q1", label: "q₁", aria: "Motor 1 angle q1 in radians", min: 0, max: TAU, step: 0.001, digits: 2, unit: "rad", limit: JOINT_LIMITS.q1 },
+  { param: "q2", label: "q₂", aria: "Motor 2 angle q2 in radians", min: -Math.PI, max: Math.PI, step: 0.001, digits: 2, unit: "rad", limit: JOINT_LIMITS.q2 },
 ];
 
 const LINK_SLIDERS: SliderSpec[] = [
@@ -55,6 +58,25 @@ export function armControls(ctx: SceneContext) {
       <h1>Joint angles and where the tip reaches</h1>
       <p class="ik-lede">Drag the elbow to turn link 1. Drag the end-effector and both angles solve themselves.</p>
     </header>
+    <figure class="ik-human" hidden>
+      <svg viewBox="0 0 210 250" role="img"
+        aria-label="A simple figure of a person. The upper arm and the forearm are drawn the same length, which is why a person can touch their own shoulder.">
+        <g class="ik-body">
+          <circle cx="86" cy="32" r="19"></circle>
+          <path d="M86 51 L86 146"></path>
+          <path d="M86 146 L64 228"></path>
+          <path d="M86 146 L108 228"></path>
+          <path d="M86 68 L52 104"></path>
+          <path d="M52 104 L52 152"></path>
+        </g>
+        <path class="ik-upper" d="M86 68 L130 112"></path>
+        <path class="ik-fore" d="M130 112 L130 174"></path>
+        <circle class="ik-elbow" cx="130" cy="112" r="6"></circle>
+        <text class="ik-human-label ik-upper-label" x="140" y="88">upper arm</text>
+        <text class="ik-human-label ik-fore-label" x="142" y="148">forearm</text>
+      </svg>
+      <figcaption>Nearly the same length &mdash; which is why you can touch your own shoulder.</figcaption>
+    </figure>
     <div class="ik-panel">
       <p class="ik-group">Joint angles</p>
       ${ANGLE_SLIDERS.map(sliderMarkup).join("")}
@@ -79,6 +101,18 @@ export function armControls(ctx: SceneContext) {
   const workspaceButton = root.querySelector<HTMLButtonElement>(`button[data-param="show.workspace"]`)!;
   const flipButton = root.querySelector<HTMLButtonElement>(`button[data-action="flip-elbow"]`)!;
   const kicker = root.querySelector<HTMLElement>(".ik-kicker")!;
+  const human = root.querySelector<HTMLElement>(".ik-human")!;
+  const stops = ALL_SLIDERS.flatMap((spec) => {
+    const fractions = stopFractions(spec);
+    if (!fractions) return [];
+    const low = root.querySelector<HTMLElement>(`[data-stop="low-${spec.param}"]`)!;
+    const high = root.querySelector<HTMLElement>(`[data-stop="high-${spec.param}"]`)!;
+    // The shaded ends are the travel the joint does not have.
+    low.style.width = `${fractions.low * 100}%`;
+    high.style.left = `${fractions.high * 100}%`;
+    high.style.width = `${(1 - fractions.high) * 100}%`;
+    return [low, high];
+  });
 
   let current: Readonly<PlainState> = {};
 
@@ -121,6 +155,9 @@ export function armControls(ctx: SceneContext) {
       // The heading must not announce the degrees of freedom before the
       // narration gets there.
       kicker.textContent = state["label.dof"] ? "2 DOF planar arm" : "Planar robot arm";
+      human.hidden = !state["show.human"];
+      const limited = Boolean(state["show.limits"]);
+      for (const stop of stops) stop.hidden = !limited;
     },
     dispose() {
       for (const input of sliders.values()) input.removeEventListener("input", onSlider);
@@ -134,10 +171,21 @@ export function armControls(ctx: SceneContext) {
 }
 
 function sliderMarkup(spec: SliderSpec): string {
+  const bars = spec.limit
+    ? `<span class="ik-stop ik-stop-low" data-stop="low-${spec.param}"></span>
+       <span class="ik-stop ik-stop-high" data-stop="high-${spec.param}"></span>`
+    : "";
   return `<div class="ik-row" data-row="${spec.param}">
       <p class="ik-label"><span>${spec.label}</span><span data-value="${spec.param}"></span></p>
-      <input type="range" data-param="${spec.param}" min="${spec.min}" max="${spec.max}" step="${spec.step}" aria-label="${spec.aria}">
+      <div class="ik-track">${bars}<input type="range" data-param="${spec.param}" min="${spec.min}" max="${spec.max}" step="${spec.step}" aria-label="${spec.aria}"></div>
     </div>`;
+}
+
+/** Where a joint's travel begins and ends, as fractions of its slider. */
+export function stopFractions(spec: SliderSpec): { low: number; high: number } | undefined {
+  if (!spec.limit) return undefined;
+  const span = spec.max - spec.min;
+  return { low: (spec.limit[0] - spec.min) / span, high: (spec.limit[1] - spec.min) / span };
 }
 
 const STYLE = `
@@ -152,6 +200,9 @@ const STYLE = `
 .ik-row { border-left: 3px solid transparent; padding-left: 7px; transition: border-color 160ms ease; }
 .ik-row.ik-active { border-left-color: ${TIP}; }
 .ik-label { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ik-track { position: relative; }
+.ik-stop { position: absolute; top: 50%; height: 12px; transform: translateY(-50%); border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(181,50,43,.40) 0 4px, rgba(181,50,43,.14) 4px 8px); pointer-events: none; }
+.ik-stop-low { left: 0; }
 .ik-row input { display: block; box-sizing: border-box; width: 100%; height: 44px; margin: 0; accent-color: ${LINK1}; cursor: pointer; }
 .ik-row input:focus-visible { outline: 3px solid ${TIP}; outline-offset: 2px; }
 .ik-button { width: 100%; min-height: 44px; padding: 10px 12px; border: 1.5px solid ${WORKSPACE}; border-radius: 8px; background: transparent; color: ${WORKSPACE}; font: 600 14px system-ui, sans-serif; cursor: pointer; }
@@ -159,6 +210,17 @@ const STYLE = `
 .ik-button:focus-visible { outline: 3px solid ${TIP}; outline-offset: 2px; }
 .ik-toggle[aria-pressed="true"] { background: ${WORKSPACE}; color: #ffffff; }
 .ik-button.ik-active { box-shadow: 0 0 0 3px rgba(181, 50, 43, 0.3); }
+.ik-human { position: absolute; left: 3%; top: 21%; width: 27%; margin: 0; padding: 12px 10px 10px; border-radius: 12px; background: rgba(255, 255, 255, .93); box-shadow: 0 6px 22px rgba(35, 48, 58, .12); }
+.ik-human svg { display: block; width: 100%; height: auto; }
+.ik-human .ik-body { fill: none; stroke: ${MUTED}; stroke-width: 5; stroke-linecap: round; opacity: .55; }
+.ik-human .ik-body circle { fill: none; }
+.ik-human .ik-upper { fill: none; stroke: ${LINK1}; stroke-width: 9; stroke-linecap: round; }
+.ik-human .ik-fore { fill: none; stroke: ${LINK2}; stroke-width: 9; stroke-linecap: round; }
+.ik-human .ik-elbow { fill: #ffffff; stroke: ${INK}; stroke-width: 2.5; }
+.ik-human-label { font: 700 12px system-ui, sans-serif; }
+.ik-upper-label { fill: ${LINK1}; }
+.ik-fore-label { fill: ${LINK2}; }
+.ik-human figcaption { margin-top: 6px; font-size: 12px; line-height: 1.4; text-align: center; color: ${MUTED}; }
 .ik-player .xv-board { top: 3%; right: 3%; width: 30%; height: 21%; padding: 0; font-size: 15px; }
 .ik-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
@@ -166,6 +228,17 @@ const STYLE = `
   .ik-scene h1 { font-size: 16px; }
   .ik-panel { top: 22%; gap: 4px; }
   .ik-lede { display: none; }
-  .ik-player .xv-board { font-size: 12px; }
+  .ik-human { position: absolute; left: 3%; top: 21%; width: 27%; margin: 0; padding: 12px 10px 10px; border-radius: 12px; background: rgba(255, 255, 255, .93); box-shadow: 0 6px 22px rgba(35, 48, 58, .12); }
+.ik-human svg { display: block; width: 100%; height: auto; }
+.ik-human .ik-body { fill: none; stroke: ${MUTED}; stroke-width: 5; stroke-linecap: round; opacity: .55; }
+.ik-human .ik-body circle { fill: none; }
+.ik-human .ik-upper { fill: none; stroke: ${LINK1}; stroke-width: 9; stroke-linecap: round; }
+.ik-human .ik-fore { fill: none; stroke: ${LINK2}; stroke-width: 9; stroke-linecap: round; }
+.ik-human .ik-elbow { fill: #ffffff; stroke: ${INK}; stroke-width: 2.5; }
+.ik-human-label { font: 700 12px system-ui, sans-serif; }
+.ik-upper-label { fill: ${LINK1}; }
+.ik-fore-label { fill: ${LINK2}; }
+.ik-human figcaption { margin-top: 6px; font-size: 12px; line-height: 1.4; text-align: center; color: ${MUTED}; }
+.ik-player .xv-board { font-size: 12px; }
 }
 `;

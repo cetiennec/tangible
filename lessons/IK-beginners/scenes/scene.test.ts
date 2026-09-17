@@ -78,15 +78,15 @@ describe("dragging the arm", () => {
     const instance = scene.create(ctx);
     const tip = instance.handles().find((handle) => handle.id === "tip")!;
 
-    // Default q2 is 0.9, an elbow-up pose; dragging must not flip it.
+    // Default q2 is 0.9, which hangs the elbow below the line: elbow-down.
     const at = screenOf(ctx, { x: 8, y: -6 });
     const { q2 } = tip.onDrag(at.x, at.y, defaults) as { q2: number };
-    expect(elbowBranch(q2)).toBe("up");
+    expect(elbowBranch(q2)).toBe("down");
 
-    // Starting from an elbow-down pose, the drag stays elbow-down.
-    const down = { ...defaults, q2: -1.083 };
-    const solved = tip.onDrag(at.x, at.y, down) as { q2: number };
-    expect(elbowBranch(solved.q2)).toBe("down");
+    // Starting from an elbow-up pose, the drag stays elbow-up.
+    const up = { ...defaults, q2: -1.083 };
+    const solved = tip.onDrag(at.x, at.y, up) as { q2: number };
+    expect(elbowBranch(solved.q2)).toBe("up");
     instance.dispose();
   });
 
@@ -128,14 +128,14 @@ describe("the control panel", () => {
     instance.render(defaults, { dt: 0, activity: {} });
 
     const flip = ctx.overlay.querySelector<HTMLButtonElement>('button[data-action="flip-elbow"]')!;
-    expect(flip.textContent).toBe("Flip to elbow-down");
+    expect(flip.textContent).toBe("Flip to elbow-up");
     flip.click();
 
     const written = Object.fromEntries(
       (ctx.write as unknown as { mock: { calls: [string, number][] } }).mock.calls,
     );
     // The elbow swaps sides while the end-effector stays where it was.
-    expect(elbowBranch(written.q2!)).toBe("down");
+    expect(elbowBranch(written.q2!)).toBe("up");
     const before = forwardKinematics(0.6, 0.9, 9, 7).tip;
     const after = forwardKinematics(written.q1!, written.q2!, 9, 7).tip;
     expect(after.x).toBeCloseTo(before.x, 9);

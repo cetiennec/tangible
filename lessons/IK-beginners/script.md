@@ -57,9 +57,10 @@ What value of L2 would let the robot reach closest to itself, according to you?
 @cue(show.areaSurface = true)
 Yeah, this is actually @cue(l1 -> 12, over: 2s) @cue(l2 -> 12, over: 2s) L1=L2, have you seen this somewhere?
 
+@cue(show.human = true)
 Look at your arms, this is actually a feature human arms have.
 
-@cue(show.areaSurface = false)
+@cue(show.areaSurface = false) @cue(show.human = false)
 This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) joint limits. The reachable space is no longer a ring here.
 
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.

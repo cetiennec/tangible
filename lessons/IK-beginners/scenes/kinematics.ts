@@ -63,20 +63,28 @@ export function reachableArea(l1: number, l2: number): number {
 }
 
 /**
- * Joint limits standing in for a real robot's: the shoulder stays above the
- * table, and the elbow cannot fold all the way back on itself.
+ * Joint limits standing in for a real robot's. They are deliberately not
+ * symmetric: a shoulder does not sweep evenly about zero, and an elbow bends a
+ * long way one direction and almost none the other, as yours does.
  */
-export const JOINT_LIMITS = { q1: [0, Math.PI], q2: [-2.3, 2.3] } as const;
+export const JOINT_LIMITS = { q1: [0.25, 2.85] as const, q2: [-2.6, 1.15] as const };
+
+/** The free elbow, for describing the arm before limits are introduced. */
+export const FREE_ELBOW = [-Math.PI, Math.PI] as const;
 
 /**
- * Nearest and furthest the tip can get with a limited elbow. The elbow can no
- * longer fold flat, so the dead zone in the middle is larger than |l1 - l2|.
+ * Nearest and furthest the tip can get, for any elbow range. The tip is
+ * furthest when the elbow is closest to straight and nearest when it is
+ * closest to folded, so the extremes of the cosine over the range decide both.
  */
-export function limitedRadii(l1: number, l2: number, elbowLimit = JOINT_LIMITS.q2[1]) {
-  return {
-    inner: Math.sqrt(l1 * l1 + l2 * l2 + 2 * l1 * l2 * Math.cos(elbowLimit)),
-    outer: l1 + l2,
-  };
+export function limitedRadii(l1: number, l2: number, elbow: readonly [number, number] = FREE_ELBOW) {
+  const [low, high] = elbow;
+  const spansFolded = (low <= -Math.PI && high >= -Math.PI) || (low <= Math.PI && high >= Math.PI);
+  const spansStraight = low <= 0 && high >= 0;
+  const minCos = spansFolded ? -1 : Math.min(Math.cos(low), Math.cos(high));
+  const maxCos = spansStraight ? 1 : Math.max(Math.cos(low), Math.cos(high));
+  const radius = (cosine: number) => Math.sqrt(Math.max(0, l1 * l1 + l2 * l2 + 2 * l1 * l2 * cosine));
+  return { inner: radius(minCos), outer: radius(maxCos) };
 }
 
 /**
@@ -84,9 +92,9 @@ export function limitedRadii(l1: number, l2: number, elbowLimit = JOINT_LIMITS.q
  * the dead zone closes completely, less as the links grow unequal. This is the
  * quantity that peaks at equal links, whereas the area simply grows with both.
  */
-export function reachCoverage(l1: number, l2: number, elbowLimit = JOINT_LIMITS.q2[1]): number {
-  const { inner, outer } = limitedRadii(l1, l2, elbowLimit);
-  return 1 - (inner / outer) ** 2;
+export function reachCoverage(l1: number, l2: number, elbow: readonly [number, number] = FREE_ELBOW): number {
+  const { inner, outer } = limitedRadii(l1, l2, elbow);
+  return outer === 0 ? 0 : 1 - (inner / outer) ** 2;
 }
 
 /**
@@ -133,14 +141,15 @@ export function unreachableSamples(l1: number, l2: number): Point[] {
 }
 
 /**
- * Which of the two solutions an elbow angle represents. "up" is the solution
- * where the elbow bends counterclockwise, meaning the sine of q2 is positive.
- * A straight or fully folded arm sits on the boundary, where both agree.
+ * Which of the two solutions an elbow angle represents, named for where the
+ * elbow actually sits: "up" puts it above the line from shoulder to hand.
+ * A negative q2 is what does that, since turning the elbow the positive way
+ * drops it below that line.
  */
 export type ElbowBranch = "up" | "down";
 
 export function elbowBranch(q2: number): ElbowBranch {
-  return Math.sin(q2) >= 0 ? "up" : "down";
+  return Math.sin(q2) <= 0 ? "up" : "down";
 }
 
 /** The nearest point to `target` that the tip can actually reach. */
@@ -165,7 +174,7 @@ export function inverseKinematics(target: Point, l1: number, l2: number, branch:
   const cosQ2 = (reached.x * reached.x + reached.y * reached.y - l1 * l1 - l2 * l2) / (2 * l1 * l2);
   // Rounding can push a boundary target a hair outside the valid cosine range.
   const cosine = Math.min(1, Math.max(-1, cosQ2));
-  const sine = Math.sqrt(1 - cosine * cosine) * (branch === "up" ? 1 : -1);
+  const sine = Math.sqrt(1 - cosine * cosine) * (branch === "up" ? -1 : 1);
   const q2 = Math.atan2(sine, cosine);
   const q1 = Math.atan2(reached.y, reached.x) - Math.atan2(l2 * sine, l1 + l2 * cosine);
   return { q1: wrapAngle(q1), q2: wrapSigned(q2), reached };

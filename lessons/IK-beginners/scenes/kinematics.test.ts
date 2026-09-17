@@ -5,6 +5,8 @@ import {
   elbowBranch,
   forwardKinematics,
   inverseKinematics,
+  FREE_ELBOW,
+  JOINT_LIMITS,
   limitedRadii,
   MAX_REACH_CM,
   reachCoverage,
@@ -215,11 +217,12 @@ describe("sample points the tip cannot reach", () => {
 });
 
 describe("reach coverage under joint limits", () => {
-  it("is highest when the links are equal, whatever the elbow limit", () => {
-    for (const elbowLimit of [Math.PI, 2.8, 2.3, 1.8]) {
+  it("is highest when the links are equal, for symmetric and lopsided limits alike", () => {
+    const ranges: [number, number][] = [[-Math.PI, Math.PI], [-2.3, 2.3], [-2.6, 1.15], [-2.9, 0.4]];
+    for (const range of ranges) {
       let best = { l2: 0, value: -1 };
       for (let l2 = 3; l2 <= 12; l2 += 0.25) {
-        const value = reachCoverage(9, l2, elbowLimit);
+        const value = reachCoverage(9, l2, range);
         if (value > best.value) best = { l2, value };
       }
       expect(best.l2).toBeCloseTo(9, 1);
@@ -227,16 +230,66 @@ describe("reach coverage under joint limits", () => {
   });
 
   it("closes the dead zone completely only when the elbow can fold flat", () => {
-    expect(reachCoverage(9, 9, Math.PI)).toBeCloseTo(1, 9);
-    expect(reachCoverage(9, 9, 2.3)).toBeLessThan(1);
-    expect(limitedRadii(9, 9, Math.PI).inner).toBeCloseTo(0, 9);
-    expect(limitedRadii(9, 9, 2.3).inner).toBeGreaterThan(5);
+    expect(reachCoverage(9, 9, FREE_ELBOW)).toBeCloseTo(1, 9);
+    expect(reachCoverage(9, 9, JOINT_LIMITS.q2)).toBeLessThan(1);
+    expect(limitedRadii(9, 9, FREE_ELBOW).inner).toBeCloseTo(0, 9);
+    expect(limitedRadii(9, 9, JOINT_LIMITS.q2).inner).toBeGreaterThan(1);
   });
 
   it("agrees with the unlimited radii when the elbow is free", () => {
-    const limited = limitedRadii(9, 7, Math.PI);
+    const limited = limitedRadii(9, 7, FREE_ELBOW);
     const free = reachableRadii(9, 7);
     expect(limited.inner).toBeCloseTo(free.inner, 9);
     expect(limited.outer).toBeCloseTo(free.outer, 9);
+  });
+
+  it("reads the furthest reach from whichever end of the range is straightest", () => {
+    // This elbow can never straighten, so the arm never reaches l1 + l2.
+    const bent = limitedRadii(9, 7, [0.6, 2.4]);
+    expect(bent.outer).toBeLessThan(16);
+    expect(bent.outer).toBeCloseTo(Math.sqrt(81 + 49 + 2 * 63 * Math.cos(0.6)), 9);
+  });
+
+  it("uses the lopsided limits the lesson actually applies", () => {
+    expect(JOINT_LIMITS.q2[0]).not.toBeCloseTo(-JOINT_LIMITS.q2[1], 3);
+    expect(JOINT_LIMITS.q1[0]).not.toBeCloseTo(-JOINT_LIMITS.q1[1], 3);
+  });
+});
+
+describe("naming the two elbow solutions", () => {
+  /** Positive means the elbow lies above the line from shoulder to hand. */
+  function elbowSide(q1: number, q2: number, l1 = 10, l2 = 10) {
+    const { elbow, tip } = forwardKinematics(q1, q2, l1, l2);
+    return tip.x * elbow.y - tip.y * elbow.x;
+  }
+
+  it.each([
+    [0, 1],
+    [0.5, 1],
+    [2, 0.8],
+    [4, 2.2],
+  ])("calls it elbow-down when the elbow hangs below the line, at q1=%f q2=%f", (q1, q2) => {
+    expect(elbowSide(q1!, q2!)).toBeLessThan(0);
+    expect(elbowBranch(q2!)).toBe("down");
+  });
+
+  it.each([
+    [0, -1],
+    [0.5, -1],
+    [2, -0.8],
+    [4, -2.2],
+  ])("calls it elbow-up when the elbow rides above the line, at q1=%f q2=%f", (q1, q2) => {
+    expect(elbowSide(q1!, q2!)).toBeGreaterThan(0);
+    expect(elbowBranch(q2!)).toBe("up");
+  });
+
+  it("solves for the branch it was asked for, and puts the elbow there", () => {
+    const target = { x: 9, y: 5 };
+    const up = inverseKinematics(target, 9, 7, "up");
+    const down = inverseKinematics(target, 9, 7, "down");
+    expect(elbowBranch(up.q2)).toBe("up");
+    expect(elbowBranch(down.q2)).toBe("down");
+    expect(elbowSide(up.q1, up.q2, 9, 7)).toBeGreaterThan(0);
+    expect(elbowSide(down.q1, down.q2, 9, 7)).toBeLessThan(0);
   });
 });

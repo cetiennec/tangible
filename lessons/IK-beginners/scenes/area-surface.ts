@@ -4,7 +4,7 @@
 // peak, and it peaks exactly where the links are equal, which is the claim the
 // narration makes.
 
-import { MAX_LINK_CM, MIN_LINK_CM, reachCoverage } from "./kinematics.js";
+import { FREE_ELBOW, MAX_LINK_CM, MIN_LINK_CM, reachCoverage } from "./kinematics.js";
 
 export interface SurfaceBox {
   left: number;
@@ -41,7 +41,7 @@ export function projectSurface(box: SurfaceBox, u: number, v: number, z: number)
  * all, and the surface touches its ceiling along the diagonal.
  */
 function heightAt(u: number, v: number): number {
-  return reachCoverage(linkAt(u), linkAt(v), Math.PI);
+  return reachCoverage(linkAt(u), linkAt(v), FREE_ELBOW);
 }
 
 function point(box: SurfaceBox, u: number, v: number) {
@@ -152,7 +152,7 @@ function drawMarker(
   g.fillStyle = colors.ink;
   g.font = "700 12px system-ui, sans-serif";
   g.textAlign = "center";
-  g.fillText(`${Math.round(reachCoverage(l1, l2, Math.PI) * 100)}% reached`, top.x, top.y - 12);
+  g.fillText(`${Math.round(reachCoverage(l1, l2, FREE_ELBOW) * 100)}% reached`, top.x, top.y - 12);
 }
 
 function drawLabels(g: CanvasRenderingContext2D, box: SurfaceBox, colors: { muted: string; ridge: string }) {

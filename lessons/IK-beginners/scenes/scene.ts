@@ -101,6 +101,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "mark sample points the tip cannot reach",
   },
+  "show.human": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "show a person, whose upper arm and forearm are the same length",
+  },
   "show.limits": {
     type: { kind: "boolean" },
     default: false,
@@ -281,7 +288,7 @@ function drawLimitedReach(g: CanvasRenderingContext2D, geometry: Geometry, l1: n
   }
   g.restore();
 
-  const { inner, outer } = limitedRadii(l1, l2);
+  const { inner, outer } = limitedRadii(l1, l2, JOINT_LIMITS.q2);
   g.fillStyle = WORKSPACE;
   g.font = "600 13px system-ui, sans-serif";
   g.textAlign = "center";
