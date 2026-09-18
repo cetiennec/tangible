@@ -75,6 +75,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "which teleoperation route the side note explains",
   },
+  "show.brand": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "grow the LeRobot mark for the introduction beat",
+  },
 } as Schema;
 
 /** Simple drawings of the things a person teleoperates with. */
@@ -123,6 +130,7 @@ export const scene: SceneModule = {
           <img class="so101-logo" src="${LOGO}" alt="LeRobot" referrerpolicy="no-referrer" width="34" height="34">
           <p class="so101-kicker">The real robot</p>
         </div>
+        <p class="so101-brand-label">LeRobot</p>
         <h1>An SO-101, six joints in three dimensions</h1>
       </header>
       <p class="so101-status">Loading the SO-101 model…</p>
@@ -196,6 +204,7 @@ export const scene: SceneModule = {
       render(state: Readonly<PlainState>) {
         const size = ctx.size();
         view.place(box(), size);
+        root.classList.toggle("so101-brand-intro", Boolean(state["show.brand"]));
         const pair = state["show.leader"] as boolean;
         if (ready) {
           // Both arms are driven by the same numbers: that is the whole point of
@@ -253,8 +262,15 @@ const STYLE = `
 .so101-scene { font-family: system-ui, sans-serif; }
 .so101-scene header { position: absolute; top: 4%; left: 3%; width: 52%; }
 .so101-brand { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
-.so101-logo { display: block; width: 34px; height: 34px; border-radius: 7px; object-fit: contain; background: #fff; }
+.so101-logo { display: block; width: 34px; height: 34px; border-radius: 7px; object-fit: contain; background: #fff; transition: width 900ms ease, height 900ms ease; }
 .so101-kicker { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: ${MUTED}; }
+/* The LeRobot introduction beat: the mark already used for the credit line
+   grows in place, with a name beside it, then shrinks back for the rest of
+   the scene. Kept as a plain opacity/size transition, not a new layout, so
+   nothing else on screen has to move out of its way. */
+.so101-brand-label { margin: 2px 0 0; font-size: 15px; font-weight: 800; color: ${INK}; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 700ms ease; }
+.so101-brand-intro .so101-logo { width: 76px; height: 76px; }
+.so101-brand-intro .so101-brand-label { opacity: 1; max-height: 30px; font-size: 26px; }
 .so101-scene h1 { margin: 0; font-size: clamp(16px, 2.2vw, 26px); line-height: 1.15; font-weight: 600; }
 .so101-status { position: absolute; left: 3%; top: 48%; width: 62%; margin: 0; text-align: center; font-size: 14px; color: ${MUTED}; }
 .so101-status.so101-failed { color: ${TIP}; }

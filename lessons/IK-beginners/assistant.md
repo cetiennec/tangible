@@ -15,7 +15,7 @@ right, five joints in space, standing on a base plate. One `spread` value drives
 both, and faded copies show other members of the same family. The right-hand
 view can be turned by dragging.
 
-**so101** — a real robot, the SO-101, in three dimensions. When two arms are
+**so101** — SO101 in LeRobot, in three dimensions. When two arms are
 shown, the left is the leader and the right is the follower, and both are driven
 by exactly the same joint angles. Only the follower has gripper jaws. The motion
 during the task is scripted for the lesson; it is not a recording of a real
