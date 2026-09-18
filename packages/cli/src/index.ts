@@ -157,13 +157,19 @@ function selectTts(config: TtsConfig | undefined, mode: NarrationMode): { adapte
   if (mode === "offline") {
     return {
       adapter: new SupertonicTtsAdapter({ onStatus: (message) => console.error(message) }),
-      voice: "supertonic-3-speaker-0",
+      voice: SUPERTONIC_DEFAULT_VOICE,
     };
   }
   if (!config) {
     throw new Error(
       'real narration requires a "tts" section in lesson.yaml; use --offline or --silent while drafting',
     );
+  }
+  if (config.provider === "supertonic") {
+    return {
+      adapter: new SupertonicTtsAdapter({ onStatus: (message) => console.error(message) }),
+      voice: config.voice ?? SUPERTONIC_DEFAULT_VOICE,
+    };
   }
   if (config.provider === "hf-endpoint") {
     return {
@@ -194,14 +200,14 @@ async function buildLesson(lessonDir: string, manifest: Manifest, scene: SceneIn
   }
 
   const { adapter, voice } = selectTts(manifest.tts, mode);
-  if (requireReal && (adapter.id === "fake" || adapter.id === "supertonic")) {
+  if (requireReal && adapter.id === "fake") {
     throw new Error("lesson deploy requires real narration; configure credentials for the selected TTS provider");
   }
   const result = await synthesize(adapter, parsed.narration, {
     voice,
     cacheDir: join(lessonDir, ".cache", "tts"),
     speed: mode === "offline" ? manifest.offlineTts?.speed
-      : manifest.tts?.provider === "elevenlabs" ? manifest.tts.speed : undefined,
+      : manifest.tts?.provider === "elevenlabs" || manifest.tts?.provider === "supertonic" ? manifest.tts.speed : undefined,
     segmentOffsets: narrationSegmentOffsets(parsed.narration, parsed.directives.map((directive) => directive.anchorOffset)),
   });
 
@@ -524,6 +530,8 @@ function commaSeparatedIds(value: string | undefined, option: string): string[] 
   if (!ids.length) die(`${option} needs one or more comma-separated ids`);
   return ids;
 }
+
+const SUPERTONIC_DEFAULT_VOICE = "supertonic-3-speaker-0";
 
 function narrationMode(flags: Flags): NarrationMode {
   if (flags.silent) return "silent";

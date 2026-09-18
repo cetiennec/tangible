@@ -17,6 +17,7 @@ import {
   limitedRadii,
   reachableRadii,
   reachableSamples,
+  twoSolutionSamples,
   unreachableSamples,
   TAU,
   wrapAngle,
@@ -230,7 +231,9 @@ export const scene: SceneModule = {
           else drawWorkspace(g, geometry, l1, l2);
         }
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
-        if (state["show.solutions"]) drawSolutionSamples(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.solutions"]) {
+          drawSolutionSamples(g, geometry, state.l1 as number, state.l2 as number, state["show.limits"] as boolean);
+        }
         if (state["show.unreachable"]) drawUnreachable(g, geometry, state.l1 as number, state.l2 as number);
         drawAxes(g, geometry);
         if (flags.tip) drawTipProjection(g, geometry, pose.tip);
@@ -307,8 +310,17 @@ function drawLimitedReach(g: CanvasRenderingContext2D, geometry: Geometry, l1: n
 }
 
 /** Dots on points the tip can reach, each of which it can reach two ways. */
-function drawSolutionSamples(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
-  const points = reachableSamples(l1, l2);
+function drawSolutionSamples(
+  g: CanvasRenderingContext2D,
+  geometry: Geometry,
+  l1: number,
+  l2: number,
+  limited = false,
+) {
+  // With the limits on, most of the ring keeps only one solution, so the dots
+  // have to come from the points that genuinely keep both.
+  const points = limited ? twoSolutionSamples(l1, l2) : reachableSamples(l1, l2);
+  if (points.length === 0) return;
   for (const point of points) {
     const at = toScreen(geometry, point);
     g.fillStyle = WORKSPACE;

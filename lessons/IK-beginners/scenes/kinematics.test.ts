@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  twoSolutionSamples,
+  withinJointLimits,
   clampToReach,
   directionOf,
   elbowBranch,
@@ -349,5 +351,43 @@ describe("sample points against the region actually on screen", () => {
       return turned < low || turned > high;
     });
     expect(outside.length).toBeGreaterThan(0);
+  });
+});
+
+describe("twoSolutionSamples", () => {
+  const shapes = [
+    [12, 12],
+    [14, 10],
+    [10, 14],
+    [8, 16],
+  ] as const;
+
+  it("only offers points the arm can reach both ways inside its limits", () => {
+    for (const [l1, l2] of shapes) {
+      const points = twoSolutionSamples(l1, l2);
+      expect(points.length).toBeGreaterThan(0);
+      for (const point of points) {
+        for (const branch of ["up", "down"] as const) {
+          const solved = inverseKinematics(point, l1, l2, branch);
+          expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
+          // A clamped solve would stand somewhere other than the drawn dot.
+          expect(Math.hypot(solved.reached.x - point.x, solved.reached.y - point.y)).toBeLessThan(1e-6);
+        }
+      }
+    }
+  });
+
+  it("is stricter than the unlimited ring, which is the whole point", () => {
+    // reachableSamples marks points that have two solutions when the joints
+    // may turn freely. Under the real limits most of them no longer do, so the
+    // two samplers must not be interchangeable.
+    const [l1, l2] = [12, 12];
+    const loose = reachableSamples(l1, l2).filter((point) =>
+      (["up", "down"] as const).every((branch) => {
+        const solved = inverseKinematics(point, l1, l2, branch);
+        return withinJointLimits(solved.q1, solved.q2);
+      }),
+    );
+    expect(loose.length).toBeLessThan(reachableSamples(l1, l2).length);
   });
 });

@@ -1,5 +1,5 @@
 ---
-title: "Where does the arm's tip end up?"
+title: "How to move my robot to the correct place?"
 emoji: 📚
 colorFrom: blue
 colorTo: indigo
@@ -8,7 +8,7 @@ app_port: 7860
 fullWidth: true
 header: default
 pinned: false
-short_description: "Where does the arm's tip end up? — a Tangible lesson"
+short_description: "How to move my robot to the correct place? — a Tangible lesson"
 tags:
   - "tangible"
   - "education"
@@ -18,7 +18,7 @@ tags:
   - "mathematics"
 ---
 
-# Where does the arm's tip end up?
+# How to move my robot to the correct place?
 
 Turn the two joints of a planar robot arm and watch the tip trace out everything it can reach.
 

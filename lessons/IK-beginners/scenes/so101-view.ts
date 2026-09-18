@@ -37,6 +37,29 @@ interface Arm {
   limits: Map<string, [number, number]>;
 }
 
+/**
+ * Pull the two URDFs and every mesh they name into the browser cache.
+ *
+ * The arms are about sixteen megabytes of STL, and the scene that needs them
+ * only appears several minutes into the lesson. The player builds a host for
+ * the initial scene alone, so without this the download would not start until
+ * the moment the arms have to be on screen, and a slow connection would reach
+ * the Lego task before the meshes arrived. Called at module load, it runs
+ * while the earlier scenes play. Failures are ignored on purpose: this only
+ * warms a cache, and `load` still reports a genuine problem later.
+ */
+export async function warmRobotAssets(fetchImpl: typeof fetch = fetch): Promise<void> {
+  await Promise.all(
+    [[URDF_URL, FOLLOWER_BASE], [LEADER_URDF, LEADER_BASE]].map(async ([url, base]) => {
+      const response = await fetchImpl(url!);
+      if (!response.ok) return;
+      const robot = parseUrdf(await response.text());
+      const meshes = [...new Set(robot.links.flatMap((link) => link.visuals.map((visual) => visual.mesh)))];
+      await Promise.all(meshes.map((name) => fetchImpl(`${base}/${name}`).catch(() => undefined)));
+    }),
+  );
+}
+
 export class RobotView {
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;

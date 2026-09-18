@@ -1,5 +1,5 @@
 id: ik-beginners
-title: Where does the arm's tip end up?
+title: How to move my robot to the correct place?
 promise: Turn the two joints of a planar robot arm and watch the tip trace out
   everything it can reach.
 tags:
@@ -16,8 +16,7 @@ defaults:
   ease: inOutCubic
   transition: 1.0
 tts:
-  provider: hf-endpoint
-  voice: aiden
+  provider: supertonic
 deployment:
   provider: huggingface
   space: cetiennec/ik-beginners

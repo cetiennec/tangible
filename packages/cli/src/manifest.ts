@@ -7,7 +7,8 @@ import { DEFAULT_ASSISTANT_LIMITS, type AssistantLimits } from "@tangible/core";
 
 export type TtsConfig =
   | { provider: "elevenlabs"; voice: string; model?: string; speed?: number }
-  | { provider: "hf-endpoint"; voice: string };
+  | { provider: "hf-endpoint"; voice: string }
+  | { provider: "supertonic"; voice?: string; speed?: number };
 
 export type SceneSelection =
   | { scene: string; scenes?: never; initialScene?: never }
@@ -109,15 +110,24 @@ function validateManifest(value: unknown): asserts value is Manifest {
   }
   if (manifest.tts !== undefined) {
     const tts = object(manifest.tts, 'lesson.yaml field "tts"');
-    if (tts.provider !== "elevenlabs" && tts.provider !== "hf-endpoint") {
-      throw new Error('lesson.yaml field "tts.provider" must be "elevenlabs" or "hf-endpoint"');
+    if (tts.provider !== "elevenlabs" && tts.provider !== "hf-endpoint" && tts.provider !== "supertonic") {
+      throw new Error('lesson.yaml field "tts.provider" must be "elevenlabs", "hf-endpoint" or "supertonic"');
     }
-    nonEmptyString(tts.voice, 'lesson.yaml field "tts.voice"');
+    // Supertonic ships one bundled voice, so naming it is optional.
+    if (tts.provider === "supertonic") {
+      optionalString(tts.voice, 'lesson.yaml field "tts.voice"');
+    } else {
+      nonEmptyString(tts.voice, 'lesson.yaml field "tts.voice"');
+    }
+    if (tts.provider === "elevenlabs" || tts.provider === "supertonic") {
+      optionalNumber(tts.speed, 'lesson.yaml field "tts.speed"');
+    } else if (tts.speed !== undefined) {
+      throw new Error('lesson.yaml field "tts.speed" is supported only by ElevenLabs and Supertonic');
+    }
     if (tts.provider === "elevenlabs") {
       optionalString(tts.model, 'lesson.yaml field "tts.model"');
-      optionalNumber(tts.speed, 'lesson.yaml field "tts.speed"');
-    } else if (tts.model !== undefined || tts.speed !== undefined) {
-      throw new Error('lesson.yaml fields "tts.model" and "tts.speed" are supported only by ElevenLabs');
+    } else if (tts.model !== undefined) {
+      throw new Error('lesson.yaml field "tts.model" is supported only by ElevenLabs');
     }
   }
 

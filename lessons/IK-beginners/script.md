@@ -59,14 +59,43 @@ What value of L2 would let the robot reach closest to itself, according to you?
 @pause(prompt: "Pick your answer before we plot it.", speak: false)
 
 @cue(show.areaSurface = true)
-Yeah, this is actually @cue(l1 -> 12, over: 2s) @cue(l2 -> 12, over: 2s) L1=L2, have you seen this somewhere?
+Yeah, this is actually @cue(l1 -> 12, over: 4s) @cue(l2 -> 12, over: 4s) L1=L2, have you seen this somewhere?
+
+The surface peaks along the diagonal, where the two links have the same length. Equal links are what close the blind spot near the base.
+
+@pause(prompt: "Read the surface: the ridge runs along L1 = L2.", speak: false)
 
 @cue(show.human = true)
 Look at your arms, this is actually a feature human arms have.
 
+Your upper arm and your forearm are close to the same length, which is what lets your hand reach your own shoulder as easily as it reaches out in front of you.
+
+@pause(prompt: "Compare your own upper arm and forearm.", speak: false)
+
 @cue(show.areaSurface = false) @cue(show.human = false)
 This is in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
 
+A real motor cannot spin freely for ever. Here q1 is allowed to turn between 0.25 and 2.85 radians, and q2 between minus 2.6 and 1.15, and those two bounds alone carve the ring down to this shape.
+
+@pause(prompt: "Move q1 and q2 and watch where the arm refuses to go.", speak: false)
+
+Limits change the answer to our earlier question, because a solution is only useful if the joints can actually hold it. Take this point, which the arm can still reach in two different ways.
+
+@cue(q1 -> 1.779, over: 2s) @cue(q2 -> -1.030, over: 2s) Elbow up, the arm folds over the top.
+
+@cue(q1 -> 0.749, over: 2s) @cue(q2 -> 1.030, over: 2s) Elbow down, it comes round underneath, and both poses stay inside the limits.
+
+@pause(prompt: "Both elbow solutions are legal here.", speak: false)
+
+Now move the target out to the right, and one of the two answers disappears.
+
+@cue(q1 -> 1.422, over: 2s) @cue(q2 -> -1.424, over: 2s) Elbow up still works. Elbow down would need q1 near zero and q2 above 1.4, and both of those are past the stops, so the arm simply cannot get there that way.
+
+This is why limits matter so much in practice. Across this whole ring, @cue(show.solutions = true) only a small part keeps both solutions, about one point in ten. These are the kind of points that do. Most points keep just one, and a good half of the ring is lost altogether.
+
+@pause(prompt: "Every marked point can be reached with the elbow either way.", speak: false)
+
+@cue(show.solutions = false)
 @clear(kwLimits)
 @cue(show.limits = false)
 Getting back to the IK problem, how could there be multiple solutions? In our case, 2? Try to reach a point in 2 different ways.
@@ -90,10 +119,12 @@ In the 2 DOF example, one can invert the equations of the FK with a bit of maths
 The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of the acos function.
 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
-the best known is @board(kwNewton: "Newton's method") @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
+the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
+
+The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix of partial derivatives that says how a small turn of each joint nudges the tip in x and y.
 
 @clear(board)
-OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
+@cue(q1 -> 1.326, over: 2s) @cue(q2 -> -1.592, over: 2s) OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
 
 @bake(circle, steps: 32, over: 7s)
 From the equation of the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) circle with regard to time t, we know x and y, and obtain q1 and q2 for this.
@@ -104,6 +135,14 @@ Now think about LeRobot, when is IK used?
 @scene(so101)
 @cue(lift -> -0.75) @cue(elbow -> 1.35) @cue(wristFlex -> 0.45) @cue(gripper -> 0.5)
 This actually depends on the teleoperator. Here is the SO-101 follower arm.
+
+Teleoperation just means a person drives the robot in real time, and the way they drive it decides whether we need inverse kinematics at all.
+
+There are broadly two ways to do it. Either you say where you want the gripper to be, as a position in space, or you say what angle each joint should hold. The first is planning in the Cartesian space, the second in the joint space.
+
+Only the first one needs IK, because only the first one hands the robot a position and asks it to find the angles.
+
+@pause(prompt: "Which way would you drive this arm?", speak: false)
 
 @cue(teleop = phone)
 @cue(pan -> 0.7, over: 2.5s) @cue(lift -> -0.35, over: 2.5s) @cue(elbow -> 0.95, over: 2.5s)
@@ -117,6 +156,12 @@ But if we use another arm, let's say the SO-101 leader, the follower just has to
 
 @cue(show.angles = true)
 Every angle is mimicked, one for one, and since both arms are the same shape, anything the leader can hold the follower can hold too.
+
+Look at the two arms side by side. The shoulder angle on the leader is the shoulder angle on the follower, the elbow matches the elbow, and no equation is solved anywhere in between.
+
+That is the whole appeal of teleoperating in the joint space. It is a copy, not a calculation, so it cannot fail to find a solution and it cannot pick the wrong elbow.
+
+@pause(prompt: "Compare each joint on the leader with the same joint on the follower.", speak: false)
 
 @cue(show.angles = false)
 @cue(show.task = true)
@@ -134,4 +179,4 @@ Classical robotics has focused on planning in the Cartesian space, but most of t
 
 Will this be transferable to every robot?
 
-Most of them use an @board(t3: "Action experts") action expert separately from the VLA itself, which can be @board(t4: "Calibration and motor counts") @board(t5: "Planning a path, not just a point") fine-tuned on any robot.
+Most of them use an @board(t3: "Action experts") action expert separately from the VLA itself, which can be fine-tuned on any robot.

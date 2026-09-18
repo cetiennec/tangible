@@ -156,6 +156,57 @@ export function reachableSamples(l1: number, l2: number): Point[] {
   ].map(({ angle, radius }) => ({ x: radius * Math.cos(angle), y: radius * Math.sin(angle) }));
 }
 
+/** True when a pose lies inside the travel the motors actually have. */
+export function withinJointLimits(q1: number, q2: number): boolean {
+  const [q1Low, q1High] = JOINT_LIMITS.q1;
+  const [q2Low, q2High] = JOINT_LIMITS.q2;
+  return q1 >= q1Low && q1 <= q1High && q2 >= q2Low && q2 <= q2High;
+}
+
+/**
+ * Points that still have both elbow solutions once the joint limits apply.
+ * Far fewer than the open ring offers, so these are searched for rather than
+ * placed by hand: with equal links only about a tenth of the ring keeps both.
+ * `clearance` keeps the samples away from the limit edges, so a pose the
+ * narration calls legal does not sit a hair inside a stop.
+ */
+export function twoSolutionSamples(l1: number, l2: number, count = 4, clearance = 0.12): Point[] {
+  const { outer } = reachableRadii(l1, l2);
+  const found: { point: Point; angle: number }[] = [];
+  for (let step = 0; step < 720; step++) {
+    const angle = (step / 720) * TAU;
+    for (let ring = 0.95; ring > 0.1; ring -= 0.02) {
+      const point = { x: outer * ring * Math.cos(angle), y: outer * ring * Math.sin(angle) };
+      const up = inverseKinematics(point, l1, l2, "up");
+      const down = inverseKinematics(point, l1, l2, "down");
+      // A target inside the dead zone gets clamped, so the pose would not
+      // actually stand where the dot is drawn.
+      if (Math.hypot(up.reached.x - point.x, up.reached.y - point.y) > 1e-6) continue;
+      if (!bothClear(up, down, clearance)) continue;
+      found.push({ point, angle });
+      break;
+    }
+  }
+  if (found.length === 0) return [];
+  // Spread the chosen few evenly around whatever arc survived the limits.
+  return Array.from({ length: Math.min(count, found.length) }, (_unused, index) =>
+    found[Math.round((index * (found.length - 1)) / Math.max(1, Math.min(count, found.length) - 1))]!.point,
+  );
+}
+
+function bothClear(
+  up: { q1: number; q2: number },
+  down: { q1: number; q2: number },
+  clearance: number,
+): boolean {
+  const [q1Low, q1High] = JOINT_LIMITS.q1;
+  const [q2Low, q2High] = JOINT_LIMITS.q2;
+  const clear = (pose: { q1: number; q2: number }) =>
+    pose.q1 - q1Low >= clearance && q1High - pose.q1 >= clearance &&
+    pose.q2 - q2Low >= clearance && q2High - pose.q2 >= clearance;
+  return clear(up) && clear(down);
+}
+
 /**
  * Which of the two solutions an elbow angle represents, named for where the
  * elbow actually sits: "up" puts it above the line from shoulder to hand.

@@ -2,8 +2,12 @@ import type { OrbitState, PlainState, Schema } from "@tangible/core";
 import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
 import { INK, LINK1, MUTED, TIP } from "./controls.js";
-import { RobotView } from "./so101-view.js";
+import { RobotView, warmRobotAssets } from "./so101-view.js";
 import { GRASP_AT, RELEASE_AT, taskFrame, TASK_JOINTS } from "./task.js";
+
+// The arms are a large download and this scene appears late, so start fetching
+// as soon as the lesson bundle loads rather than when the scene opens.
+void warmRobotAssets().catch(() => undefined);
 
 const SOURCE = "https://huggingface.co/spaces/lerobot/visualize_dataset";
 // LeRobot's own mark, from the organisation that publishes the robot
