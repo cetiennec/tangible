@@ -7,7 +7,7 @@ Each lesson combines a scene that learners can manipulate with spoken explanatio
 For an example, open [“Why adaptive optimizers exist”](https://huggingface.co/spaces/dlouapre/tangible-optimizers) on Hugging Face Spaces. The lesson lets you play or seek through the explanation, orbit the loss landscape, move the starting point, change optimizer settings, pause for exploration, and ask written questions to an LLM assistant.
 
 <p align="center">
-<img src="./docs/assets/optimizer-lesson.jpg" alt="The Tangible optimizer lesson comparing SGD, momentum, and AdamW on an interactive loss landscape." width="700">
+<img src="./assets/optimizer-lesson.jpg" alt="The Tangible optimizer lesson comparing SGD, momentum, and AdamW on an interactive loss landscape." width="700">
 </p>
 
 Browse the public [Tangible lessons collection](https://huggingface.co/collections/dlouapre/tangible-lessons-6a96e2c4be1533d68e65d7a2) to find lessons published from this repository and by other creators.
@@ -33,28 +33,41 @@ corepack enable
 pnpm install
 pnpm build
 ```
+If your Node installation does not include Corepack, follow the
+[official pnpm installation guide](https://pnpm.io/installation).
+
 You can check that everything works by starting one of the example lessons in silent mode (see below):
 ```bash
 pnpm lesson preview --silent --lesson lessons/optimizers
 ```
 
+Open the local address printed by the command, press Start, and enable captions.
+Try the controls, pause, seek, and resume. Stop the preview with `Ctrl+C`.
+This requires no FFmpeg, speech model, or API key.
+
+For an example with two scenes, run
+`pnpm lesson preview --silent --lesson lessons/unit-circle`. Move the red point
+or angle slider and follow the circle, cosine graph, and return to the circle.
+The [multiple-scene walkthrough](./DOCUMENTATION.md#add-another-scene) explains
+how those modules are registered and selected with `@scene(...)`.
+
 Three further requirements matter only at specific steps, so you can install them when you reach those steps:
 
 - FFmpeg, for the audible offline preview of step 4;
-- an API key for the speech provider and for the assistant, as described in the next section;
+- an API key if you choose hosted speech or enable the assistant, as described in the next section;
 - the Hugging Face command line tool `hf`, to publish a lesson as a Space in step 6.
 
 
 ## Credentials
 
-Most of the work needs no account at all. The scene preview, `pnpm lesson check`, the silent preview, and the audible offline preview all run on your own machine. Only two features contact an external provider and therefore need an API key: the production voice that reads your narration, and the LLM assistant that answers learner questions.
+Most of the work needs no account at all. The scene preview, `pnpm lesson check`, and local narration all run on your own machine. Supertonic can also generate the production voice without credentials. Hosted speech providers and the optional LLM assistant need credentials. Narration is generated during the build; learners play the resulting audio files without calling the speech provider.
 
 Tangible reads these keys from a `.env` file, which it looks for both in the repository root and in the lesson directory. That file is listed in `.gitignore`, and the keys never reach the browser: they are used when the narration is compiled and, for the assistant, by a small server that runs beside the lesson.
 
-- The production voice reads `ELEVENLABS_API_KEY` when `lesson.yaml` sets `tts.provider: elevenlabs`, or `TTS_ENDPOINT_URL` together with `HF_TTS_TOKEN` when it sets `tts.provider: hf-endpoint`.
+- The production voice reads `ELEVENLABS_API_KEY` when `lesson.yaml` sets `tts.provider: elevenlabs`, or `TTS_ENDPOINT_URL` together with `HF_TTS_TOKEN` when it sets `tts.provider: hf-endpoint`. The latter expects a specific Qwen server protocol; it does not accept every Hugging Face TTS endpoint. Its token falls back to `HF_TOKEN` if `HF_TTS_TOKEN` is unset.
 - The assistant reads `HF_TOKEN`. The same token must also be added as a secret of the Hugging Face Space once the lesson is deployed.
 
-The [authoring guide](./docs/authoring.md) explains which tokens to use and how to keep them out of the released lesson.
+The [narration guide](./DOCUMENTATION.md#choose-and-configure-narration) gives complete configuration examples and explains timing, caching, and credentials.
 
 
 ## Build your own lesson
@@ -66,9 +79,24 @@ Authoring a lesson involves:
 - writing the `assistant.md` file for custom instructions to the LLM assistant (optional);
 - adjusting the `lesson.yaml` configuration file to customize TTS model, assistant LLM and deployment parameters.
 
-You can work with a coding agent throughout the process (see the `create-tangible-lesson` skill) in particular for scene creation and authoring synchronized manipulations (see below).
+You can follow the steps below manually or with a coding agent. Agents that
+support repository-local skills can use the
+[create-tangible-lesson skill](./.agents/skills/create-tangible-lesson/SKILL.md).
+Other agents can read `AGENTS.md`, `lessons/AGENTS.md`, and
+[DOCUMENTATION.md](./DOCUMENTATION.md).
 
-[Creator quick start](./docs/quickstart.md) leads from a fresh clone to a modified lesson without paid credentials.
+For an agent, copy this prompt and replace the bracketed text:
+
+> Use `$create-tangible-lesson` and help me create a lesson about [subject]. The
+> relationship I want learners to see is [relationship]. Build the smallest
+> interactive scene first and stop for my review. Preserve my narration, turn
+> my double-bracket hints into formal cues, and do not deploy until I explicitly
+> authorize it.
+
+You own the teaching argument, spoken narration, and final visual judgment.
+The agent implements the scene, translates hints after scene review, runs
+checks, and prepares builds. Production narration and deployment follow once
+the lesson is stable.
 
 ### 1. Create a new lesson
 
@@ -76,6 +104,11 @@ First create a new lesson with
 ```bash
 pnpm lesson new my-lesson --lesson lessons/my-lesson
 ```
+
+The generated lesson already contains a scene, a range control, narration, a
+synchronized cue, and a pause. It has no assistant, deployment target, or
+production speech provider. You can complete the scene and silent narration
+exercise without paid credentials.
 
 ### 2. Build the interactive scene
 
@@ -85,6 +118,12 @@ Preview the scene with
 ```bash
 pnpm lesson scene --lesson lessons/my-lesson
 ```
+
+Move the Amount slider: the number and bar should update together. This preview
+does not read narration or contact a provider. In
+`lessons/my-lesson/scenes/scene.ts`, change the `amount` parameter's default
+from `30` to `50`, and replace the heading “One value, one visible result”
+with words related to your subject. The running preview reloads automatically.
 
 ### 3. Write the script and the choreography
 
@@ -101,14 +140,33 @@ makes progress along the floor.
 
 Start with your text, then add instructions for the choreography. You can either do it manually or use a coding agent.
 
+Ordinary prose is spoken and becomes captions. Directives beginning with `@`
+and double-bracket hints are silent. To try a small edit in the starter, find:
+
+```markdown
+Then it @cue(amount -> 80, over: 2s) grows, and the bar responds immediately.
+[[Keep the bar change aligned with the word "grows".]]
+```
+
+Change one spoken sentence and change the cue target from `80` to `60`, keeping
+the cue beside the word it supports. Also replace the starter's pause prompt
+with an observation or prediction suited to your subject:
+
+```markdown
+@pause(prompt: "Move the slider and notice how the number and bar stay connected.")
+```
+
 #### Manually
-Keywords for the choreography are documented in the [reference guide](./docs/reference.md). 
+Keywords for the choreography are documented in the [reference appendix](./DOCUMENTATION.md#narration-directives).
 Before writing formal cues, run `pnpm lesson ref` to see exactly what the scene exposes.
 ```bash
 pnpm lesson ref --lesson lessons/my-lesson
 ```
 It prints the scene’s parameters, valid ranges, default values, ownership rules, camera presets, constants, groups, and other available
 controls. 
+
+For the starter exercise, confirm that it lists `amount`, its range from 0 to
+100, and your new default.
 
 #### With a coding agent
 You can also first write the visual intentions in double brackets and ask your coding agent to translate them into formal directives.
@@ -136,23 +194,49 @@ You can first generate a silent preview version: activate closed captions and fo
 pnpm lesson preview --silent --lesson lessons/my-lesson
 ```
 
-Replace the `--silent` flag with `--offline` to get an audible offline preview. It requires FFmpeg and downloads a pinned 123 MB local speech model on its first run.
-It needs no API key.
+Replace the `--silent` flag with `--offline` to get an audible offline preview
+with Supertonic 3. Install FFmpeg through your operating system's package manager
+and confirm that `ffmpeg -version` works. The first preview downloads a pinned
+123 MB model; later previews reuse it. It needs no API key and calls neither
+a hosted speech provider nor a hosted assistant. Its word timings are approximate.
 ```bash
 pnpm lesson preview --offline --lesson lessons/my-lesson
 ```
 
-To use the production voice, meaning the TTS model defined in `lesson.yaml`, you need the provider key described above:
+To use Supertonic for the finished lesson, add this to `lesson.yaml`:
+
+```yaml
+tts:
+  provider: supertonic
+  speed: 1
+```
+
+The speed is optional. This selects the fixed English voice for normal builds
+and deployment, with approximate word timing. Review the captions and cues
+against the recording. The independent `offlineTts.speed` setting still applies
+only to `--offline`.
+
+To preview the configured production voice, omit the mode flag. Hosted providers
+need the key described above; Supertonic does not. A missing hosted-provider key
+is an error, so use `--silent` or `--offline` explicitly when drafting:
 ```bash
 pnpm lesson preview --lesson lessons/my-lesson
 ```
 
-The [creator quick start](./docs/quickstart.md) walks through one visible scene change, one narration edit, and one cue edit.
-
-
 ### 5. Build and review the finished lesson
 
-Compile the lesson and write a static site into `lessons/my-lesson/build/site/`:
+For the starter exercise, build a complete site with silent narration and inspect
+its state and a representative frame:
+
+```bash
+pnpm lesson build --silent --bundle --lesson lessons/my-lesson
+pnpm lesson state --lesson lessons/my-lesson --at 30
+pnpm lesson frame --lesson lessons/my-lesson --at 30 -o /tmp/my-lesson.png
+```
+
+You have now changed a scene, narration, and cue and built a complete lesson
+without a credential or model download. When the configured production voice is
+ready, compile it into `lessons/my-lesson/build/site/`:
 ```bash
 pnpm lesson build --bundle --lesson lessons/my-lesson
 ```
@@ -183,7 +267,7 @@ pnpm lesson deploy --create --lesson lessons/my-lesson
 Deployment uploads only the release artifact, waits for the Space to start, and
 prints logs when startup fails. It never makes an existing Space public, changes
 hardware, or replaces secrets. Review the private Space before changing its
-visibility. The [deployment guide](./docs/authoring.md#deploy-to-hugging-face-spaces)
+visibility. The [deployment guide](./DOCUMENTATION.md#deploy-to-hugging-face-spaces)
 explains production narration, assistant secrets, logs, and release checks.
 
 Once your Space is public, you can ask the maintainers to add it to the
@@ -198,14 +282,21 @@ account.
 *Tangible* currently supports desktop and tablet layouts. Portrait phones ask visitors to rotate the device or use a larger screen. 
 Phone landscape uses a compact layout that is still being refined.
 
-Building and reviewing a lesson is free, since everything up to the offline preview runs on your machine. The production voice and the LLM assistant are the only paid parts, and they are billed to your own provider account.
+Local previews require no paid service. Hosted narration may incur costs when
+uncached audio is generated, and a dedicated endpoint can also incur hosting
+costs while provisioned. Watching a lesson does not trigger speech synthesis.
+The optional assistant incurs provider costs when learners ask questions.
+Tangible supports production narration with local Supertonic, ElevenLabs, or the
+compatible Qwen endpoint. Other local voices and improved alignment remain planned.
 
 
 ## Repository layout
 
 - `packages/` contains the framework itself: the state model, the script compiler, the browser player, the speech adapters, the shared scene ingredients, and the `lesson` command line tool.
 - `lessons/` contains the example lessons, and it is where your own lesson goes.
-- `docs/` contains the quick start, the authoring guide, and the reference.
+- `DOCUMENTATION.md` contains the authoring workflow and reference appendix.
+- `CONTRIBUTING.md` contains framework guidance and the TTS improvement plan.
+- `docs/assets/` contains images used by this README.
 - `e2e/` contains the browser tests.
 
 Run `pnpm lesson --help` to list the available commands, and `pnpm lesson help <command>` to see the main options of one of them.
@@ -213,9 +304,8 @@ Run `pnpm lesson --help` to list the available commands, and `pnpm lesson help <
 
 ## Documentation
 
-- [Creator quick start](./docs/quickstart.md) leads from a fresh clone to a modified lesson without paid credentials.
-- [Authoring a lesson](./docs/authoring.md) covers scene design, narration, choreography, review, assistants, and deployment.
-- [Reference](./docs/reference.md) documents every command, lesson file, manifest field, scene export, and narration directive.
+- [Documentation](./DOCUMENTATION.md) covers scene design, narration, choreography, review, assistants, and deployment, with a complete command and format reference in its appendix.
+- [Clone your voice with Qwen3-TTS](./docs/qwen-voice-cloning.md) explains recording preparation, optional fine-tuning, Hugging Face endpoint hosting, and use in Tangible, with a prompt for handing the work to an agent.
 - [Contributing](./CONTRIBUTING.md) explains how to work on lessons or the framework.
 
 

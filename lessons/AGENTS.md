@@ -14,7 +14,7 @@ review, and deployment.
 
 For a new lesson or a substantial lesson-production task, use the repo-local
 `create-tangible-lesson` skill in `.agents/skills/` and follow
-`docs/authoring.md`.
+`DOCUMENTATION.md`.
 
 When a new lesson starts from an idea rather than existing files, establish the
 subject and the relationship that should become visible. Do not require a formal

@@ -12,6 +12,25 @@ async function manifest(text: string) {
 }
 
 describe("lesson manifest", () => {
+  it("accepts a fixed local production voice and validates provider-specific settings", async () => {
+    const base = 'id: test\ntitle: Test\npromise: Test narration.\nscene: ./scene.ts\ndefaults: { anticipation: 0, ease: linear, transition: 1 }\n';
+    await expect(manifest(base + 'tts: { provider: supertonic }\n')).resolves.toMatchObject({ tts: { provider: "supertonic" } });
+    await expect(manifest(base + 'tts: { provider: supertonic, speed: 1.2 }\n')).resolves.toMatchObject({ tts: { speed: 1.2 } });
+    for (const provider of ['supertonic', 'elevenlabs']) {
+      for (const speed of ['0', '-1', '.nan', '.inf', 'fast']) {
+        const voice = provider === 'elevenlabs' ? ', voice: test' : '';
+        await expect(manifest(base + `tts: { provider: ${provider}${voice}, speed: ${speed} }\n`)).rejects.toThrow('tts.speed');
+      }
+    }
+    for (const field of ['voice', 'model', 'revision']) {
+      await expect(manifest(base + `tts: { provider: supertonic, ${field}: unsupported }\n`)).rejects.toThrow(`tts.${field}`);
+    }
+    await expect(manifest(base + 'tts: { provider: hf-endpoint, voice: test, revision: weights-v2 }\n'))
+      .resolves.toMatchObject({ tts: { revision: "weights-v2" } });
+    await expect(manifest(base + 'tts: { provider: hf-endpoint, voice: test, revision: "" }\n'))
+      .rejects.toThrow('tts.revision');
+  });
+
   it("accepts local voice speed without production speech configuration", async () => {
     const base = 'id: test\ntitle: Test\npromise: Test narration.\nscene: ./scene.ts\ndefaults: { anticipation: 0, ease: linear, transition: 1 }\n';
     await expect(manifest(base + 'offlineTts: { speed: 1.2 }\n')).resolves.toMatchObject({ offlineTts: { speed: 1.2 } });
@@ -237,7 +256,7 @@ tts:
   provider: hf-endpoint
   voice: david_v1
   speed: 0.9
-`)).rejects.toThrow("supported only by ElevenLabs");
+`)).rejects.toThrow("not supported by hf-endpoint");
   });
 
   it("rejects a deployment URL in place of a Space identifier", async () => {

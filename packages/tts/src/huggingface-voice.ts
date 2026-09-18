@@ -2,6 +2,7 @@
 // PCM WAV without alignment, so answer beats are generated separately and
 // concatenated to recover exact segment boundaries from their sample counts.
 
+import { createHash } from "node:crypto";
 import type { SegmentedTtsRequest, SegmentedTtsResult, TtsAdapter, TtsRequest, TtsResult } from "@tangible/core";
 
 export interface HuggingFaceVoiceOptions {
@@ -9,11 +10,13 @@ export interface HuggingFaceVoiceOptions {
   token?: string; // defaults to process.env.HF_TTS_TOKEN, then HF_TOKEN
   speaker?: string; // default david_v1
   seed?: number; // default 20260717
+  revision?: string; // author-supplied model revision for cache invalidation, not sent to the endpoint
   onStatus?: (message: string) => void;
   fetchImpl?: typeof fetch;
 }
 
 const SCALE_UP_WAIT_SECONDS = 600;
+const GENERATION_SETTINGS = { language: "English", temperature: 0.9, top_p: 0.95 };
 
 export class HuggingFaceVoiceAdapter implements TtsAdapter {
   id = "hf-endpoint";
@@ -33,7 +36,15 @@ export class HuggingFaceVoiceAdapter implements TtsAdapter {
     this.seed = opts.seed ?? 20260717;
     this.onStatus = opts.onStatus;
     this.fetchImpl = opts.fetchImpl ?? fetch;
-    this.modelId = `qwen3-tts:${this.speaker}`;
+    // Credentials never participate; changing endpoints, weights, or generation
+    // settings must not reuse a different recording under the same speaker name.
+    this.modelId = `qwen3-tts:${createHash("sha256").update(JSON.stringify({
+      endpoint: this.endpointUrl,
+      revision: opts.revision ?? null,
+      speaker: this.speaker,
+      seed: this.seed,
+      ...GENERATION_SETTINGS,
+    })).digest("hex")}`;
   }
 
   async synthesize(req: TtsRequest): Promise<TtsResult> {
@@ -102,7 +113,7 @@ export class HuggingFaceVoiceAdapter implements TtsAdapter {
     const response = await this.fetchImpl(`${this.endpointUrl}/generate`, {
       method: "POST",
       headers: this.headers({ accept: "audio/wav", "content-type": "application/json" }),
-      body: JSON.stringify({ text, language: "English", speaker, seed, temperature: 0.9, top_p: 0.95 }),
+      body: JSON.stringify({ text, speaker, seed, ...GENERATION_SETTINGS }),
       signal: AbortSignal.timeout((SCALE_UP_WAIT_SECONDS + 30) * 1000),
     });
     if (!response.ok) throw new Error(`Hugging Face voice endpoint ${response.status}: ${await response.text()}`);

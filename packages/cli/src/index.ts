@@ -9,11 +9,10 @@ import { createHash } from "node:crypto";
 import { parseScript, check, compile, emit, synthesize, narrationSegmentOffsets, formatDiagnostic, ParseError } from "@tangible/compiler";
 import type { SceneInfo } from "@tangible/compiler";
 import { buildIndex, DEFAULT_ASSISTANT_LIMITS, evaluate, validateSchema } from "@tangible/core";
-import type { Schema, Keyframe, TtsAdapter, ParamSpec, ParamValue } from "@tangible/core";
+import type { Schema, Keyframe, ParamSpec, ParamValue } from "@tangible/core";
 import { StateStore, Reconciler } from "@tangible/player";
-import { FakeTtsAdapter, ElevenLabsAdapter, HuggingFaceVoiceAdapter, SupertonicTtsAdapter } from "@tangible/tts";
 import { loadScene, loadLessonScenes } from "./scene-loader.js";
-import { loadManifest, loadSceneManifest, sceneFile, type Manifest, type TtsConfig } from "./manifest.js";
+import { loadManifest, loadSceneManifest, sceneFile, type Manifest } from "./manifest.js";
 import { refSheet } from "./ref.js";
 import { scaffold } from "./scaffold.js";
 import { bundleSite } from "./bundle.js";
@@ -29,6 +28,7 @@ import { writeAssistantPromptLog } from "./assistant-prompt-log.js";
 import { deployLessonToSpace } from "./deploy.js";
 import { helpText } from "./help.js";
 import { prepareSpace } from "./deploy-prepare.js";
+import { selectNarration, type NarrationMode } from "./narration.js";
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -147,45 +147,7 @@ async function cmdFrame(flags: Flags): Promise<void> {
   console.error(`rendered frame at t=${t} → ${out}`);
 }
 
-type NarrationMode = "provider" | "offline" | "silent";
-
 class LessonBuildError extends Error {}
-
-/** Choose the configured provider, local draft voice, or silent test substitute. */
-function selectTts(config: TtsConfig | undefined, mode: NarrationMode): { adapter: TtsAdapter; voice: string } {
-  if (mode === "silent") return { adapter: new FakeTtsAdapter(), voice: config?.voice ?? "draft" };
-  if (mode === "offline") {
-    return {
-      adapter: new SupertonicTtsAdapter({ onStatus: (message) => console.error(message) }),
-      voice: SUPERTONIC_DEFAULT_VOICE,
-    };
-  }
-  if (!config) {
-    throw new Error(
-      'real narration requires a "tts" section in lesson.yaml; use --offline or --silent while drafting',
-    );
-  }
-  if (config.provider === "supertonic") {
-    return {
-      adapter: new SupertonicTtsAdapter({ onStatus: (message) => console.error(message) }),
-      voice: config.voice ?? SUPERTONIC_DEFAULT_VOICE,
-    };
-  }
-  if (config.provider === "hf-endpoint") {
-    return {
-      adapter: new HuggingFaceVoiceAdapter({
-        speaker: config.voice,
-        onStatus: (message) => console.error(message),
-      }),
-      voice: config.voice,
-    };
-  }
-  if (process.env.ELEVENLABS_API_KEY) {
-    return { adapter: new ElevenLabsAdapter({ modelId: config.model }), voice: config.voice };
-  }
-  console.error("note: ELEVENLABS_API_KEY not set — using silent placeholder audio");
-  return { adapter: new FakeTtsAdapter(), voice: config.voice };
-}
 
 async function buildLesson(lessonDir: string, manifest: Manifest, scene: SceneInfo, mode: NarrationMode, requireReal = false) {
   const file = "script.md";
@@ -199,15 +161,11 @@ async function buildLesson(lessonDir: string, manifest: Manifest, scene: SceneIn
     );
   }
 
-  const { adapter, voice } = selectTts(manifest.tts, mode);
-  if (requireReal && adapter.id === "fake") {
-    throw new Error("lesson deploy requires real narration; configure credentials for the selected TTS provider");
-  }
+  const { adapter, voice, speed } = selectNarration(manifest, mode, requireReal);
   const result = await synthesize(adapter, parsed.narration, {
     voice,
     cacheDir: join(lessonDir, ".cache", "tts"),
-    speed: mode === "offline" ? manifest.offlineTts?.speed
-      : manifest.tts?.provider === "elevenlabs" || manifest.tts?.provider === "supertonic" ? manifest.tts.speed : undefined,
+    speed,
     segmentOffsets: narrationSegmentOffsets(parsed.narration, parsed.directives.map((directive) => directive.anchorOffset)),
   });
 
@@ -323,7 +281,7 @@ async function cmdServe(flags: Flags): Promise<void> {
 }
 
 async function cmdDeploy(flags: Flags): Promise<void> {
-  if (flags.offline || flags.silent) die("lesson deploy does not support --offline or --silent because a release must contain real narration");
+  if (flags.offline || flags.silent) die("lesson deploy requires the configured production voice; omit --offline and --silent");
   const lessonDir = flags.lesson ?? process.cwd();
   const manifest = await loadManifest(lessonDir);
   if (flags.prepare) {
@@ -530,8 +488,6 @@ function commaSeparatedIds(value: string | undefined, option: string): string[] 
   if (!ids.length) die(`${option} needs one or more comma-separated ids`);
   return ids;
 }
-
-const SUPERTONIC_DEFAULT_VOICE = "supertonic-3-speaker-0";
 
 function narrationMode(flags: Flags): NarrationMode {
   if (flags.silent) return "silent";

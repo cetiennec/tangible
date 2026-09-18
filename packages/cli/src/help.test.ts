@@ -5,7 +5,8 @@ describe("lesson help", () => {
   it("orients a first-time creator", () => {
     const help = helpText();
     expect(help).toContain("pnpm lesson new my-lesson");
-    expect(help).toContain("docs/quickstart.md");
+    expect(help).toContain("README.md");
+    expect(help).toContain("DOCUMENTATION.md");
   });
 
   it("explains the credential-free preview modes", () => {

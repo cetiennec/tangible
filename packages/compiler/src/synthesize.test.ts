@@ -60,6 +60,17 @@ describe("synthesize caching", () => {
     expect(a.calls).toBe(2);
   });
 
+  it("re-synthesizes when model identity or speed changes", async () => {
+    const adapter = new CountingAdapter();
+    const params = { voice: "v", cacheDir, speed: 1 };
+    await synthesize(adapter, "same text", params);
+    adapter.modelId = "different-model-revision";
+    await synthesize(adapter, "same text", params);
+    await synthesize(adapter, "same text", { ...params, speed: 1.2 });
+    await synthesize(adapter, "same text", { ...params, speed: 1.2 });
+    expect(adapter.calls).toBe(3);
+  });
+
   it("derives character timing from exact provider segment boundaries", async () => {
     const a = new SegmentedAdapter();
     const result = await synthesize(a, "one. two", {

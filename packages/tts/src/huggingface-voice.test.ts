@@ -2,6 +2,21 @@ import { describe, expect, it } from "vitest";
 import { HuggingFaceVoiceAdapter } from "./huggingface-voice.js";
 
 describe("HuggingFaceVoiceAdapter", () => {
+  it("invalidates cache identity on synthesis changes but not credential rotation", () => {
+    const options = { endpointUrl: "https://voice.example", speaker: "test", seed: 42, revision: "weights-v1", token: "token-a" };
+    const original = new HuggingFaceVoiceAdapter(options).modelId;
+    for (const change of [
+      { endpointUrl: "https://other.example" }, { speaker: "other" },
+      { seed: 43 }, { revision: "weights-v2" },
+    ]) {
+      expect(new HuggingFaceVoiceAdapter({ ...options, ...change }).modelId).not.toBe(original);
+    }
+    expect(new HuggingFaceVoiceAdapter({ ...options, token: "token-b" }).modelId).toBe(original);
+    expect(new HuggingFaceVoiceAdapter({ ...options, endpointUrl: "https://voice.example/" }).modelId).toBe(original);
+    expect(original).not.toContain(options.token);
+    expect(original).not.toContain(options.endpointUrl);
+  });
+
   it("generates each answer beat and joins PCM WAV audio with exact start times", async () => {
     const requests: { url: string; authorization: string; scaleUpTimeout: string; body?: Record<string, unknown> }[] = [];
     const statuses: string[] = [];
@@ -26,6 +41,7 @@ describe("HuggingFaceVoiceAdapter", () => {
     const adapter = new HuggingFaceVoiceAdapter({
       endpointUrl: "https://voice.example/",
       token: "secret",
+      revision: "weights-v2",
       onStatus: (message) => statuses.push(message),
       fetchImpl,
     });
@@ -48,6 +64,8 @@ describe("HuggingFaceVoiceAdapter", () => {
     expect(requests.every((request) => request.scaleUpTimeout === "600")).toBe(true);
     expect(requests[1]!.body).toMatchObject({ text: "First.", language: "English", speaker: "david_v1", seed: 20260717 });
     expect(requests[2]!.body!.seed).toBe(20260718);
+    expect(requests[1]!.body).toMatchObject({ temperature: 0.9, top_p: 0.95 });
+    expect(requests[1]!.body).not.toHaveProperty("revision");
     expect(statuses).toEqual([
       "Tangible is waiting for the Hugging Face voice endpoint; a cold start can take several minutes.",
       "The Hugging Face voice endpoint is ready.",
