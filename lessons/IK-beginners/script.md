@@ -72,21 +72,14 @@ Look at your arms, your upper arm and your forearm are close to the same length,
 @pause(prompt: "Compare your own upper arm and forearm.", speak: false)
 
 @cue(show.human = false)
-@cue(show.solutions = false)
-@cue(show.limits = false)
+@cue(show.areaSurface = false)
 Getting back to the IK problem, how could there be multiple solutions? Try to reach a point in 2 different ways.
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)
 
 @cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the @cue(show.solutions = true) reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
-@cue(q1 -> 1.779, over: 2s) @cue(q2 -> -1.030, over: 2s) Elbow up, the arm folds over the top.
-
-@cue(q1 -> 0.749, over: 2s) @cue(q2 -> 1.030, over: 2s) Elbow down, it comes round underneath.
-
-@pause(prompt: "Both elbow solutions are legal here.", speak: false)
-
-@cue(show.areaSurface = false) @cue(show.human = false)
+@cue(show.solutions = false)
 We've worked in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
 
 A real system cannot spin freely for ever. Here q1 is allowed to turn between 0.25 and 2.85 radians, and q2 between minus 2.6 and 1.15, and those two bounds alone carve the ring down to this shape.
@@ -94,6 +87,12 @@ A real system cannot spin freely for ever. Here q1 is allowed to turn between 0.
 @pause(prompt: "Move q1 and q2 and watch where the arm refuses to go.", speak: false)
 
 Joint limits create a less straightforward answer to our earlier question. Take this point, which the arm can still reach in two different ways.
+
+@cue(q1 -> 1.779, over: 2s) @cue(q2 -> -1.030, over: 2s) Elbow up, the arm folds over the top.
+
+@cue(q1 -> 0.749, over: 2s) @cue(q2 -> 1.030, over: 2s) Elbow down, it comes round underneath.
+
+@pause(prompt: "Both elbow solutions are legal here.", speak: false)
 
 Now move the target out to the right, and one of the two answers disappears.
 

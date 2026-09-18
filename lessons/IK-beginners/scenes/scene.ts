@@ -6,6 +6,7 @@ import { armLabels, type LabelFlags, type ScreenPose } from "./labels.js";
 import {
   circlePath,
   circlePoint,
+  clampToJointLimits,
   directionOf,
   elbowBranch,
   forwardKinematics,
@@ -542,7 +543,11 @@ function elbowHandle(ctx: SceneContext): Handle {
     hitTest: (px, py, state) => nearJoint(ctx, px, py, poseOf(state).elbow, state["show.areaSurface"] as boolean),
     onDrag(px, py, state) {
       const geometry = armGeometry(ctx, state["show.areaSurface"] as boolean);
-      return { q1: wrapAngle(directionOf({ x: 0, y: 0 }, toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale))) };
+      const q1 = wrapAngle(directionOf({ x: 0, y: 0 }, toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale)));
+      // Once the lesson is showing joint limits, the motor should actually
+      // refuse to turn past its own stop, the way the narration says it does.
+      if (!state["show.limits"]) return { q1 };
+      return { q1: clampToJointLimits(q1, state.q2 as number).q1 };
     },
   };
 }
@@ -561,7 +566,10 @@ function tipHandle(ctx: SceneContext): Handle {
       const geometry = armGeometry(ctx, state["show.areaSurface"] as boolean);
       const target = toWorld(geometry, px / geometry.canvasScale, py / geometry.canvasScale);
       const solved = inverseKinematics(target, state.l1 as number, state.l2 as number, elbowBranch(state.q2 as number));
-      return { q1: solved.q1, q2: solved.q2 };
+      // With limits on, a target the joints cannot reach that way leaves the
+      // tip short of the pointer rather than snapping to it.
+      if (!state["show.limits"]) return { q1: solved.q1, q2: solved.q2 };
+      return clampToJointLimits(solved.q1, solved.q2);
     },
   };
 }

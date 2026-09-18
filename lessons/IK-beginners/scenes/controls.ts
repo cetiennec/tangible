@@ -95,6 +95,7 @@ export function armControls(ctx: SceneContext) {
   ctx.canvas.setAttribute("aria-label", CANVAS_DESCRIPTION);
   ctx.overlay.append(style, root);
 
+  const specs = new Map(ALL_SLIDERS.map((spec) => [spec.param, spec]));
   const rows = new Map(ALL_SLIDERS.map((spec) => [spec.param, root.querySelector<HTMLElement>(`[data-row="${spec.param}"]`)!]));
   const sliders = new Map(ALL_SLIDERS.map((spec) => [spec.param, root.querySelector<HTMLInputElement>(`input[data-param="${spec.param}"]`)!]));
   const values = new Map(ALL_SLIDERS.map((spec) => [spec.param, root.querySelector<HTMLElement>(`[data-value="${spec.param}"]`)!]));
@@ -118,7 +119,18 @@ export function armControls(ctx: SceneContext) {
 
   const onSlider = (event: Event) => {
     const input = event.target as HTMLInputElement;
-    ctx.write(input.dataset.param!, Number(input.value));
+    const param = input.dataset.param!;
+    const value = Number(input.value);
+    const spec = specs.get(param)!;
+    // The shaded ends of the track only ever hid the overshoot visually; the
+    // input itself still let the joint go anywhere in [0, TAU) or (-PI, PI].
+    // With limits in force the motor genuinely cannot turn past its stop.
+    if (spec.limit && current["show.limits"]) {
+      const [low, high] = spec.limit;
+      ctx.write(param, Math.min(high, Math.max(low, value)));
+      return;
+    }
+    ctx.write(param, value);
   };
   const onWorkspace = () => ctx.write("show.workspace", workspaceButton.getAttribute("aria-pressed") !== "true");
 

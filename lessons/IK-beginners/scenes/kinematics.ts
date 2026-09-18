@@ -164,6 +164,20 @@ export function withinJointLimits(q1: number, q2: number): boolean {
 }
 
 /**
+ * Stop each joint at its own stop, independently of the other. This is what a
+ * real motor does: it does not know or care what the other joint is doing, it
+ * simply refuses to turn past its own limit.
+ */
+export function clampToJointLimits(q1: number, q2: number): { q1: number; q2: number } {
+  const [q1Low, q1High] = JOINT_LIMITS.q1;
+  const [q2Low, q2High] = JOINT_LIMITS.q2;
+  return {
+    q1: Math.min(q1High, Math.max(q1Low, q1)),
+    q2: Math.min(q2High, Math.max(q2Low, q2)),
+  };
+}
+
+/**
  * Points that still have both elbow solutions once the joint limits apply.
  * Far fewer than the open ring offers, so these are searched for rather than
  * placed by hand: with equal links only about a tenth of the ring keeps both.

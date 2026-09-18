@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { PlainState } from "@tangible/core";
 import type { SceneContext } from "@tangible/player";
 import { armGeometry, scene, schema } from "./scene.js";
-import { elbowBranch, forwardKinematics } from "./kinematics.js";
+import { elbowBranch, forwardKinematics, JOINT_LIMITS } from "./kinematics.js";
 
 function context(): SceneContext {
   const player = document.createElement("div");
@@ -101,6 +101,51 @@ describe("dragging the arm", () => {
     expect(reach).toBeCloseTo(16, 9); // fully stretched: 9 + 7
     instance.dispose();
   });
+
+  it("lets both handles swing freely while joint limits are not being shown", () => {
+    const ctx = context();
+    const instance = scene.create(ctx);
+    const elbow = instance.handles().find((handle) => handle.id === "elbow")!;
+    const tip = instance.handles().find((handle) => handle.id === "tip")!;
+
+    // Straight down wraps to q1 = 3*PI/2, well outside JOINT_LIMITS.q1 = [0.25, 2.85].
+    const down = screenOf(ctx, { x: 0, y: -9 });
+    const { q1 } = elbow.onDrag(down.x, down.y, defaults) as { q1: number };
+    expect(q1).toBeCloseTo((3 * Math.PI) / 2, 9);
+
+    const behind = screenOf(ctx, { x: -8, y: 3 });
+    const solved = tip.onDrag(behind.x, behind.y, defaults) as { q1: number; q2: number };
+    const reached = forwardKinematics(solved.q1, solved.q2, 9, 7).tip;
+    expect(reached.x).toBeCloseTo(-8, 9);
+    expect(reached.y).toBeCloseTo(3, 9);
+    instance.dispose();
+  });
+
+  it("stops each handle at its own joint stop once limits are shown", () => {
+    const ctx = context();
+    const instance = scene.create(ctx);
+    const elbow = instance.handles().find((handle) => handle.id === "elbow")!;
+    const tip = instance.handles().find((handle) => handle.id === "tip")!;
+    const limited = { ...defaults, "show.limits": true };
+
+    // Same drag as above, straight down: a real motor cannot follow it past
+    // its own stop, regardless of what the other joint is doing. 3*PI/2 is
+    // above JOINT_LIMITS.q1's upper bound, so it clamps to that upper bound.
+    const down = screenOf(ctx, { x: 0, y: -9 });
+    const { q1: elbowQ1 } = elbow.onDrag(down.x, down.y, limited) as { q1: number };
+    expect(elbowQ1).toBeCloseTo(JOINT_LIMITS.q1[1], 9);
+
+    const behind = screenOf(ctx, { x: -8, y: 3 });
+    const { q1, q2 } = tip.onDrag(behind.x, behind.y, limited) as { q1: number; q2: number };
+    expect(q1).toBeGreaterThanOrEqual(JOINT_LIMITS.q1[0]);
+    expect(q1).toBeLessThanOrEqual(JOINT_LIMITS.q1[1]);
+    expect(q2).toBeGreaterThanOrEqual(JOINT_LIMITS.q2[0]);
+    expect(q2).toBeLessThanOrEqual(JOINT_LIMITS.q2[1]);
+    // Clamped independently, so the tip no longer sits exactly on the pointer.
+    const reached = forwardKinematics(q1, q2, 9, 7).tip;
+    expect(Math.hypot(reached.x - -8, reached.y - 3)).toBeGreaterThan(0.01);
+    instance.dispose();
+  });
 });
 
 describe("the control panel", () => {
@@ -119,6 +164,44 @@ describe("the control panel", () => {
     q1.dispatchEvent(new Event("input"));
     expect(ctx.write).toHaveBeenCalledWith("q1", 4.5);
 
+    instance.dispose();
+  });
+
+  it("lets the slider reach the full range while limits are not shown", () => {
+    const ctx = context();
+    const instance = scene.create(ctx);
+    instance.render(defaults, { dt: 0, activity: {} });
+
+    // 4.5 rad is outside JOINT_LIMITS.q1 = [0.25, 2.85] but inside [0, TAU).
+    const q1 = ctx.overlay.querySelector<HTMLInputElement>('input[data-param="q1"]')!;
+    q1.value = "4.5";
+    q1.dispatchEvent(new Event("input"));
+    expect(ctx.write).toHaveBeenCalledWith("q1", 4.5);
+    instance.dispose();
+  });
+
+  it("stops the slider at the joint's own limit once limits are shown", () => {
+    const ctx = context();
+    const instance = scene.create(ctx);
+    // The stops only shade the track when this render has already happened;
+    // onSlider reads the same state through the closure it captured.
+    instance.render({ ...defaults, "show.limits": true }, { dt: 0, activity: {} });
+
+    const q1 = ctx.overlay.querySelector<HTMLInputElement>('input[data-param="q1"]')!;
+    q1.value = "4.5";
+    q1.dispatchEvent(new Event("input"));
+    expect(ctx.write).toHaveBeenCalledWith("q1", JOINT_LIMITS.q1[1]);
+
+    const q2 = ctx.overlay.querySelector<HTMLInputElement>('input[data-param="q2"]')!;
+    q2.value = String(-3);
+    q2.dispatchEvent(new Event("input"));
+    expect(ctx.write).toHaveBeenCalledWith("q2", JOINT_LIMITS.q2[0]);
+
+    // Link length sliders have no limit entry and are never clamped.
+    const l1 = ctx.overlay.querySelector<HTMLInputElement>('input[data-param="l1"]')!;
+    l1.value = "3.5";
+    l1.dispatchEvent(new Event("input"));
+    expect(ctx.write).toHaveBeenCalledWith("l1", 3.5);
     instance.dispose();
   });
 
