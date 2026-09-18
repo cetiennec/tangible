@@ -465,9 +465,9 @@ The complete directive syntax is in
 Tangible generates narration during a lesson build, then synchronizes the scene
 and captions with the resulting recording. Learners download audio files; they
 do not call the speech provider. Voice quality, timing accuracy, and the place
-where synthesis runs are separate choices. A locally generated recording could
-serve a published lesson, but the current CLI allows deployment only with
-ElevenLabs or the compatible Qwen endpoint described below.
+where synthesis runs are separate choices. A locally generated Supertonic
+recording can serve a published lesson just like audio from ElevenLabs or the
+compatible Qwen endpoint described below.
 
 Tangible currently assumes English throughout the lesson. Its speech adapters
 request English even when the underlying model supports other languages. There
@@ -479,6 +479,7 @@ is no lesson language setting yet.
 |---|---|---|---|
 | `--silent` | It produces silent audio for tests and initial scene review. | It needs no model, FFmpeg, or credentials. | It uses a fixed 60 milliseconds per written character. |
 | `--offline` | It runs Supertonic 3 locally with a fixed built-in voice. | It needs FFmpeg and the local model, downloaded on first use. | It measures sentence durations and estimates timing within each sentence. |
+| No mode flag, with `tts.provider: supertonic` | It uses the same fixed local voice for normal builds and deployment. | It needs FFmpeg and the local model, but no credentials. | It uses the same estimated timing as offline narration. |
 | No mode flag, with `tts.provider: elevenlabs` | It uses the configured ElevenLabs voice. | It needs FFmpeg, a voice ID, and `ELEVENLABS_API_KEY`. | It uses character timestamps returned with the speech. |
 | No mode flag, with `tts.provider: hf-endpoint` | It uses a speaker served by a compatible Qwen server. | It needs FFmpeg, the endpoint URL, a speaker name, and an endpoint token. | It measures separately generated clips at sentence and cue boundaries, then estimates timing within each clip. |
 
@@ -503,8 +504,28 @@ pnpm lesson preview --offline --lesson lessons/my-lesson
 
 The model runs on CPU through the installed `sherpa-onnx-node` dependency, so
 it does not require a GPU or a Python environment. Tangible currently uses
-speaker 0, English, five sampling steps, and a fixed seed. `tts.voice` does not
-change this voice. The exposed setting is a positive speed multiplier:
+speaker 0, English, five sampling steps, and a fixed seed. To use this voice in
+normal builds and published lessons, add:
+
+```yaml
+tts:
+  provider: supertonic
+  speed: 1
+```
+
+Run `pnpm lesson preview --lesson lessons/my-lesson` or
+`pnpm lesson build --bundle --lesson lessons/my-lesson`. Deployment uses this
+same configuration. Supertonic needs no API key; once the model is installed,
+synthesis requires no network. Normal previews still use the live assistant if
+one is configured. Use `--offline` to substitute both speech and assistant answers.
+
+`speed` is optional and must be positive; it defaults to 1. Supertonic uses a
+fixed voice and model, so omit `tts.voice` and `tts.model`. The CLI rejects them
+rather than ignoring them. Builds report that word timing is estimated within
+each sentence. Listen to the recording and review captions and cue placement
+before publishing; allowing deployment does not improve alignment.
+
+For the development shortcut, configure speed separately:
 
 ```yaml
 offlineTts:
@@ -539,8 +560,8 @@ when you need to continue without the model or native runtime.
 
 Supertonic's model license is included with the download; see the
 [upstream license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE).
-`lesson deploy` currently rejects this local voice. Kokoro and other local
-production options belong to the [TTS improvement plan](./CONTRIBUTING.md#tts-improvement-plan)
+Kokoro and other local production options belong to the
+[TTS improvement plan](./CONTRIBUTING.md#tts-improvement-plan)
 and cannot yet be selected in the manifest.
 
 ### Configure ElevenLabs
@@ -568,9 +589,9 @@ Run `pnpm lesson preview --lesson lessons/my-lesson` to generate or reuse the
 recording. The adapter requests English speech and character timestamps.
 Listen to the result and review cue placement before publishing.
 
-Currently, an unset `ELEVENLABS_API_KEY` makes a normal build or preview print a
-notice and use silent placeholder audio. Deployment rejects that placeholder.
-If a supposedly audible preview is silent, check the key and console output.
+An unset or empty `ELEVENLABS_API_KEY` makes a normal build, preview, or deployment
+fail with an actionable error, including when a recording is cached. Use
+`--silent` or `--offline` explicitly if you want to draft without credentials.
 
 ### Connect a compatible Qwen endpoint
 
@@ -586,6 +607,7 @@ The server must already serve your model and register your speaker. Add:
 tts:
   provider: hf-endpoint
   voice: your_speaker_name
+  revision: weights-v1
 ```
 
 Put these values in a gitignored `.env` file, using the endpoint's base URL
@@ -627,8 +649,13 @@ For the first clip, the request body has this shape:
 
 The adapter increments the seed for each subsequent clip. The endpoint selects
 the model; the adapter supplies the language and generation settings above.
-The manifest currently exposes only `provider` and `voice` for this adapter,
-and rejects `model` or `speed`. The
+The manifest exposes `provider`, `voice`, and an optional `revision` for this
+adapter, and rejects `model` or `speed`. The revision is an author-supplied label
+used only for caching: it does not select or deploy server weights and is not
+sent to the endpoint. Use a model commit identifier or a version such as
+`weights-v1`, and update it whenever the served model changes. Existing manifests
+without a revision still work, but Tangible cannot detect a model replacement
+behind an unchanged endpoint URL. The
 [adapter implementation](./packages/tts/src/huggingface-voice.ts) is the source
 of truth for this protocol.
 
@@ -650,17 +677,24 @@ visual cues against the actual recording for either option. ElevenLabs supplies
 character timestamps, which still need a final listening review.
 
 Generated audio and timing are cached in the lesson's `.cache/tts/` directory.
+Supertonic shares cached recordings between offline and production builds when
+the narration and effective speed match. Their speed settings remain independent.
 The key includes narration text, adapter and model identity, voice, speed, and,
 for segmented synthesis, the clip boundaries. Editing a cue's target value,
 transition duration, or timing offset without moving its text anchor reuses
 the audio. Moving, adding, or removing an anchor can change Qwen's clip
 boundaries and regenerate the recording even when the spoken words are unchanged.
 
-The Qwen cache identity currently includes the speaker name but not the endpoint
-URL or deployed model revision. After replacing the model or server behind the
-same speaker name, remove that lesson's generated `.cache/tts/` directory before
-rebuilding. This also removes cached recordings from other speech providers for
-that lesson, so the next build may regenerate billable audio.
+The Qwen cache identity includes the endpoint URL, speaker, authored `revision`,
+seed, and generation settings. Changing any of these creates a new recording;
+rotating the access token does not. Update `tts.revision` when replacing server
+weights at the same URL. The adapter cannot discover that change automatically
+without contacting the server, and cached builds make no endpoint calls.
+
+Recordings made before endpoint identity was included in the cache key are
+regenerated on the first Qwen build after this update, which may incur provider
+costs. Hosted providers require their configuration and credentials even for
+cached builds; missing credentials never select silent placeholder audio.
 
 Hosted synthesis may incur costs when audio is generated. A dedicated endpoint
 can also incur hosting costs while provisioned, even when Tangible reuses a
@@ -1180,8 +1214,9 @@ hf auth login
 pnpm lesson preview --lesson lessons/my-lesson
 ```
 
-Use `--offline` only for local review. A release bundle must contain the
-intended production narration.
+Use `--offline` only for local review. A release bundle must contain the intended
+voice selected in `tts`. To publish with local narration, set
+`tts.provider: supertonic` and run deployment without `--offline` or `--silent`.
 
 ### Configure the deployment target
 
@@ -1736,10 +1771,14 @@ the author's control.
 
 The `tts` section is optional while a lesson is being developed with `--offline`
 or `--silent`. A provider-backed preview and deployment require it. When present,
-`tts.provider` supports `elevenlabs` and `hf-endpoint`. Both providers require a
-`voice`. ElevenLabs also accepts an optional `model` and `speed`. The compatible
-Qwen endpoint selects its model, while the adapter fixes English and its
-generation settings; neither is configurable in the manifest. See
+`tts.provider` supports `supertonic`, `elevenlabs`, and `hf-endpoint`.
+Supertonic accepts an optional positive `speed` (default 1) and uses its fixed
+English voice and pinned model; do not specify `voice` or `model` for it.
+ElevenLabs and `hf-endpoint` require a `voice`. ElevenLabs also accepts an optional
+`model` and positive `speed`; the provider determines the supported speed range.
+The Qwen endpoint accepts an optional non-empty `revision` for cache invalidation,
+but selects its model on the server. Its adapter fixes English and generation
+settings, which are not configurable in the manifest. See
 [narration configuration](#choose-and-configure-narration) for examples and the
 endpoint contract. `--offline` replaces provider speech
 with the fixed local Supertonic voice, independently of the manifest voice.

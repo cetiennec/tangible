@@ -6,8 +6,9 @@ import { parse as parseYaml } from "yaml";
 import { DEFAULT_ASSISTANT_LIMITS, type AssistantLimits } from "@tangible/core";
 
 export type TtsConfig =
+  | { provider: "supertonic"; speed?: number }
   | { provider: "elevenlabs"; voice: string; model?: string; speed?: number }
-  | { provider: "hf-endpoint"; voice: string };
+  | { provider: "hf-endpoint"; voice: string; revision?: string };
 
 export type SceneSelection =
   | { scene: string; scenes?: never; initialScene?: never }
@@ -109,15 +110,25 @@ function validateManifest(value: unknown): asserts value is Manifest {
   }
   if (manifest.tts !== undefined) {
     const tts = object(manifest.tts, 'lesson.yaml field "tts"');
-    if (tts.provider !== "elevenlabs" && tts.provider !== "hf-endpoint") {
-      throw new Error('lesson.yaml field "tts.provider" must be "elevenlabs" or "hf-endpoint"');
+    if (tts.provider !== "supertonic" && tts.provider !== "elevenlabs" && tts.provider !== "hf-endpoint") {
+      throw new Error('lesson.yaml field "tts.provider" must be "supertonic", "elevenlabs", or "hf-endpoint"');
     }
-    nonEmptyString(tts.voice, 'lesson.yaml field "tts.voice"');
+    if (tts.provider === "supertonic") {
+      if (tts.voice !== undefined) throw new Error('Supertonic uses a fixed voice; omit "tts.voice"');
+    } else {
+      nonEmptyString(tts.voice, 'lesson.yaml field "tts.voice"');
+    }
+    if (tts.provider === "hf-endpoint") {
+      optionalString(tts.revision, 'lesson.yaml field "tts.revision"');
+      if (tts.speed !== undefined) throw new Error('lesson.yaml field "tts.speed" is not supported by hf-endpoint');
+    } else {
+      if (tts.speed !== undefined) positiveNumber(tts.speed, 'lesson.yaml field "tts.speed"');
+      if (tts.revision !== undefined) throw new Error('lesson.yaml field "tts.revision" is supported only by hf-endpoint');
+    }
     if (tts.provider === "elevenlabs") {
       optionalString(tts.model, 'lesson.yaml field "tts.model"');
-      optionalNumber(tts.speed, 'lesson.yaml field "tts.speed"');
-    } else if (tts.model !== undefined || tts.speed !== undefined) {
-      throw new Error('lesson.yaml fields "tts.model" and "tts.speed" are supported only by ElevenLabs');
+    } else if (tts.model !== undefined) {
+      throw new Error('lesson.yaml field "tts.model" is supported only by ElevenLabs');
     }
   }
 
@@ -211,10 +222,6 @@ function spaceId(value: unknown, name: string): asserts value is string {
 
 function optionalString(value: unknown, name: string): void {
   if (value !== undefined) nonEmptyString(value, name);
-}
-
-function optionalNumber(value: unknown, name: string): void {
-  if (value !== undefined) finiteNumber(value, name);
 }
 
 function optionalBoolean(value: unknown, name: string): void {

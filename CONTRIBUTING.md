@@ -225,8 +225,9 @@ an environment different from the author's development machine.
 ## TTS improvement plan
 
 The following five steps were agreed in September 2026. Step 1 documents the
-current implementation. Steps 2–5 remain planned; their configuration examples
-and features must not be presented as available until implemented.
+current implementation. The local-production and configuration parts of step 2
+are complete. Alignment and language work, along with steps 3–5, remain deferred;
+their features must not be presented as available until implemented.
 
 1. **Explain the existing narration options.** This step is complete. The
    [narration section](./DOCUMENTATION.md#choose-and-configure-narration) covers
@@ -234,12 +235,13 @@ and features must not be presented as available until implemented.
    caching, credentials, and the current Qwen endpoint contract. The README
    provides the first-lesson walkthrough, and `DOCUMENTATION.md` combines the
    authoring guide with the reference appendix.
-2. **Make local production and timing explicit.** Allow Supertonic as a normal
-   manifest provider and permit its use in deployment. Preserve `--offline` as
-   a development shortcut. Record the origin and precision of timing, evaluate
-   optional forced alignment for audio-only models, fix cache identity and
-   missing-credential behavior, and make language explicit with English as the
-   default. Check the wider lesson assumptions before claiming French support.
+2. **Make local production and timing explicit.** Supertonic is available as a
+   normal manifest provider for builds and deployment, and `--offline` remains
+   a development shortcut with independent speed. Builds explain its estimated
+   timing. Endpoint identity, revision, and generation settings participate in
+   Qwen caching, and missing hosted-provider credentials fail explicitly.
+   Forced alignment and explicit language configuration remain deferred. Check
+   the wider lesson assumptions before claiming French support.
 3. **Publish a reproducible Qwen tutorial and server example.** Recover the
    author's existing serving and training implementation first. Explain
    reference-recording cloning separately from optional fine-tuning. Cover

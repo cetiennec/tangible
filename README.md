@@ -54,13 +54,13 @@ how those modules are registered and selected with `@scene(...)`.
 Three further requirements matter only at specific steps, so you can install them when you reach those steps:
 
 - FFmpeg, for the audible offline preview of step 4;
-- an API key for the speech provider and for the assistant, as described in the next section;
+- an API key if you choose hosted speech or enable the assistant, as described in the next section;
 - the Hugging Face command line tool `hf`, to publish a lesson as a Space in step 6.
 
 
 ## Credentials
 
-Most of the work needs no account at all. The scene preview, `pnpm lesson check`, the silent preview, and the audible offline preview all run on your own machine. The currently supported production speech providers and the optional LLM assistant need credentials. Narration is generated during the build; learners play the resulting audio files without calling the speech provider.
+Most of the work needs no account at all. The scene preview, `pnpm lesson check`, and local narration all run on your own machine. Supertonic can also generate the production voice without credentials. Hosted speech providers and the optional LLM assistant need credentials. Narration is generated during the build; learners play the resulting audio files without calling the speech provider.
 
 Tangible reads these keys from a `.env` file, which it looks for both in the repository root and in the lesson directory. That file is listed in `.gitignore`, and the keys never reach the browser: they are used when the narration is compiled and, for the assistant, by a small server that runs beside the lesson.
 
@@ -203,7 +203,22 @@ a hosted speech provider nor a hosted assistant. Its word timings are approximat
 pnpm lesson preview --offline --lesson lessons/my-lesson
 ```
 
-To use the production voice, meaning the TTS model defined in `lesson.yaml`, you need the provider key described above:
+To use Supertonic for the finished lesson, add this to `lesson.yaml`:
+
+```yaml
+tts:
+  provider: supertonic
+  speed: 1
+```
+
+The speed is optional. This selects the fixed English voice for normal builds
+and deployment, with approximate word timing. Review the captions and cues
+against the recording. The independent `offlineTts.speed` setting still applies
+only to `--offline`.
+
+To preview the configured production voice, omit the mode flag. Hosted providers
+need the key described above; Supertonic does not. A missing hosted-provider key
+is an error, so use `--silent` or `--offline` explicitly when drafting:
 ```bash
 pnpm lesson preview --lesson lessons/my-lesson
 ```
@@ -271,8 +286,8 @@ Local previews require no paid service. Hosted narration may incur costs when
 uncached audio is generated, and a dedicated endpoint can also incur hosting
 costs while provisioned. Watching a lesson does not trigger speech synthesis.
 The optional assistant incurs provider costs when learners ask questions.
-Tangible currently permits deployment only with ElevenLabs or the compatible
-Qwen endpoint; local production voices are planned but are not yet supported.
+Tangible supports production narration with local Supertonic, ElevenLabs, or the
+compatible Qwen endpoint. Other local voices and improved alignment remain planned.
 
 
 ## Repository layout
