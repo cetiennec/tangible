@@ -17,6 +17,8 @@ export interface StagedRelease {
   bytes: number;
 }
 
+const SHORT_DESCRIPTION_LIMIT = 60;
+
 const BUILD_SECRET_NAMES = ["HF_TOKEN", "HF_TTS_TOKEN", "TTS_ENDPOINT_URL", "ELEVENLABS_API_KEY"];
 
 export async function readSpaceCard(lessonDir: string, manifest: Manifest): Promise<SpaceCard> {
@@ -39,6 +41,13 @@ export async function readSpaceCard(lessonDir: string, manifest: Manifest): Prom
   }
   if (expected === "static" && data.app_file !== "index.html") {
     throw new Error("a static lesson Space must declare \"app_file: index.html\"");
+  }
+  // Hugging Face rejects a longer one, and it does so at upload, after the
+  // whole lesson has been built. Catching it here costs nothing.
+  if (typeof data.short_description === "string" && data.short_description.length > SHORT_DESCRIPTION_LIMIT) {
+    throw new Error(
+      `space/README.md "short_description" must be at most ${SHORT_DESCRIPTION_LIMIT} characters; it is ${data.short_description.length}`,
+    );
   }
   return { sdk: expected };
 }

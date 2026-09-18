@@ -8,7 +8,7 @@ app_port: 7860
 fullWidth: true
 header: default
 pinned: false
-short_description: "How to move my robot to the correct place? — a Tangible lesson"
+short_description: "How to move a robot arm to the right place"
 tags:
   - "tangible"
   - "education"
