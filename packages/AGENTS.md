@@ -4,9 +4,9 @@ These instructions apply to `packages/` and shared framework behavior.
 
 ## Required context
 
-Read `docs/contributing.md` before changing package boundaries, the
-authoring contract, time evaluation, ownership, or assistant composition. Check
-`ROADMAP.md` before expanding scope.
+Read `CONTRIBUTING.md` before changing package boundaries, the authoring
+contract, time evaluation, ownership, or assistant composition. Follow its
+TTS improvement plan for narration work.
 
 ## Boundaries
 
@@ -33,7 +33,7 @@ player, bundling, browser interaction, or end-to-end authoring behavior. Use
 local provider substitutes in automated tests.
 
 When framework work changes lesson syntax or workflow, update
-`docs/reference.md` or `docs/authoring.md`.
+`DOCUMENTATION.md`, including its reference appendix.
 
 ## VERY IMPORTANT: how to talke to me
  

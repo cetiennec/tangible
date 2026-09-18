@@ -19,14 +19,17 @@ ask for it before replacing the starter scene.
 Always read:
 
 - `lessons/AGENTS.md`;
-- `docs/authoring.md`;
+- the authoring workflow and the sections relevant to the current stage in
+  `DOCUMENTATION.md`;
 - the target lesson's manifest, scene, and relevant narration.
 
 Read additional docs when the stage requires them:
 
-- scene formats or directive syntax: `docs/reference.md`;
-- framework architecture: `docs/contributing.md`;
-- release: the deployment section of `docs/authoring.md` and the installed
+- scene formats or directive syntax: the command and format reference appendix
+  in `DOCUMENTATION.md`;
+- narration: the “Choose and configure narration” section of `DOCUMENTATION.md`;
+- framework architecture: `CONTRIBUTING.md`;
+- release: the deployment section of `DOCUMENTATION.md` and the installed
   `hf-cli` skill when available.
 
 Use existing lessons as examples, not as normative documentation.
@@ -114,7 +117,7 @@ voice only then, and tune timing to its prosody without changing the teaching
 argument. Use `--silent` instead when a test must avoid the local model download.
 
 Before release, follow the review and deployment sections of
-`docs/authoring.md` and run the lesson-specific tests plus `pnpm lesson check`.
+`DOCUMENTATION.md` and run the lesson-specific tests plus `pnpm lesson check`.
 
 When handing control back at a review boundary, state what is ready, what the
 author should try, and which later stage has deliberately not begun. Do not ask

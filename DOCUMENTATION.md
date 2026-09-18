@@ -1,8 +1,24 @@
-# Authoring a lesson
+# Tangible documentation
 
-If this is your first lesson, begin with the shorter
-[creator quick start](./quickstart.md). This guide remains the complete workflow
-and design reference for production lessons.
+Start with the [README walkthrough](./README.md#build-your-own-lesson) for your
+first lesson. This guide covers the complete authoring workflow and includes
+the command, file-format, and directive reference. Framework development is
+covered in [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Contents
+
+- [Create the lesson files](#create-the-lesson-files)
+- [Build and test the scene](#build-and-test-the-scene)
+- [Add another scene](#add-another-scene)
+- [Write narration and scene hints](#write-narration-and-scene-hints)
+- [Convert hints into choreography](#convert-hints-into-choreography)
+- [Choose and configure narration](#choose-and-configure-narration)
+- [Review and tune the lesson](#review-and-tune-the-lesson)
+- [Add a lesson assistant](#add-a-lesson-assistant)
+- [Deploy to Hugging Face Spaces](#deploy-to-hugging-face-spaces)
+- [Appendix: command and format reference](#appendix-command-and-format-reference)
+
+## Authoring workflow
 
 Tangible's production model starts after the author has decided what to teach.
 There is no required planning document. The work begins with an interactive
@@ -262,11 +278,11 @@ scene changes the colors of the player controls, keep `.xv-credit` readable and
 preserve its visible keyboard focus indicator.
 
 The exact file format and scene exports are described in
-[the reference](./reference.md#lesson-files-and-manifest).
+[the reference](#lesson-files-and-manifest).
 
 ## Add another scene
 
-The [unit-circle lesson](../lessons/unit-circle/script.md) is a working example:
+The [unit-circle lesson](./lessons/unit-circle/script.md) is a working example:
 it moves from a circle to a cosine graph, then returns to the circle. The lesson
 keeps one script, voice, caption timeline, board, and optional assistant guide.
 Each scene supplies its own rendering, controls, and parameter schema.
@@ -275,8 +291,8 @@ Each scene supplies its own rendering, controls, and parameter schema.
 
 Keep the existing `scenes/scene.ts` and add a second module, such as
 `scenes/cosine.ts`. Both files export the same [scene contract](#scene-contract).
-The example's [circle module](../lessons/unit-circle/scenes/scene.ts) and
-[graph module](../lessons/unit-circle/scenes/cosine.ts) each expose an independent
+The example's [circle module](./lessons/unit-circle/scenes/scene.ts) and
+[graph module](./lessons/unit-circle/scenes/cosine.ts) each expose an independent
 `theta` parameter. They can share helper code without sharing parameter values.
 
 In `lesson.yaml`, replace the singular `scene` field with these fields, keeping
@@ -293,7 +309,7 @@ The keys `circle` and `cosine` are the names used in the script. Paths are
 relative to the lesson directory. Files are not discovered automatically from
 the folder: register every module explicitly. `initialScene` selects the view
 shown before the first script directive. See the
-[reference](./reference.md#multiple-scenes) for naming rules.
+[reference](#multiple-scenes) for naming rules.
 
 ### Switch scenes in the script
 
@@ -442,7 +458,229 @@ pnpm lesson frame --lesson lessons/my-lesson --at 10 -o /tmp/frame.png
 `state --drag <param>=<value>` simulates learner interaction and reconciliation
 without a browser. Representative frames help verify visibility and composition.
 The complete directive syntax is in
-[the reference](./reference.md#narration-directives).
+[the reference](#narration-directives).
+
+## Choose and configure narration
+
+Tangible generates narration during a lesson build, then synchronizes the scene
+and captions with the resulting recording. Learners download audio files; they
+do not call the speech provider. Voice quality, timing accuracy, and the place
+where synthesis runs are separate choices. A locally generated recording could
+serve a published lesson, but the current CLI allows deployment only with
+ElevenLabs or the compatible Qwen endpoint described below.
+
+Tangible currently assumes English throughout the lesson. Its speech adapters
+request English even when the underlying model supports other languages. There
+is no lesson language setting yet.
+
+### Choose a narration mode
+
+| Mode | What it produces | What you need | How timing is obtained |
+|---|---|---|---|
+| `--silent` | It produces silent audio for tests and initial scene review. | It needs no model, FFmpeg, or credentials. | It uses a fixed 60 milliseconds per written character. |
+| `--offline` | It runs Supertonic 3 locally with a fixed built-in voice. | It needs FFmpeg and the local model, downloaded on first use. | It measures sentence durations and estimates timing within each sentence. |
+| No mode flag, with `tts.provider: elevenlabs` | It uses the configured ElevenLabs voice. | It needs FFmpeg, a voice ID, and `ELEVENLABS_API_KEY`. | It uses character timestamps returned with the speech. |
+| No mode flag, with `tts.provider: hf-endpoint` | It uses a speaker served by a compatible Qwen server. | It needs FFmpeg, the endpoint URL, a speaker name, and an endpoint token. | It measures separately generated clips at sentence and cue boundaries, then estimates timing within each clip. |
+
+`--offline` and `--silent` also replace assistant answers with a local substitute.
+They override any `tts` section in `lesson.yaml`. A normal build or preview
+requires that section; a new lesson intentionally omits it.
+
+Start with a built-in voice when you do not need a particular speaker's identity.
+Voice cloning aims to reproduce a person's voice from recordings. Fine-tuning
+is a separate training process that adapts model weights; cloning does not
+necessarily require it. Tangible consumes an existing voice ID or speaker name.
+It does not create a clone or train a model.
+
+### Use the local Supertonic voice
+
+Install FFmpeg through your operating system's package manager and check that
+`ffmpeg -version` works. Then run:
+
+```bash
+pnpm lesson preview --offline --lesson lessons/my-lesson
+```
+
+The model runs on CPU through the installed `sherpa-onnx-node` dependency, so
+it does not require a GPU or a Python environment. Tangible currently uses
+speaker 0, English, five sampling steps, and a fixed seed. `tts.voice` does not
+change this voice. The exposed setting is a positive speed multiplier:
+
+```yaml
+offlineTts:
+  speed: 1.2
+```
+
+The default is 1; 1.2 requests speech 20 percent faster. Changing it generates
+new local audio and recalculates the estimated timings. It does not change
+the production provider or the silent test clock.
+
+The first build downloads a pinned 123 MB archive, verifies its checksum, and
+extracts it using `tar` with bzip2 support. Later builds reuse the model. Thus
+`--offline` means no hosted synthesis or assistant calls; the first model
+installation still needs internet access unless the model is supplied locally.
+
+The shared cache root is `~/Library/Caches/tangible` on macOS,
+`%LOCALAPPDATA%/tangible` on Windows when that variable is set, and
+`$XDG_CACHE_HOME/tangible` or `~/.cache/tangible` on other systems. Models live
+under its `tts/` directory. Set `TANGIBLE_CACHE_DIR` to choose another cache root.
+For a machine without network access, set `TANGIBLE_SUPERTONIC_MODEL_DIR` to an
+already extracted copy of the pinned model. That directory must contain all
+model files and `LICENSE`; the required files are listed in
+[the model installer](./packages/tts/src/supertonic-model.ts).
+
+The pinned runtime package provides native dependencies for macOS on Apple
+Silicon and Intel, Linux on ARM64 and x64, and Windows on x64 and ia32. This
+package coverage is not a claim that every platform has been tested in Tangible.
+If the CLI reports that the runtime is unavailable, check that pnpm installed
+the optional native dependency for your platform. An incomplete model cache
+produces an error naming the directory to remove and reinstall. Use `--silent`
+when you need to continue without the model or native runtime.
+
+Supertonic's model license is included with the download; see the
+[upstream license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE).
+`lesson deploy` currently rejects this local voice. Kokoro and other local
+production options belong to the [TTS improvement plan](./CONTRIBUTING.md#tts-improvement-plan)
+and cannot yet be selected in the manifest.
+
+### Configure ElevenLabs
+
+Add this section to the lesson's existing `lesson.yaml`, replacing `VOICE_ID`
+with a voice available to your ElevenLabs account:
+
+```yaml
+tts:
+  provider: elevenlabs
+  voice: VOICE_ID
+  model: eleven_multilingual_v2
+  speed: 0.9
+```
+
+`model` and `speed` are optional. The default model is `eleven_multilingual_v2`;
+omitting speed uses the provider default. The provider determines the allowed
+speed range. Put the key in a gitignored root or lesson-local `.env` file:
+
+```dotenv
+ELEVENLABS_API_KEY=your_api_key
+```
+
+Run `pnpm lesson preview --lesson lessons/my-lesson` to generate or reuse the
+recording. The adapter requests English speech and character timestamps.
+Listen to the result and review cue placement before publishing.
+
+Currently, an unset `ELEVENLABS_API_KEY` makes a normal build or preview print a
+notice and use silent placeholder audio. Deployment rejects that placeholder.
+If a supposedly audible preview is silent, check the key and console output.
+
+### Connect a compatible Qwen endpoint
+
+`hf-endpoint` is the adapter used for a custom Qwen3-TTS voice hosted on a
+Hugging Face Inference Endpoint. It expects the specific HTTP contract below;
+an arbitrary Hugging Face model URL or standard inference endpoint is not
+automatically compatible. The speech endpoint is separate from the Space that
+hosts the finished lesson and from the assistant's inference provider.
+
+The server must already serve your model and register your speaker. Add:
+
+```yaml
+tts:
+  provider: hf-endpoint
+  voice: your_speaker_name
+```
+
+Put these values in a gitignored `.env` file, using the endpoint's base URL
+without `/generate`:
+
+```dotenv
+TTS_ENDPOINT_URL=https://your-endpoint.endpoints.huggingface.cloud
+HF_TTS_TOKEN=your_endpoint_access_token
+```
+
+The adapter uses `HF_TTS_TOKEN`, falling back to `HF_TOKEN` if it is unset.
+Run `pnpm lesson preview --lesson lessons/my-lesson`. A cached recording does
+not contact or wake the endpoint. Otherwise, the CLI reports readiness and
+generation progress. It requests a scale-up wait of up to ten minutes for an
+endpoint that has scaled to zero.
+
+The existing contract is:
+
+- `GET /health` must return a successful status when the server is ready.
+- `POST /generate` receives JSON containing `text`, `language`, `speaker`,
+  `seed`, `temperature`, and `top_p`.
+- Both requests send `Authorization: Bearer <token>` and
+  `x-scale-up-timeout: 600` headers.
+- Generation must return a RIFF/WAVE file containing 16-bit PCM audio. All
+  clips in the recording must have the same channel count and sample rate.
+
+For the first clip, the request body has this shape:
+
+```json
+{
+  "text": "The narration for this clip.",
+  "language": "English",
+  "speaker": "your_speaker_name",
+  "seed": 20260717,
+  "temperature": 0.9,
+  "top_p": 0.95
+}
+```
+
+The adapter increments the seed for each subsequent clip. The endpoint selects
+the model; the adapter supplies the language and generation settings above.
+The manifest currently exposes only `provider` and `voice` for this adapter,
+and rejects `model` or `speed`. The
+[adapter implementation](./packages/tts/src/huggingface-voice.ts) is the source
+of truth for this protocol.
+
+The current example lessons use the speaker name `david_v1`. It identifies a
+speaker on the author's server, not a voice supplied by Tangible. The repository
+does not yet include that server or its fine-tuning recipe. A reproducible server
+and a walkthrough from recordings to a working endpoint are planned in
+[step 3 of the TTS improvement plan](./CONTRIBUTING.md#tts-improvement-plan).
+
+### Understand synchronization and caching
+
+Speech quality does not guarantee accurate timestamps. Supertonic provides no
+word alignment, so Tangible distributes character times across each sentence.
+The Qwen endpoint also provides no word alignment. Tangible instead synthesizes
+separate clips at sentence and cue boundaries and joins them using their exact
+audio durations. Clip boundaries are known, but word times inside each clip
+remain estimates, and cuts can affect natural phrasing. Review captions and
+visual cues against the actual recording for either option. ElevenLabs supplies
+character timestamps, which still need a final listening review.
+
+Generated audio and timing are cached in the lesson's `.cache/tts/` directory.
+The key includes narration text, adapter and model identity, voice, speed, and,
+for segmented synthesis, the clip boundaries. Editing a cue's target value,
+transition duration, or timing offset without moving its text anchor reuses
+the audio. Moving, adding, or removing an anchor can change Qwen's clip
+boundaries and regenerate the recording even when the spoken words are unchanged.
+
+The Qwen cache identity currently includes the speaker name but not the endpoint
+URL or deployed model revision. After replacing the model or server behind the
+same speaker name, remove that lesson's generated `.cache/tts/` directory before
+rebuilding. This also removes cached recordings from other speech providers for
+that lesson, so the next build may regenerate billable audio.
+
+Hosted synthesis may incur costs when audio is generated. A dedicated endpoint
+can also incur hosting costs while provisioned, even when Tangible reuses a
+cached recording. Learner playback does not generate speech. Assistant requests
+have their own provider costs and credentials.
+
+### Audio delivery and credentials
+
+For every audible provider, Tangible uses FFmpeg to convert WAV or MP3 output
+into WebM/Opus at 64 kbps and M4A/AAC-LC at 96 kbps. The browser downloads one
+supported encoding. Five minutes of audio is approximately 2.4 MB with Opus or
+3.6 MB with AAC. Conversion preserves the compiler's timing. Silent builds keep
+their deterministic WAV and do not need FFmpeg.
+
+The CLI loads `.env` files from the invocation directory and the lesson
+directory. Running commands from the repository root therefore loads the root
+file. Keep speech credentials on the build machine or in CI; the released
+lesson needs only the generated audio. An optional live assistant separately
+needs `HF_TOKEN` on its server. See
+[deployment credentials](#credentials-and-limits) for the Space configuration.
 
 ## Review and tune the lesson
 
@@ -457,39 +695,9 @@ shows the compiler diagnostic on a red page and reloads the lesson automatically
 after the source is corrected. `lesson check`, `lesson build`, and deployment
 still stop on invalid source.
 
-Offline mode does not call a speech or answer provider. It synthesizes the
-narration locally with the quantized Supertonic 3 model and uses a local
-substitute for assistant answers. The first offline build downloads a pinned
-123 MB model archive; subsequent builds use the shared local copy. Tangible also
-caches the generated audio inside the lesson, so cue-only edits do not run the
-model again.
-
-Set the local voice speed in `lesson.yaml` when the draft narration needs a
-different pace:
-
-```yaml
-offlineTts:
-  speed: 1.2
-```
-
-The default is 1; 1.2 requests speech 20 percent faster. The value must be
-positive. This setting applies only to `--offline`, and changing it generates
-new local audio with matching cue and caption timings. It does not change the
-production provider settings or the silent test clock.
-
-Install ffmpeg before an offline or provider-backed narration build. Tangible
-automatically converts the TTS provider's WAV or MP3 result into WebM/Opus at
-64 kbps and M4A/AAC-LC at 96 kbps. A browser checks both formats and downloads
-only one supported file. This keeps a five-minute narration near 2.4 MB with
-Opus or 3.6 MB with AAC instead of shipping the source WAV. The conversion does
-not change the compiler's timing. `--silent` keeps its deterministic WAV and
-does not require ffmpeg.
-
-The local voice is fast enough for prose and cue iteration, but it does not
-provide word alignment. Tangible estimates character timing within each
-sentence. Treat this timing as a useful draft and make the final timing pass
-against the production voice. Use `--silent` when an automated test or a
-strictly hermetic build needs the former predictable silent clock instead.
+Use `--silent` when the review must avoid FFmpeg and a model download. The
+[narration guide](#choose-and-configure-narration) explains installation,
+configuration, approximate timing, and caching for each option.
 
 Review the lesson in layers.
 
@@ -525,14 +733,10 @@ voice:
 pnpm lesson preview --lesson lessons/my-lesson
 ```
 
-For a Hugging Face voice endpoint, Tangible waits up to ten minutes for an
-endpoint that has scaled to zero to become ready. The build reports this wait
-and then prints progress for every narration segment. Cached narration does not
-contact or wake the endpoint.
-
 Tune cue offsets against the real prosody without changing the teaching
-argument. Provider results are cached, so changing cues without changing spoken
-prose does not synthesize the narration again.
+argument. Changes that preserve narration and synthesis boundaries reuse cached
+audio; moving a Qwen cue anchor can regenerate it. See
+[synchronization and caching](#understand-synchronization-and-caching).
 
 ## Add a lesson assistant
 
@@ -780,7 +984,7 @@ pending responses clear on a switch or seek.
 Describe how to use allowed controls in `# Visual answer guidance`. For example,
 require matched conditions for a fair comparison or discourage changing more
 than one variable at a time. The
-[optimizers guide](../lessons/optimizers/assistant.md) is a concise example for a
+[optimizers guide](./lessons/optimizers/assistant.md) is a concise example for a
 lesson with several commandable controls.
 
 Assistant changes are temporary. They disappear when playback resumes or
@@ -864,7 +1068,7 @@ For multiple scenes, qualify parameter names in `state`, `preserve`,
 `circle.show.projection`. Each case's `at` is measured from the start of the
 whole lesson, not from scene entry. Choose a time when the intended scene is
 active, and recheck those times after changing narration or voice. See the
-[unit-circle evaluation cases](../lessons/unit-circle/assistant.eval.yaml).
+[unit-circle evaluation cases](./lessons/unit-circle/assistant.eval.yaml).
 
 Render the provider requests without downloading a voice model or making
 provider calls:
@@ -1178,3 +1382,571 @@ For credential rotation, deploy first, replace the secret, revoke the old token,
 and test after the container restarts. Test path-containment defenses with a
 harmless target such as `/etc/os-release`, never with a sensitive file such as
 `/proc/self/environ`.
+
+## Appendix: command and format reference
+
+Use this appendix to look up commands, manifest fields, scene exports, and
+narration directives. Follow the [authoring workflow](#authoring-workflow) for
+the sequence of production decisions.
+
+- [Command line](#command-line)
+- [Lesson files and manifest](#lesson-files-and-manifest)
+- [Narration directives](#narration-directives)
+
+### Command line
+
+Build the framework once after cloning the repository or changing framework
+code:
+
+```bash
+pnpm build
+```
+
+All lesson commands then have the same basic form:
+
+```bash
+pnpm lesson <command> --lesson lessons/my-lesson
+```
+
+`--lesson` selects the lesson directory. You may omit it when your terminal is
+already inside that directory.
+
+Run `pnpm lesson --help` for a short overview or
+`pnpm lesson help <command>` for common options and examples.
+
+#### Typical command sequence
+
+Create a lesson directory:
+
+```bash
+pnpm lesson new my-lesson --lesson lessons/my-lesson
+```
+
+Run the scene selected by the manifest by itself while building the interaction:
+
+```bash
+pnpm lesson scene --lesson lessons/my-lesson
+```
+
+After writing `script.md`, validate and preview the integrated lesson:
+
+```bash
+pnpm lesson check --lesson lessons/my-lesson
+pnpm lesson preview --offline --lesson lessons/my-lesson
+```
+
+`--offline` prevents speech and answer provider calls. It synthesizes English
+narration locally with a pinned, quantized Supertonic 3 model and uses the local
+assistant substitute. The first offline build downloads a 123 MB model archive;
+later builds use the shared local copy. The local voice is intended for quick
+iteration, but its sentence-based character timings are approximate and still
+need a final check against the production voice.
+
+Use `--silent` when a build needs deterministic silent audio and must not
+download the local speech model. Silent audio advances at 60 milliseconds per
+written character. Automated tests use this option.
+
+The optional manifest field `offlineTts.speed` sets a positive speed multiplier
+for the local Supertonic voice (default 1). For example, `offlineTts: { speed:
+1.2 }` requests faster speech. It affects only `--offline` and is included in
+the narration cache key.
+
+Remove `--offline` to synthesize or reuse the configured voice:
+
+```bash
+pnpm lesson preview --lesson lessons/my-lesson
+```
+
+Provider results are cached. Editing cue settings reuses audio when narration
+and synthesis boundaries are unchanged; moving a Qwen cue anchor can regenerate
+it. See [synchronization and caching](#understand-synchronization-and-caching).
+Hosted voices require credentials in a gitignored `.env` file.
+
+Create a deployable site with:
+
+```bash
+pnpm lesson build --bundle --lesson lessons/my-lesson
+```
+
+Compiled lesson files go to `build/lesson/`. The deployable site goes to
+`build/site/`. Both directories are generated. Assistant-enabled Docker bundles
+also contain precompressed Brotli and gzip representations of browser text
+assets; the lesson server selects the best representation supported by each
+visitor's browser.
+
+#### Commands
+
+| Command | Purpose |
+|---|---|
+| `new <id>` | Create `lesson.yaml`, `script.md`, `scenes/scene.ts`, and an assets directory. |
+| `scene` | Run one interactive scene alone; use `--scene <id>` to select a registered scene. |
+| `ref` | Print parameters, ranges, presets, groups, constants, and bakers for all scenes, or one with `--scene <id>`. |
+| `check` | Validate all runtime scene modules, `script.md`, cues, and assistant configuration without network calls. |
+| `preview` | Rebuild changed files and serve the complete lesson locally. |
+| `build` | Compile narration, captions, and animation tracks into `build/lesson/`. |
+| `build --bundle` | Also create the deployable site in `build/site/`. |
+| `state --at <t>` | Print the computed scene state at a lesson time in seconds. |
+| `frame --at <t> -o <file>` | Render a PNG of the built lesson at a chosen time. |
+| `serve` | Serve an existing bundle without rebuilding or watching source files. |
+| `deploy --prepare --space <namespace/name>` | Create or complete local Space metadata without contacting Hugging Face. |
+| `deploy` | Build real narration and publish the lesson to its configured Hugging Face Space. |
+| `assistant-eval` | Inspect or run tracked assistant questions against a built lesson. |
+| `assistant-eval-grade` | Grade a saved real evaluation with an independent OpenAI model. |
+
+#### Options
+
+- `--lesson <dir>` selects the lesson directory.
+- `scene --scene <id>` and `ref --scene <id>` select a registered scene. This
+  option requires the `scenes` manifest format and does not apply to full-lesson
+  commands such as `preview` or `build`.
+- `--offline` uses local Supertonic narration and the local assistant substitute.
+- `--silent` uses deterministic silent narration and the local assistant substitute.
+- `--bundle` asks `build` to create the deployable site.
+- `deploy --create` creates the configured Space privately before the first deployment.
+- `deploy --dry-run` performs local release checks and builds without contacting Hugging Face.
+- `deploy --prepare --space <namespace/name>` records the target and prepares
+  the Space card and audio Git LFS rules without a remote operation.
+- `--port <number>` and `--host <address>` set the local server address.
+- `state --drag <param>=<value>` simulates learner interaction and
+  reconciliation.
+- `frame --size <width>x<height>` sets PNG dimensions.
+- `assistant-eval --variant structured|legacy|both` selects an assistant prompt
+  format for comparison.
+- `assistant-eval --configuration <id>[,<id>]` runs only the named model
+  configurations.
+- `assistant-eval --case <id>[,<id>]` runs only the named cases.
+- `assistant-eval --repeats <number>` overrides the file's repetition count.
+- `assistant-eval --real` contacts the real answer provider.
+- `assistant-eval-grade --input <file>` reads a saved real evaluation result.
+- `assistant-eval-grade --configuration <id>[,<id>]` and `--case <id>[,<id>]`
+  grade a selected subset.
+
+`preview` and `serve` bind to `127.0.0.1` by default. Use `--host 0.0.0.0` only
+when another device must reach the local server.
+
+#### Assistant evaluation
+
+`assistant-eval` reads `assistant.eval.yaml` and existing `build/lesson/`
+artifacts. Run a silent or offline build first. Without `--real`, it prints the
+complete requests that would be sent to the provider and makes no network calls:
+
+```bash
+pnpm lesson build --silent --lesson lessons/my-lesson
+pnpm lesson assistant-eval --lesson lessons/my-lesson -o assistant-eval.json
+```
+
+Use `--variant structured|legacy|both` only when comparing assistant prompt
+formats. An evaluation file may define several model configurations, with
+provider-specific request settings, and a repetition count. Cases and
+configurations are interleaved so that changing provider conditions do not
+systematically favor one configuration. `--real` requires `HF_TOKEN` and may
+incur provider costs.
+
+Each turn can include an authored rubric with reference facts, forbidden
+claims, critical errors, and a scene policy. Successful answers are checked for
+required or forbidden scene actions, preserved parameters, final-value
+assertions, and exposed internal parameter names. The rubric is written to the
+result for grading but is not included in the candidate model request.
+
+Grade a saved real result separately:
+
+```bash
+pnpm lesson assistant-eval-grade \
+  --input assistant-results.json \
+  -o assistant-grades.json
+```
+
+This command uses `gpt-5.6-sol` with high reasoning effort and strict structured
+output. It sends the question, conversation, visible state, answer, scene
+actions, rubric, and deterministic checks. It does not send the candidate
+configuration id or model name. The saved grade restores those identifiers so
+scores can be summarized by configuration. The command requires
+`OPENAI_API_KEY`, makes one paid judge request per gradeable turn, and records
+judge failures without discarding other grades.
+
+#### Scene development without narration
+
+`lesson scene` needs only `id` and the scene selection fields in `lesson.yaml`:
+either `scene`, or `scenes` with `initialScene`. It loads the selected scene from
+schema defaults, preserves interactions until reset or reload, and watches the
+manifest and lesson-local source dependencies. It does not read `script.md`,
+voice settings, assistant context, or compiled lesson artifacts. Its temporary
+browser bundle is stored in `build/scene-preview/`.
+
+With a registry, the default is `initialScene`. Select another module with:
+
+```bash
+pnpm lesson scene --lesson lessons/unit-circle --scene cosine
+```
+
+This preview shows one module at a time. Use `lesson preview` to run the script
+and review scene changes on the narration timeline.
+
+### Lesson files and manifest
+
+#### Authored files
+
+```text
+lesson.yaml             identity, public description, defaults, voice provider, assistant
+script.md               narration, natural-language hints, and formal directives
+assistant.md            optional semantic assistant context
+assistant.eval.yaml     optional tracked assistant question cases
+scenes/
+  scene.ts              scene entry module
+  ...                   additional scene modules, helpers, tests, and visual assets
+assets/                 optional authored assets
+```
+
+`build/` and `.cache/` are generated and gitignored. Tangible currently assumes
+that every lesson is in English. A lesson has one script, one voice, one set of
+captions, one assistant guide, and either one scene module or a registry of scenes.
+
+Chapters are markers on the narration timeline. They do not select scene files.
+In a single-scene lesson, `@scene(name)` changes the module's `scene` schema
+parameter as before. In a multiple-scene lesson, it selects a registered module.
+
+#### Multiple scenes
+
+For a step-by-step example, see
+[Add another scene](#add-another-scene) and the
+[unit-circle manifest](./lessons/unit-circle/lesson.yaml).
+
+Use `scenes` and `initialScene` instead of the singular `scene` field:
+
+```yaml
+scenes:
+  circle: ./scenes/scene.ts
+  cosine: ./scenes/cosine.ts
+initialScene: circle
+```
+
+The registry must be nonempty. Scene ids start with a letter and contain letters,
+digits, hyphens, or underscores. `board` is reserved. `initialScene` must identify
+a registered module. Combining the singular and plural formats is an error.
+Paths are relative to the lesson directory; the folder is not scanned for
+modules. Every registered module follows the usual [scene exports](#scene-exports).
+
+```markdown
+@scene(circle)
+@cue(theta = HALF_PI)
+The point is above the center.
+
+@scene(cosine)
+@cue(theta = PI)
+The graph reaches minus one.
+
+@scene(circle)
+We return to the earlier circle state.
+```
+
+`@scene(id)` selects the registered module at the onset of the next spoken word.
+It takes only the scene id; it has no `over` or `at` options.
+Local directives (`@cue`, `@show`, `@hide`, `@camera`, `@bake`, and `@track`)
+refer to the most recently selected scene in source order,
+starting with `initialScene`. Parameter names, presets, constants, groups, and
+bakers are independent across scenes. Each scene starts from its own defaults;
+revisiting it evaluates its authored tracks at the current lesson time. Cues do
+not reset implicitly on entry, and authored transitions can finish while hidden.
+Learner overrides clear when leaving a scene or seeking. Values are not copied
+between scenes. A module with a local `scene` parameter can still select its
+own modes with `@cue(scene = name)`.
+
+Names remain local in script cues and the module API: write `@cue(theta = PI)`,
+`ctx.write("theta", value)`, and `state.theta`. Do not add a scene prefix there.
+
+Switching is instantaneous and does not pause audio. The player evaluates the
+active module directly from lesson time, including after a seek. All scene code
+is included in the initial bundle. The outgoing instance is disposed and the
+incoming instance receives a fresh canvas. Scene-owned resources must be cleaned
+up in `dispose()`.
+
+Visual anticipation and negative cue offsets are clamped at the preceding scene
+entry. A checkpoint immediately before an entry keeps the outgoing scene until
+the next clock tick after resume. Board directives remain global and require an
+explicit `@clear(board)` when content should not carry across a switch.
+
+`lesson ref --scene <id>` and `lesson scene --scene <id>` select an individual
+scene. Without this flag, the reference lists all scenes and standalone preview
+uses `initialScene`. `lesson state` and compiled tracks use qualified parameter
+names such as `circle.theta` and `cosine.theta`, plus a global `scene` selector.
+For example, after building unit-circle:
+
+```bash
+pnpm lesson state --lesson lessons/unit-circle --at 5
+pnpm lesson state --lesson lessons/unit-circle --at 5 --drag circle.theta=1
+```
+
+Times are seconds from the start of the entire lesson, including on return
+visits. The state output includes parameters from inactive scenes as well.
+Recorded track keys supplied to the compiler use these same qualified names.
+The existing version-1 track format and single-scene names remain supported.
+
+An assistant's `commandable` list also uses qualified names. Inside the existing
+`assistant` section of the manifest, set:
+
+```yaml
+  commandable: [circle.theta, cosine.theta]
+```
+
+The assistant receives the active scene and its visible controls; server
+validation restricts new writes to that scene's allowlist. It cannot change the
+global `scene` selector. Conversation history can retain answers from earlier
+scenes, while temporary visual changes and pending answers clear on a switch.
+Evaluation state overrides and rubric parameter names also need these prefixes;
+see [assistant evaluation authoring](#invite-and-evaluate-questions).
+
+#### Manifest
+
+A single-scene `lesson.yaml` can use the original format:
+
+```yaml
+id: unit-circle
+title: The unit circle
+promise: See how an angle on the unit circle determines its sine and cosine.
+tags: [mathematics, trigonometry]
+scene: ./scenes/scene.ts
+defaults:
+  anticipation: -0.2
+  ease: inOutCubic
+  transition: 1.0
+tts:
+  provider: elevenlabs
+  voice: VOICE_ID
+  model: eleven_multilingual_v2
+  speed: 0.9
+deployment:
+  provider: huggingface
+  space: example/lesson-space
+```
+
+`promise` is the one-sentence public description included in the Hugging Face
+Space card prepared by Tangible. It does not appear inside the lesson player.
+The start screen shows the title, Start button, interaction guidance, loading
+and failure states, and the portrait-phone orientation notice. The framework
+shows this content in a translucent card over the initial lesson scene and
+prevents scene interaction until narration starts.
+
+The optional `tags` list contains subject terms for Hugging Face discovery.
+When Tangible creates a Space card, it removes duplicates and combines these
+terms with the automatic `tangible`, `education`, and `interactive-learning`
+tags. It also uses the lesson title followed by “a Tangible lesson” as the
+Space's short description, shortening the title when necessary to keep the
+description within 60 characters. An existing custom Space card remains under
+the author's control.
+
+The `tts` section is optional while a lesson is being developed with `--offline`
+or `--silent`. A provider-backed preview and deployment require it. When present,
+`tts.provider` supports `elevenlabs` and `hf-endpoint`. Both providers require a
+`voice`. ElevenLabs also accepts an optional `model` and `speed`. The compatible
+Qwen endpoint selects its model, while the adapter fixes English and its
+generation settings; neither is configurable in the manifest. See
+[narration configuration](#choose-and-configure-narration) for examples and the
+endpoint contract. `--offline` replaces provider speech
+with the fixed local Supertonic voice, independently of the manifest voice.
+`--silent` selects deterministic silent audio instead. The CLI loads gitignored
+`.env` files from both the invocation directory and the lesson directory.
+
+Offline and provider-backed builds require ffmpeg. Tangible converts provider
+WAV or MP3 output into WebM/Opus and M4A/AAC-LC files, preserving the original
+narration timing. The player asks the browser which format it supports and
+downloads only that file. Hermetic `--silent` builds retain their small WAV and
+do not require ffmpeg.
+
+The local model is stored in the operating system's user cache and shared by
+all lessons. Set `TANGIBLE_CACHE_DIR` to choose another Tangible cache root, or
+set `TANGIBLE_SUPERTONIC_MODEL_DIR` to an already extracted model directory for
+an air-gapped installation. Tangible verifies the archive checksum before
+installing it and keeps the model's license file. The Supertonic model uses the
+[OpenRAIL-M license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE).
+
+Narration never autoplays. The player waits until its audio is ready and begins
+only after the visitor presses Start.
+
+`deployment.space` records the stable Hugging Face Space identifier in
+`namespace/name` form. It is optional unless `lesson deploy` is used. Do not put
+tokens, visibility, hardware, or deployment status in `lesson.yaml`; those are
+remote Space settings.
+
+#### Scene exports
+
+- `schema` defines the required parameters.
+- `scene` is the runtime scene module.
+- `presets` contains optional named parameter collections, including cameras.
+- `constants` contains optional named values usable in cues.
+- `groups` contains optional ordered parameter lists for compact coupled cues.
+- `bakers` contains optional deterministic build-time computations.
+
+Run `pnpm lesson ref --lesson <dir>` for the exact lesson-specific contract.
+
+The runtime module may declare `scene.designSize: { width, height }`, with
+positive finite reference dimensions in CSS pixels. This opts into proportional
+enlargement with `max(1, min(playerWidth / width, playerHeight / height))`.
+The scene and player overlays enlarge together; the assistant drawer stays
+outside that composition. Omit the field to retain ordinary CSS sizing.
+
+`ctx.size()` returns `{ width, height, scale, canvasScale }`. Its dimensions
+are the available layout rectangle before magnification. `scale` converts its
+coordinates to displayed CSS pixels, and `canvasScale` converts them to canvas
+backing pixels, including display density. Use `canvasScale` for the canvas
+transform and to convert incoming handle coordinates. `ctx.viewport()` still
+returns backing-pixel dimensions. Scene preview and the full player use the same
+sizing rules, which are reapplied on scene switches. See
+[responsive scene layouts](#design-responsive-scene-layouts)
+for canvas and HTML examples.
+
+The runtime scene instance renders with `render(state, frame)`. `state` is the
+complete visible parameter state. `frame.dt` is the elapsed rendering time, and
+`frame.activity` maps currently manipulated parameter names to:
+
+```ts
+{
+  source: "narration" | "user" | "assistant";
+  strength: number; // zero to one
+}
+```
+
+Animated narration tracks remain active for their complete transition. Instant
+changes and completed transitions fade for a short period. User activity remains
+active during a drag or scene-control write and then fades. Assistant activity
+follows the temporary answer timeline. Scenes choose whether and how to render
+this information; the player does not assume that a parameter is represented by
+a slider or any other particular interface.
+
+#### Optional assistant
+
+```yaml
+assistant:
+  provider: huggingface
+  model: google/gemma-4-31B-it:cerebras
+  context: assistant.md
+  startOpen: true
+  commandable: [theta, show.projection]
+```
+
+The `model` is a Hugging Face router model identifier and may include an
+inference-provider suffix. The context describes the scene, controls,
+terminology, and answer guidance. Only allowlisted parameters may be returned
+by the provider. Assistant-enabled bundles include a same-origin server; other
+lessons remain static. See
+[the assistant section of the authoring guide](#add-a-lesson-assistant).
+`startOpen: true` displays the question field immediately when the viewport has
+room. The player keeps the panel collapsed on phone-width or short-landscape
+viewports. The field is optional and defaults to `false`.
+The optional nested `assistant.limits` block records all request, response,
+traffic, queue, and provider-timeout values. See
+[Configure assistant limits](#configure-assistant-limits) for the
+complete block and its defaults. `lesson check` rejects invalid limit values
+before a provider is called.
+
+An optional `assistant.eval.yaml` records model configurations, representative
+question sequences, lesson times, state overrides, and repetitions for
+`lesson assistant-eval`. It is a review artifact rather than part of the
+deployed lesson.
+
+### Narration directives
+
+Narration is Markdown. Prose is spoken verbatim. Front matter, double-bracket
+hints, and formal directives are stripped before speech synthesis and captions.
+Inline directives anchor to the onset of the next word. Block directives occupy
+their own line.
+
+#### State cues
+
+```markdown
+@cue(theta = 0)                         instant assignment
+@cue(theta -> 3.14, over: 2s)           animated assignment
+@cue(theta -> HALF_PI, ease: linear)     named constant and easing
+@cue(weights -> [0.1, 0.2, 0.3])        named parameter group
+```
+
+Options are `over: <seconds>`,
+`ease: linear|inOutCubic|inCubic|outCubic|spring`, and
+`at: +0.5s|-0.2s|sentence-end`. Values are absolute and validated against the
+scene schema.
+
+Convenience directives are:
+
+```markdown
+@show(projection, cosLabel)
+@hide(projection)
+@camera(sideView, over: 3s)
+@camera(target: [0, 0.5, 0], distance: 7, azimuth: -45°, elevation: 30deg)
+@camera(azimuth: 45, over: 2s)
+```
+
+`@camera` accepts either a named scene preset or inline orbit-camera fields.
+The fields are `target: [x, y, z]`, `distance`, `azimuth`, and `elevation`.
+`target` contains three numbers and `distance` must be positive. Angles may use
+`deg` or `°`; a number without a unit also means degrees.
+
+An inline directive may provide only the fields that change. Missing fields keep
+their latest authored values, starting from the camera default in the scene
+schema. The compiler resolves every partial directive to a complete camera value
+at build time, so it never depends on camera movement made by the learner.
+
+Orbit interpolation follows the shortest path between two viewing directions.
+A complete turn therefore needs intermediate camera directives rather than one
+directive whose final angle differs from its initial angle by 360 degrees.
+
+#### Structure and pauses
+
+```markdown
+@scene(main)
+@chapter(Why the path zigzags)
+@pause(prompt: "Find where SGD becomes unstable.")
+@pause(prompt: "Explore before continuing.", speak: false)
+```
+
+`@scene(main)` selects a registered module named `main` when the manifest uses
+`scenes`. With the original singular `scene` field, it sets that module's local
+`scene` parameter to `main`. See [Multiple scenes](#multiple-scenes) for the
+selection, timing, and state rules. `@chapter` adds a timeline marker without
+changing the active module.
+
+A spoken pause inserts its prompt into narration and stops at the prompt
+boundary. A silent pause stops without adding text. The normal play control
+resumes.
+Checkpoint times are rounded to the player's hundredth-of-a-second clock so
+resuming cannot immediately trigger the same pause again.
+
+#### Board
+
+```markdown
+@board(loss: $L = (y - \hat y)^2$)
+@board(note: "The update follows the negative gradient.")
+@highlight(loss.term)
+@dim(loss)
+@clear(loss)
+@clear(board)
+```
+
+Board content belongs to the script rather than the scene schema. The player
+renders it as an overlay in the rightmost 28 percent of the player by default.
+Scene authors must reserve that area in the visual composition so equations and
+notes do not cover important scene content or interactive controls. A lesson may
+change the board's bounds with scoped `.xv-board` CSS, but there is currently no
+scene export for declaring those bounds.
+
+KaTeX subexpressions are addressed through `\htmlClass{name}{...}` tags.
+
+#### Build-time computation
+
+```markdown
+@bake(descent, steps: 3, over: 6s, ease: inOutCubic)
+```
+
+The named scene baker receives its declared reads and returns exactly its
+declared writes. The compiler validates and expands the result into ordinary
+keyframes. Repeat one-step bakes when each update needs a separate narration
+anchor.
+
+#### Natural-language hints
+
+Double brackets let a human describe choreography before the scene contract is
+known:
+
+```markdown
+[[Reveal the projection as the narrator says "horizontal".]]
+```
+
+The implementing agent translates these hints into formal syntax.

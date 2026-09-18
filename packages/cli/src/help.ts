@@ -1,4 +1,4 @@
-// Short command help for creators. Detailed syntax remains in docs/reference.md.
+// Short command help for creators. Detailed syntax remains in the DOCUMENTATION.md appendix.
 
 const GENERAL = `Tangible lesson authoring
 
@@ -26,7 +26,7 @@ Commands:
   assistant-eval-grade  Grade saved assistant evaluation results.
 
 Run "pnpm lesson help <command>" for the most common command options.
-Read docs/quickstart.md for the complete first-lesson walkthrough.`;
+Read README.md for the first-lesson walkthrough and DOCUMENTATION.md for the full guide.`;
 
 const TOPICS: Record<string, string> = {
   new: `Create a complete working lesson
