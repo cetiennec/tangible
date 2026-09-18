@@ -659,11 +659,11 @@ behind an unchanged endpoint URL. The
 [adapter implementation](./packages/tts/src/huggingface-voice.ts) is the source
 of truth for this protocol.
 
-The current example lessons use the speaker name `david_v1`. It identifies a
-speaker on the author's server, not a voice supplied by Tangible. The repository
-does not yet include that server or its fine-tuning recipe. A reproducible server
-and a walkthrough from recordings to a working endpoint are planned in
-[step 3 of the TTS improvement plan](./CONTRIBUTING.md#tts-improvement-plan).
+Speaker names identify voices configured on your server; Tangible does not
+supply cloned voices. To create your own, follow
+[Clone your voice with Qwen3-TTS](./docs/qwen-voice-cloning.md).
+The guide covers reference recordings, optional fine-tuning, endpoint hosting,
+and a first lesson build, with links to the official implementation guides.
 
 ### Understand synchronization and caching
 

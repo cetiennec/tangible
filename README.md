@@ -305,6 +305,7 @@ Run `pnpm lesson --help` to list the available commands, and `pnpm lesson help <
 ## Documentation
 
 - [Documentation](./DOCUMENTATION.md) covers scene design, narration, choreography, review, assistants, and deployment, with a complete command and format reference in its appendix.
+- [Clone your voice with Qwen3-TTS](./docs/qwen-voice-cloning.md) explains recording preparation, optional fine-tuning, Hugging Face endpoint hosting, and use in Tangible, with a prompt for handing the work to an agent.
 - [Contributing](./CONTRIBUTING.md) explains how to work on lessons or the framework.
 
 
