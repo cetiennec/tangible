@@ -150,6 +150,8 @@ Now let's talk about @board(kwLerobot: "LeRobot") LeRobot which is Hugging Face 
 
 @cue(diagram = workflow1) You've already seen three of its pieces without the name: the @board(lrRobot: "Robot descriptions") robot description that built this arm, the @board(lrTeleop: "Teleoperation") leader-follower teleoperation you're about to try, and the @board(lrData: "Datasets") dataset format that records it all.
 
+@pause(prompt: "Take a look at the workflow. We'll come back to the arm next.", speak: false)
+
 @cue(diagram = none)
 @cue(show.brand = false)
 @clear(board)
