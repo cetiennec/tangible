@@ -25,6 +25,12 @@ const JOINTS = [
   { param: "gripper", joint: "gripper", label: "Gripper", range: [-0.17453, 1.74533] },
 ] as const;
 
+// The board's own width, which both right-hand panels share. The feed needs
+// it as a number as well as in CSS, because its canvas has to be given a
+// pixel size to render into; the two must agree or the image is stretched.
+const PANEL_WIDTH = 0.32;
+const FEED_ASPECT = 16 / 9;
+
 const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.78, azimuth: 0.9, elevation: 0.42 };
 
 // The strip chart's Y axis: the elbow's own mechanical travel, not just the
@@ -187,6 +193,7 @@ export const scene: SceneModule = {
         <a href="${SOURCE}" target="_blank" rel="noreferrer noopener">LeRobot</a>. Drag to turn the view.</p>
       <figure class="so101-diagram" hidden><img class="so101-diagram-img" alt=""></figure>
       <figure class="so101-camfeed" hidden>
+        <canvas class="so101-camfeed-view" aria-hidden="true"></canvas>
         <figcaption>Camera feed — recorded alongside the joint angles</figcaption>
       </figure>
       <figure class="so101-graph" hidden>
@@ -222,6 +229,7 @@ export const scene: SceneModule = {
     const diagramImg = root.querySelector<HTMLImageElement>(".so101-diagram-img")!;
     let shownDiagram = "";
     const camFeed = root.querySelector<HTMLElement>(".so101-camfeed")!;
+    const camFeedView = root.querySelector<HTMLCanvasElement>(".so101-camfeed-view")!;
     const graph = root.querySelector<HTMLElement>(".so101-graph")!;
     const graphLeaderTrace = root.querySelector<SVGPolylineElement>(".so101-graph-leader")!;
     const graphFollowerTrace = root.querySelector<SVGPolylineElement>(".so101-graph-follower")!;
@@ -322,35 +330,21 @@ export const scene: SceneModule = {
           else view.setBrick(offsetBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, view.armOffset(0)), TIP);
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
 
-          // Both panels share one column on the right of the canvas box,
-          // stacked: the strip chart above, the camera feed below it. The
-          // feed is a real WebGL sub-viewport (renderer.setScissor), so it
-          // can only live inside the canvas's own pixel buffer — the canvas
-          // box spans just the scene's left ~62%, short of where the board
-          // panel starts (~65%) — so both stay inside the box rather than
-          // the chart living in the board area on its own.
+          // Both panels sit in the board's own rectangle on the right, the
+          // chart above the feed. The narration empties the board just
+          // before the task and fills it again afterwards, so there is
+          // nothing underneath them there, and CSS can place them outright
+          // rather than the render loop working out where they go.
           const showFeed = running && Boolean(sceneCamLocal);
           camFeed.hidden = !showFeed;
-          const b = box();
-          const margin = 14;
-          const colWidth = b.width * 0.3;
-          const colX = b.width - colWidth - margin;
-          const pipHeight = colWidth * 0.72;
-          const pipY = b.height - pipHeight - margin;
           if (showFeed) {
             const offset = view.armOffset(0);
             const camPos = offsetBrick(sceneCamLocal!.position, offset)!;
             const camLookAt = offsetBrick(sceneCamLocal!.lookAt, offset)!;
             view.setSceneCamera(camPos, camLookAt);
             view.setWebcam(camPos, camLookAt);
-            view.render({ x: colX, y: pipY, width: colWidth, height: pipHeight });
-            // The DOM frame sits over the canvas at the matching on-screen
-            // spot: the canvas box is itself a percentage of the whole scene,
-            // so the pip's position within it needs converting the same way.
-            camFeed.style.left = `${((b.left + colX) / size.width) * 100}%`;
-            camFeed.style.top = `${((b.top + pipY) / size.height) * 100}%`;
-            camFeed.style.width = `${(colWidth / size.width) * 100}%`;
-            camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
+            const feedWidth = size.width * PANEL_WIDTH;
+            view.render({ canvas: camFeedView, width: feedWidth, height: feedWidth / FEED_ASPECT });
           } else {
             view.hideWebcam();
             view.render();
@@ -376,14 +370,6 @@ export const scene: SceneModule = {
             graphLeaderDot.setAttribute("cy", String(toSvgY(taskFrame(progress).elbow)));
             graphFollowerDot.setAttribute("cx", String(progress * 200));
             graphFollowerDot.setAttribute("cy", String(toSvgY(taskFrame(progress - FOLLOWER_DELAY).elbow)));
-
-            const graphHeight = pipHeight * 0.85;
-            const gap = 8;
-            const graphY = pipY - graphHeight - gap;
-            graph.style.left = `${((b.left + colX) / size.width) * 100}%`;
-            graph.style.top = `${((b.top + graphY) / size.height) * 100}%`;
-            graph.style.width = `${(colWidth / size.width) * 100}%`;
-            graph.style.height = `${(graphHeight / size.height) * 100}%`;
           }
 
           // Name one joint at a time, where it actually is, projected from
@@ -391,6 +377,7 @@ export const scene: SceneModule = {
           // changes as each name is spoken, so a label appears, then makes
           // way for the next rather than all six crowding the arm at once.
           const activePart = String(state.activePart);
+          const b = box();
           partsContainer.hidden = activePart === "none";
           for (const entry of JOINTS) {
             const label = partLabels.get(entry.joint)!;
@@ -494,15 +481,18 @@ const STYLE = `
    whole scene) so it never reaches into the note/board area on the right. */
 .so101-diagram { position: absolute; left: 33%; top: 58%; transform: translate(-50%, -50%); width: 56%; max-width: 600px; margin: 0; padding: 10px; background: rgba(255, 255, 255, .97); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .22); }
 .so101-diagram-img { display: block; width: 100%; height: auto; border-radius: 6px; }
-/* A second, live viewport rendered straight into the same WebGL canvas
-   (renderer.setScissor); this frame is just the border and caption drawn
-   over that rectangle, positioned to match it every frame. */
-.so101-camfeed { position: absolute; margin: 0; border: 2px solid ${INK}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
-.so101-camfeed figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 3px 6px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, .55); border-radius: 0 0 4px 4px; }
-/* A strip chart beside the camera feed: only the recorded portion of the
-   curve is drawn each frame, so it fills in live rather than showing the
-   whole shape up front. */
-.so101-graph { position: absolute; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
+/* The two recording panels, stacked in the board's own rectangle on the
+   right: the strip chart first, the camera feed under it. Widths here must
+   stay in step with PANEL_WIDTH above, which sizes the feed's pixels. */
+/* The feed is a plain 2D canvas that the 3D view copies the recording
+   camera's pass into each frame; its height comes from the canvas's own
+   pixel aspect, so nothing has to state it twice. */
+.so101-camfeed { position: absolute; right: 3%; top: 25%; width: 32%; margin: 0; border: 2px solid ${INK}; border-radius: 6px; overflow: hidden; background: #20262a; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
+.so101-camfeed-view { display: block; width: 100%; height: auto; }
+.so101-camfeed figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 3px 6px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, .55); }
+/* Only the recorded portion of each curve is drawn each frame, so the chart
+   fills in live rather than showing the whole shape up front. */
+.so101-graph { position: absolute; right: 3%; top: 5%; width: 32%; height: 17%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
 .so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
 .so101-graph-trace { fill: none; stroke-width: 2; }

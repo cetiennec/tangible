@@ -78,7 +78,7 @@ export class RobotView {
   private brick?: THREE.Group;
   private webcam?: THREE.Group;
   /** A second, fixed camera watching the workspace, for the recording demo. */
-  private sceneCam = new THREE.PerspectiveCamera(40, 1, 0.01, 50);
+  private sceneCam = new THREE.PerspectiveCamera(62, 1, 0.01, 50);
 
   constructor(private overlay: HTMLElement) {
     this.canvas = overlay.ownerDocument.createElement("canvas");
@@ -86,7 +86,15 @@ export class RobotView {
     this.canvas.style.position = "absolute";
     this.canvas.style.zIndex = "0";
     this.canvas.style.pointerEvents = "none";
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
+    // preserveDrawingBuffer keeps the pixels readable after a render, which
+    // is how render() copies the camera-feed pass out of this buffer and
+    // into the small 2D canvas that shows it.
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true,
+    });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x99a3a8, 2.1));
@@ -453,28 +461,55 @@ export class RobotView {
   }
 
   /**
-   * Render the main view, then optionally a second pass from sceneCam into a
-   * corner of the same canvas — an actual second "screen", not an icon,
-   * showing what the recording camera watching the task would see. `pip` is
-   * in the same box-relative pixel units as place(); WebGL's viewport origin
-   * is the bottom-left, so the y coordinate is flipped here once, rather than
-   * asking every caller to think in that convention.
+   * Render the main view, and optionally the recording camera's view into a
+   * separate 2D canvas.
+   *
+   * The feed pass is drawn first, into the bottom-left corner of this canvas's
+   * own buffer, copied straight out of it, and then painted over by the main
+   * view — so that corner is never seen. Copying it rather than leaving it in
+   * place as a scissored sub-viewport is what lets the feed sit anywhere on
+   * screen: a sub-viewport can only ever live inside this canvas, which covers
+   * the left part of the scene, and the feed belongs in the board panel on the
+   * right. `width` and `height` are the feed's size in CSS pixels; its backing
+   * store is sized from them here, so the pixel ratio stays in one place.
    */
-  render(pip?: { x: number; y: number; width: number; height: number }): void {
-    const width = this.renderer.domElement.width / this.renderer.getPixelRatio();
-    const height = this.renderer.domElement.height / this.renderer.getPixelRatio();
+  render(feed?: { canvas: HTMLCanvasElement; width: number; height: number }): void {
+    const ratio = this.renderer.getPixelRatio();
+    const width = this.renderer.domElement.width / ratio;
+    const height = this.renderer.domElement.height / ratio;
+    if (feed) {
+      // The copy is one for one, so the feed can be no larger than the buffer
+      // it is read out of.
+      const feedWidth = Math.max(1, Math.min(width, feed.width));
+      const feedHeight = Math.max(1, Math.min(height, feed.height));
+      const pixelWidth = Math.round(feedWidth * ratio);
+      const pixelHeight = Math.round(feedHeight * ratio);
+      if (feed.canvas.width !== pixelWidth) feed.canvas.width = pixelWidth;
+      if (feed.canvas.height !== pixelHeight) feed.canvas.height = pixelHeight;
+      this.sceneCam.aspect = feedWidth / feedHeight;
+      this.sceneCam.updateProjectionMatrix();
+      this.renderer.setViewport(0, 0, feedWidth, feedHeight);
+      this.renderer.render(this.scene, this.sceneCam);
+      const g = feed.canvas.getContext("2d");
+      if (g) {
+        // WebGL's origin is the bottom-left, so the corner just drawn is the
+        // last rows of the image drawImage reads.
+        g.clearRect(0, 0, pixelWidth, pixelHeight);
+        g.drawImage(
+          this.canvas,
+          0,
+          this.renderer.domElement.height - pixelHeight,
+          pixelWidth,
+          pixelHeight,
+          0,
+          0,
+          pixelWidth,
+          pixelHeight,
+        );
+      }
+    }
     this.renderer.setViewport(0, 0, width, height);
     this.renderer.render(this.scene, this.camera);
-    if (!pip) return;
-    this.sceneCam.aspect = Math.max(0.1, pip.width / Math.max(1, pip.height));
-    this.sceneCam.updateProjectionMatrix();
-    const glY = height - pip.y - pip.height;
-    this.renderer.setScissorTest(true);
-    this.renderer.setScissor(pip.x, glY, pip.width, pip.height);
-    this.renderer.setViewport(pip.x, glY, pip.width, pip.height);
-    this.renderer.clearDepth();
-    this.renderer.render(this.scene, this.sceneCam);
-    this.renderer.setScissorTest(false);
   }
 
   /** Hide the canvas without disposing anything, for a beat that precedes it. */
