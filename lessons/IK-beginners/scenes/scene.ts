@@ -22,7 +22,9 @@ import {
   twoSolutionSamples,
   unreachableSamples,
   wavePoint,
-  waveReachable,
+  wideCirclePath,
+  wideCirclePoint,
+  wideCircleGap,
   TAU,
   wrapAngle,
   type ArmPose,
@@ -135,6 +137,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "draw the circle the end-effector is asked to trace",
   },
+  "show.wideCircle": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "draw a circle too large to fit inside the reachable space",
+  },
   "show.wave": {
     type: { kind: "boolean" },
     default: false,
@@ -176,18 +185,31 @@ export const bakers: Bakers = {
       });
     },
   },
-  // Only as far as the arm can actually go: the wave's last stretch is out
-  // of reach on purpose, so the walk stops at the edge and the arm holds
-  // there while the rest of the path stays untraced.
   wave: {
     reads: ["l1", "l2"],
     writes: ["q1", "q2"],
     run(input, { steps }) {
       const l1 = input.l1 as number;
       const l2 = input.l2 as number;
-      const reach = waveReachable(l1, l2);
       return Array.from({ length: steps }, (_unused, index) => {
-        const target = wavePoint(((index + 1) / steps) * reach);
+        const target = wavePoint((index + 1) / steps);
+        const solved = inverseKinematics(target, l1, l2, "up");
+        return { q1: solved.q1, q2: solved.q2 };
+      });
+    },
+  },
+  // Only as far as the arm can actually go: part of this circle is out of
+  // reach on purpose, so the walk stops at the edge and the arm holds there
+  // while the rest of the lap stays untraced.
+  wideCircle: {
+    reads: ["l1", "l2"],
+    writes: ["q1", "q2"],
+    run(input, { steps }) {
+      const l1 = input.l1 as number;
+      const l2 = input.l2 as number;
+      const reach = wideCircleGap(l1, l2).from;
+      return Array.from({ length: steps }, (_unused, index) => {
+        const target = wideCirclePoint(l1, l2, ((index + 1) / steps) * reach);
         const solved = inverseKinematics(target, l1, l2, "up");
         return { q1: solved.q1, q2: solved.q2 };
       });
@@ -266,7 +288,8 @@ export const scene: SceneModule = {
           else drawWorkspace(g, geometry, l1, l2);
         }
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
-        if (state["show.wave"]) drawWave(g, geometry, l1, l2);
+        if (state["show.wideCircle"]) drawWideCircle(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.wave"]) drawWave(g, geometry);
         if (state["show.solutions"]) {
           drawSolutionSamples(g, geometry, state.l1 as number, state.l2 as number, state["show.limits"] as boolean);
         }
@@ -423,22 +446,41 @@ function drawCircle(g: CanvasRenderingContext2D, geometry: Geometry, l1: number,
   g.globalAlpha = 1;
 }
 
+/** The second, open path the end-effector is asked to follow. */
+function drawWave(g: CanvasRenderingContext2D, geometry: Geometry) {
+  g.strokeStyle = TIP;
+  g.globalAlpha = 0.55;
+  g.lineWidth = 2;
+  g.setLineDash([6, 5]);
+  g.beginPath();
+  for (let step = 0; step <= 96; step++) {
+    const at = toScreen(geometry, wavePoint(step / 96));
+    if (step === 0) g.moveTo(at.x, at.y);
+    else g.lineTo(at.x, at.y);
+  }
+  g.stroke();
+  g.setLineDash([]);
+  g.globalAlpha = 1;
+}
+
 /**
- * The second, open path the end-effector is asked to follow. Its last
- * stretch runs outside the workspace, so the path is drawn in two pieces:
- * the part the arm can trace, and the part that has no solution at all,
- * with a cross where one turns into the other.
+ * The oversized circle, part of which lies outside the arm's reach. The arc
+ * with no solution is drawn as a fine dotted line and labelled; the rest of
+ * the lap is the ordinary dashed path, whether or not the arm gets that far,
+ * because all of it is a path that was asked for and only that one arc is
+ * impossible. A cross marks where the arm has to give up.
  */
-function drawWave(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
-  const reach = waveReachable(l1, l2);
-  const stretch = (from: number, to: number, color: string, alpha: number) => {
+function drawWideCircle(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
+  const gap = wideCircleGap(l1, l2);
+  const arc = (from: number, to: number, color: string, alpha: number, dash: number[]) => {
+    if (to <= from) return;
     g.strokeStyle = color;
     g.globalAlpha = alpha;
     g.lineWidth = 2;
-    g.setLineDash([6, 5]);
+    g.setLineDash(dash);
     g.beginPath();
     for (let step = 0; step <= 64; step++) {
-      const at = toScreen(geometry, wavePoint(from + ((to - from) * step) / 64));
+      const at = toScreen(geometry, wideCirclePoint(l1, l2, from + ((to - from) * step) / 64));
       if (step === 0) g.moveTo(at.x, at.y);
       else g.lineTo(at.x, at.y);
     }
@@ -446,21 +488,29 @@ function drawWave(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l
     g.setLineDash([]);
     g.globalAlpha = 1;
   };
-  stretch(0, reach, TIP, 0.55);
-  if (reach >= 1) return;
-  stretch(reach, 1, MUTED, 0.5);
+  arc(0, gap.from, TIP, 0.55, [6, 5]);
+  arc(gap.to, 1, TIP, 0.55, [6, 5]);
+  if (gap.to <= gap.from) return;
+  arc(gap.from, gap.to, MUTED, 0.8, [2, 4]);
 
-  const edge = toScreen(geometry, wavePoint(reach));
+  const edge = toScreen(geometry, wideCirclePoint(l1, l2, gap.from));
   g.strokeStyle = TIP;
   g.lineWidth = 2.5;
   g.lineCap = "round";
-  const arm = 6;
-  line(g, edge.x - arm, edge.y - arm, edge.x + arm, edge.y + arm);
-  line(g, edge.x - arm, edge.y + arm, edge.x + arm, edge.y - arm);
-  g.fillStyle = TIP;
+  const cross = 6;
+  line(g, edge.x - cross, edge.y - cross, edge.x + cross, edge.y + cross);
+  line(g, edge.x - cross, edge.y + cross, edge.x + cross, edge.y - cross);
+
+  // Outside the middle of the impossible arc, pushed away from the circle's
+  // own centre so it sits clear of both the path and the arm.
+  const middle = wideCirclePoint(l1, l2, (gap.from + gap.to) / 2);
+  const { centre } = wideCirclePath(l1, l2);
+  const away = Math.atan2(middle.y - centre.y, middle.x - centre.x);
+  const at = toScreen(geometry, middle);
+  g.fillStyle = MUTED;
   g.font = "700 12px system-ui, sans-serif";
-  g.textAlign = "left";
-  g.fillText("no solution past here", edge.x + 11, edge.y + 20);
+  g.textAlign = "center";
+  g.fillText("no solution", at.x + Math.cos(away) * 34, at.y - Math.sin(away) * 34 + 4);
 }
 
 /**

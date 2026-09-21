@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   wavePoint,
-  waveReachable,
+  wideCirclePath,
+  wideCirclePoint,
+  wideCircleGap,
+  circlePath,
   circlePoint,
   oneSolutionSamples,
   twoSolutionSamples,
@@ -467,31 +470,13 @@ describe("the baked circle", () => {
 });
 
 describe("the baked wave", () => {
-  it("can be followed exactly as far as waveReachable says, at the equal-link shape it is driven through", () => {
+  it("stays inside JOINT_LIMITS along its whole length, at the equal-link shape it is actually driven through", () => {
     const [l1, l2] = [12, 12];
-    const reach = waveReachable(l1, l2);
-    // Well short of the end, so the arm has a real path to trace, and well
-    // short of the start, so the part it cannot reach is plainly visible.
-    expect(reach).toBeGreaterThan(0.6);
-    expect(reach).toBeLessThan(0.95);
     for (let step = 0; step <= 96; step++) {
-      const point = wavePoint((step / 96) * reach);
+      const point = wavePoint(step / 96);
       const solved = inverseKinematics(point, l1, l2, "up");
       expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
       expect(Math.hypot(solved.reached.x - point.x, solved.reached.y - point.y)).toBeLessThan(1e-6);
-    }
-  });
-
-  it("runs out of the workspace after that, and never comes back into it", () => {
-    const [l1, l2] = [12, 12];
-    const reach = waveReachable(l1, l2);
-    const { outer } = reachableRadii(l1, l2);
-    // Every point past the cut is genuinely out of reach, so the unreachable
-    // tail the narration points at is one continuous piece rather than the
-    // path dipping in and out of the workspace.
-    for (let step = 1; step <= 40; step++) {
-      const point = wavePoint(reach + ((1 - reach) * step) / 40);
-      expect(Math.hypot(point.x, point.y)).toBeGreaterThan(outer);
     }
   });
 
@@ -508,5 +493,66 @@ describe("the baked wave", () => {
     );
     expect(signs.has(1)).toBe(true);
     expect(signs.has(-1)).toBe(true);
+  });
+});
+
+describe("the oversized circle", () => {
+  it("can be followed exactly as far as the impossible arc, and no further", () => {
+    const [l1, l2] = [12, 12];
+    const { from } = wideCircleGap(l1, l2);
+    // Enough of the lap to read as the arm going round, and not so much that
+    // the part it cannot reach goes unnoticed.
+    expect(from).toBeGreaterThan(0.25);
+    expect(from).toBeLessThan(0.75);
+    for (let step = 0; step <= 96; step++) {
+      const point = wideCirclePoint(l1, l2, (step / 96) * from);
+      const solved = inverseKinematics(point, l1, l2, "up");
+      expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
+      expect(Math.hypot(solved.reached.x - point.x, solved.reached.y - point.y)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("leaves the reachable space in one continuous arc, and the gap is exactly that arc", () => {
+    const [l1, l2] = [12, 12];
+    const gap = wideCircleGap(l1, l2);
+    const { outer } = reachableRadii(l1, l2);
+    const steps = 400;
+    const outside = Array.from({ length: steps + 1 }, (_unused, i) => {
+      const point = wideCirclePoint(l1, l2, i / steps);
+      return Math.hypot(point.x, point.y) > outer;
+    });
+    const first = outside.indexOf(true);
+    const last = outside.lastIndexOf(true);
+    // One unbroken run, so the arm stops the first time the path leaves the
+    // workspace and the piece the narration points at is a single arc.
+    expect(first).toBeGreaterThan(0);
+    expect(outside.slice(first, last + 1).every(Boolean)).toBe(true);
+    // A tenth of the lap at least, so it is plainly visible on screen.
+    expect(last - first).toBeGreaterThan(steps / 10);
+    // And the reported gap is that run: it starts just before the path goes
+    // out, and ends just after it comes back.
+    expect(gap.from).toBeCloseTo(first / steps, 2);
+    expect(gap.to).toBeCloseTo((last + 1) / steps, 2);
+  });
+
+  it("is bigger than the circle the arm can manage, and sits further out", () => {
+    const [l1, l2] = [12, 12];
+    const wide = wideCirclePath(l1, l2);
+    const fits = circlePath(l1, l2);
+    expect(wide.radius).toBeGreaterThan(fits.radius);
+    expect(Math.hypot(wide.centre.x, wide.centre.y)).toBeGreaterThan(Math.hypot(fits.centre.x, fits.centre.y));
+  });
+
+  it("reports no gap for a circle that does fit, so the drawing stays in one piece", () => {
+    // Long enough links that the same proportions fall well inside the reach.
+    const gap = wideCircleGap(12, 12);
+    expect(gap.to).toBeGreaterThan(gap.from);
+    // The small circle, by contrast, has no unreachable stretch at all: every
+    // lap of it solves, which is what the closing beat of the lesson shows.
+    for (let step = 0; step <= 96; step++) {
+      const point = circlePoint(12, 12, step / 96);
+      const solved = inverseKinematics(point, 12, 12, "up");
+      expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
+    }
   });
 });

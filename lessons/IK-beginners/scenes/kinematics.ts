@@ -131,15 +131,41 @@ export function circlePoint(l1: number, l2: number, lap: number): Point {
  * shape rather than repeating the first demonstration. Unlike circlePath,
  * this is not sized generically from the link lengths — it is a fixed path
  * in Cartesian space, tuned for the equal link lengths it is actually baked
- * and driven through (the same L1=L2 the circle uses).
- *
- * It runs from the right, across the top of the workspace, and off the far
- * side of it: the last stretch is deliberately out of reach, which is the
- * point the narration makes here. waveReachable says where that begins.
+ * and driven through (the same L1=L2 the circle uses). Every point of it is
+ * reachable, and kinematics.test.ts checks that: it is the path the arm
+ * follows from end to end, before wideCirclePath shows one it cannot.
  */
 export function wavePoint(t: number): Point {
-  const x0 = 11.5, x1 = -18, yMid = 19.6, amplitude = 1, cycles = 5;
+  const x0 = 11.5, x1 = 3.0, yMid = 19.6, amplitude = 1, cycles = 1.5;
   return { x: x0 + t * (x1 - x0), y: yMid + amplitude * Math.sin(t * TAU * cycles) };
+}
+
+/**
+ * A larger circle, further out, whose far side falls outside what the arm
+ * can reach. Asking for this one and watching the arm stop partway is how
+ * the narration makes the point that a whole path has to be reachable, not
+ * just its ends; circlePath is then the same idea drawn small enough to fit.
+ */
+export function wideCirclePath(l1: number, l2: number) {
+  const { outer } = limitedRadii(l1, l2, JOINT_LIMITS.q2);
+  const direction = (45 * Math.PI) / 180;
+  const distance = outer * 0.76;
+  return {
+    centre: { x: distance * Math.cos(direction), y: distance * Math.sin(direction) },
+    radius: outer * 0.33,
+    direction,
+  };
+}
+
+/**
+ * A point on that circle. The lap starts at the point nearest the base and
+ * runs outward from there, so the arm traces a real arc of it before the
+ * path climbs past the edge of its reach.
+ */
+export function wideCirclePoint(l1: number, l2: number, lap: number): Point {
+  const { centre, radius, direction } = wideCirclePath(l1, l2);
+  const angle = direction + Math.PI + lap * TAU;
+  return { x: centre.x + radius * Math.cos(angle), y: centre.y + radius * Math.sin(angle) };
 }
 
 /**
@@ -345,24 +371,31 @@ export function inverseKinematics(target: Point, l1: number, l2: number, branch:
 
 /** The angle of the vector from `from` to `to`, measured from the positive x axis. */
 /**
- * How much of the wave the tip can actually follow, as a fraction of the
- * path's length. The far end lies outside the workspace on purpose, so this
- * is where the arm has to stop. It is found by walking the path rather than
- * solved for, because the boundary is set by the reach and the joint limits
- * together, and either can be the one that bites first.
+ * The stretch of the wide circle the arm cannot do, in lap fractions:
+ * `from` is where it has to stop, `to` is where the path comes back inside
+ * its reach. Between those two there are no joint angles at all; after `to`
+ * the path is fine again, but the arm never gets there, having stopped.
+ *
+ * Walked rather than solved for, because the boundary is set by the reach
+ * and the joint limits together and either can be the one that bites first.
+ * An empty stretch (`from` and `to` both 1) means the whole lap is fine.
  */
-export function waveReachable(l1: number, l2: number): number {
+export function wideCircleGap(l1: number, l2: number): { from: number; to: number } {
   const { inner, outer } = reachableRadii(l1, l2);
   const steps = 400;
-  for (let step = 0; step <= steps; step += 1) {
-    const point = wavePoint(step / steps);
+  const reachable = (lap: number) => {
+    const point = wideCirclePoint(l1, l2, lap);
     const distance = Math.hypot(point.x, point.y);
+    if (distance > outer || distance < inner) return false;
     const solved = inverseKinematics(point, l1, l2, "up");
-    if (distance > outer || distance < inner || !withinJointLimits(solved.q1, solved.q2)) {
-      return Math.max(0, step - 1) / steps;
-    }
-  }
-  return 1;
+    return withinJointLimits(solved.q1, solved.q2);
+  };
+  let step = 0;
+  while (step <= steps && reachable(step / steps)) step += 1;
+  if (step > steps) return { from: 1, to: 1 };
+  const from = Math.max(0, step - 1) / steps;
+  while (step <= steps && !reachable(step / steps)) step += 1;
+  return { from, to: Math.min(1, step / steps) };
 }
 
 export function directionOf(from: Point, to: Point): number {
