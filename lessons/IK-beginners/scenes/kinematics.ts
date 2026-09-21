@@ -221,11 +221,36 @@ export function twoSolutionSamples(l1: number, l2: number, count = 4, clearance 
       break;
     }
   }
-  if (found.length === 0) return [];
-  // Spread the chosen few evenly around whatever arc survived the limits.
-  return Array.from({ length: Math.min(count, found.length) }, (_unused, index) =>
-    found[Math.round((index * (found.length - 1)) / Math.max(1, Math.min(count, found.length) - 1))]!.point,
-  );
+  return spreadByAngle(found, count);
+}
+
+/**
+ * Picks `count` candidates as far apart in angle as possible, rather than
+ * assuming the survivors are evenly spaced through the array. The valid
+ * region for "exactly one solution" is large enough to wrap past 0/TAU, and
+ * picking evenly by array index then puts the first and last picks right
+ * next to each other on the ring.
+ */
+function spreadByAngle(candidates: { point: Point; angle: number }[], count: number): Point[] {
+  if (candidates.length === 0) return [];
+  const angularDistance = (a: number, b: number) => {
+    const diff = Math.abs(a - b) % TAU;
+    return Math.min(diff, TAU - diff);
+  };
+  const chosen = [candidates[0]!];
+  while (chosen.length < Math.min(count, candidates.length)) {
+    let best = candidates[0]!;
+    let bestDistance = -1;
+    for (const candidate of candidates) {
+      const distance = Math.min(...chosen.map((c) => angularDistance(c.angle, candidate.angle)));
+      if (distance > bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+    chosen.push(best);
+  }
+  return chosen.map((c) => c.point);
 }
 
 /** How far inside the limits a pose sits, in radians on the tighter axis. */
@@ -272,10 +297,7 @@ export function oneSolutionSamples(l1: number, l2: number, count = 4, clearance 
       break;
     }
   }
-  if (found.length === 0) return [];
-  return Array.from({ length: Math.min(count, found.length) }, (_unused, index) =>
-    found[Math.round((index * (found.length - 1)) / Math.max(1, Math.min(count, found.length) - 1))]!.point,
-  );
+  return spreadByAngle(found, count);
 }
 
 /**

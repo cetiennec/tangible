@@ -418,6 +418,23 @@ describe("oneSolutionSamples", () => {
     }
   });
 
+  it("spreads the picks around the ring rather than bunching them up", () => {
+    // The valid region for "exactly one solution" is large enough to wrap
+    // past 0/TAU; picking evenly by array index used to put the first and
+    // last picks right next to each other there instead of spread out.
+    for (const [l1, l2] of shapes) {
+      const points = oneSolutionSamples(l1, l2);
+      const angles = points.map((p) => Math.atan2(p.y, p.x));
+      for (let i = 0; i < angles.length; i++) {
+        for (let j = i + 1; j < angles.length; j++) {
+          const diff = Math.abs(angles[i]! - angles[j]!) % (2 * Math.PI);
+          const angular = Math.min(diff, 2 * Math.PI - diff);
+          expect(angular).toBeGreaterThan((20 * Math.PI) / 180); // at least 20 degrees apart
+        }
+      }
+    }
+  });
+
   it("never overlaps with the two-solution samples for the same shape", () => {
     // The two dot groups are drawn together, in different colours; a point
     // in both would be a contradiction on screen.

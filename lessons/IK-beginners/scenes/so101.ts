@@ -24,7 +24,7 @@ const JOINTS = [
   { param: "gripper", joint: "gripper", label: "Gripper", range: [-0.17453, 1.74533] },
 ] as const;
 
-const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.62, azimuth: 0.9, elevation: 0.42 };
+const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.78, azimuth: 0.9, elevation: 0.42 };
 
 export const schema: Schema = {
   ...Object.fromEntries(

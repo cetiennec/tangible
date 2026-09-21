@@ -105,9 +105,11 @@ This is why limits matter so much in practice. Across this whole ring, @cue(show
 
 @cue(show.solutions = false)
 @scene(redundant)
-If the robot has more degrees of freedom than the space, the number of @cue(spread -> 0.92, over: 3.4s) solutions can actually go to infinity.
+If the robot @cue(spread -> 0.9, over: 0.7s) has more degrees @cue(spread -> 0.2, over: 0.7s) of freedom than the @cue(spread -> 0.75, over: 0.7s) space, the number of @cue(spread -> 0.35, over: 0.7s) solutions can actually go to infinity.
 
 Look to these two examples : One 3 DOF arm in 2D and one 4 DOF in 3D.@cue(spread -> 0.1, over: 3.4s) 
+
+Flex the arm with the slider. The tip never leaves the target, showing that there is an infinite number of solutions to the IK problem, especially if we don't consider end-effector angle.
 
 @pause(prompt: "Flex the arm with the slider. The tip never leaves the target.", speak: false)
 
@@ -122,7 +124,9 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix of partial derivatives that says how a small turn of each joint @board(jacVec: $\begin{bmatrix} \delta x \\ \delta y \end{bmatrix} = J \begin{bmatrix} \delta q_1 \\ \delta q_2 \end{bmatrix}$) nudges the tip in x and y.
+@cue(show.jacobian = true) The J in there is the Jacobian, the matrix of partial derivatives that says how a small turn of each joint nudges the tip in x and y. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
+
+@cue(show.jacobian = false)
 
 @clear(board)
 @cue(q1 -> 1.423, over: 2s) @cue(q2 -> -1.708, over: 2s) OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
@@ -137,6 +141,7 @@ And it's not just circles either.
 @cue(show.circle = false) @cue(q1 -> 1.368, over: 2s) @cue(q2 -> -0.655, over: 2s) @cue(show.wave = true) Any continuous path works the same way, as long as the whole thing stays reachable, one elbow branch at a time.
 
 @bake(wave, steps: 32, over: 6s)
+Same equations, same idea — just applied to a curve that isn't a circle.
 
 @cue(show.wave = false)
 @clear(board)
@@ -179,6 +184,8 @@ That is the whole appeal of teleoperating in the joint space. It is a copy, not 
 @pause(prompt: "Compare each joint on the leader with the same joint on the follower.", speak: false)
 
 @cue(show.angles = false)
+@cue(pan -> -0.55, over: 2s) @cue(lift -> -0.45, over: 2s) @cue(elbow -> 0.95, over: 2s) @cue(wristFlex -> 0.35, over: 2s) @cue(wristRoll -> 0, over: 2s) @cue(gripper -> 1.25, over: 2s) Let's watch them work through a real task together.
+
 @cue(show.task = true)
 @cue(task -> 1, over: 13s)
 This is also how a dataset gets recorded. A person teleoperates the arms through a task, again and again, and every run is kept.

@@ -2,7 +2,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { PlainState } from "@tangible/core";
 import type { SceneContext } from "@tangible/player";
-import { armGeometry, scene, schema } from "./scene.js";
+import { armGeometry, jacobianColumns, scene, schema } from "./scene.js";
 import { elbowBranch, forwardKinematics, JOINT_LIMITS } from "./kinematics.js";
 
 function context(): SceneContext {
@@ -263,5 +263,29 @@ describe("the control panel", () => {
     instance.dispose();
     expect(ctx.overlay.children).toHaveLength(0);
     expect(ctx.canvas.parentElement!.classList.contains("ik-player")).toBe(false);
+  });
+});
+
+describe("jacobianColumns", () => {
+  it("matches numerical differentiation of forwardKinematics", () => {
+    const h = 1e-6;
+    for (const [q1, q2, l1, l2] of [
+      [0.6, 0.9, 9, 7],
+      [1.4, -1.0, 12, 12],
+      [2.2, 0.3, 5, 10],
+    ] as const) {
+      const pose = forwardKinematics(q1, q2, l1, l2);
+      const { column1, column2 } = jacobianColumns(pose);
+
+      const dQ1 = forwardKinematics(q1 + h, q2, l1, l2).tip;
+      const numeric1 = { x: (dQ1.x - pose.tip.x) / h, y: (dQ1.y - pose.tip.y) / h };
+      expect(column1.x).toBeCloseTo(numeric1.x, 4);
+      expect(column1.y).toBeCloseTo(numeric1.y, 4);
+
+      const dQ2 = forwardKinematics(q1, q2 + h, l1, l2).tip;
+      const numeric2 = { x: (dQ2.x - pose.tip.x) / h, y: (dQ2.y - pose.tip.y) / h };
+      expect(column2.x).toBeCloseTo(numeric2.x, 4);
+      expect(column2.y).toBeCloseTo(numeric2.y, 4);
+    }
   });
 });

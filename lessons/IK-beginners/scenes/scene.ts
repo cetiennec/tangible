@@ -141,6 +141,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "draw the second, open path the end-effector is asked to trace",
   },
+  "show.jacobian": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "draw the two Jacobian columns as arrows from the tip",
+  },
   "show.areaSurface": {
     type: { kind: "boolean" },
     default: false,
@@ -262,6 +269,7 @@ export const scene: SceneModule = {
         drawAxes(g, geometry);
         if (flags.tip) drawTipProjection(g, geometry, pose.tip);
         drawArm(g, geometry, state, pose, frame);
+        if (state["show.jacobian"]) drawJacobian(g, geometry, pose);
         if (flags.angles) drawAngles(g, geometry, state, pose);
         drawLabels(g, geometry, state, pose, flags);
         if (surfaceShown) {
@@ -425,6 +433,69 @@ function drawWave(g: CanvasRenderingContext2D, geometry: Geometry) {
   g.stroke();
   g.setLineDash([]);
   g.globalAlpha = 1;
+}
+
+/**
+ * The Jacobian's two columns, drawn as arrows from the tip rather than as a
+ * board equation. Each column has a simple geometric meaning: turning q1
+ * alone swings the whole arm about the base, so the tip moves perpendicular
+ * to the base-to-tip line, by however far the tip is from the base; turning
+ * q2 alone swings link 2 about the elbow, so the tip moves perpendicular to
+ * the elbow-to-tip line, by link 2's own length. Scaled down so a full
+ * radian's motion reads as an arrow rather than a line off the canvas.
+ */
+function drawJacobian(g: CanvasRenderingContext2D, geometry: Geometry, pose: ArmPose) {
+  const scale = 0.45;
+  const { column1, column2 } = jacobianColumns(pose);
+  drawJacobianArrow(g, geometry, pose.tip, column1, scale, LINK1, "∂p/∂q1");
+  drawJacobianArrow(g, geometry, pose.tip, column2, scale, LINK2, "∂p/∂q2");
+}
+
+/**
+ * The Jacobian's two columns as vectors: ∂tip/∂q1 (the whole arm swinging
+ * about the base) and ∂tip/∂q2 (link 2 swinging about the elbow). Exported so
+ * this geometry can be checked against numerical differentiation of
+ * forwardKinematics directly, without needing a canvas.
+ */
+export function jacobianColumns(pose: ArmPose): { column1: Point; column2: Point } {
+  const rotate90 = (v: Point): Point => ({ x: -v.y, y: v.x });
+  return {
+    column1: rotate90({ x: pose.tip.x - pose.base.x, y: pose.tip.y - pose.base.y }),
+    column2: rotate90({ x: pose.tip.x - pose.elbow.x, y: pose.tip.y - pose.elbow.y }),
+  };
+}
+
+function drawJacobianArrow(
+  g: CanvasRenderingContext2D,
+  geometry: Geometry,
+  from: Point,
+  direction: Point,
+  scale: number,
+  color: string,
+  label: string,
+) {
+  const to = { x: from.x + direction.x * scale, y: from.y + direction.y * scale };
+  const a = toScreen(geometry, from);
+  const b = toScreen(geometry, to);
+  g.strokeStyle = color;
+  g.fillStyle = color;
+  g.lineWidth = 2.5;
+  g.beginPath();
+  g.moveTo(a.x, a.y);
+  g.lineTo(b.x, b.y);
+  g.stroke();
+  const heading = Math.atan2(b.y - a.y, b.x - a.x);
+  const headLength = 9;
+  const headAngle = Math.PI / 7;
+  g.beginPath();
+  g.moveTo(b.x, b.y);
+  g.lineTo(b.x - headLength * Math.cos(heading - headAngle), b.y - headLength * Math.sin(heading - headAngle));
+  g.lineTo(b.x - headLength * Math.cos(heading + headAngle), b.y - headLength * Math.sin(heading + headAngle));
+  g.closePath();
+  g.fill();
+  g.font = "700 12px system-ui, sans-serif";
+  g.textAlign = "left";
+  g.fillText(label, b.x + 8, b.y);
 }
 
 function drawAxes(g: CanvasRenderingContext2D, geometry: Geometry) {
