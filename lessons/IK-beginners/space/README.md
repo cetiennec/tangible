@@ -1,5 +1,5 @@
 ---
-title: "How to move my robot to the correct place?"
+title: "How to control a robot ? Robotics basics and introduction to LeRobot"
 emoji: 📚
 colorFrom: blue
 colorTo: indigo
@@ -18,7 +18,7 @@ tags:
   - "mathematics"
 ---
 
-# How to move my robot to the correct place?
+# How to control a robot ? Robotics basics and introduction to LeRobot
 
 Turn the two joints of a planar robot arm and watch the tip trace out everything it can reach.
 
