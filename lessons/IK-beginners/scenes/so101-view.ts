@@ -76,6 +76,7 @@ export class RobotView {
   private sized = "";
   private angleArcs: THREE.Line[] = [];
   private brick?: THREE.Group;
+  private webcam?: THREE.Group;
   /** A second, fixed camera watching the workspace, for the recording demo. */
   private sceneCam = new THREE.PerspectiveCamera(40, 1, 0.01, 50);
 
@@ -365,6 +366,48 @@ export class RobotView {
     this.sceneCam.lookAt(...lookAt);
   }
 
+  /**
+   * A small camera-shaped prop at sceneCam's own position, pointed the same
+   * way — so the recording camera is something visible in the scene, not
+   * only a rectangle of pixels in a corner. World coordinates, same as
+   * setSceneCamera; the caller adds the arrange() offset the same way.
+   */
+  setWebcam(position: [number, number, number], lookAt: [number, number, number]): void {
+    if (!this.webcam) {
+      const group = new THREE.Group();
+      const dark = new THREE.MeshStandardMaterial({ color: 0x2b2f33, roughness: 0.5, metalness: 0.2 });
+      const lensGlass = new THREE.MeshStandardMaterial({ color: 0x1a1d1f, roughness: 0.15, metalness: 0.6 });
+      this.materials.push(dark, lensGlass);
+
+      const body = new THREE.BoxGeometry(0.03, 0.024, 0.02);
+      const lens = new THREE.CylinderGeometry(0.008, 0.009, 0.014, 16);
+      const stand = new THREE.CylinderGeometry(0.003, 0.003, 0.05, 8);
+      this.meshes.push(body, lens, stand);
+
+      const bodyMesh = new THREE.Mesh(body, dark);
+      group.add(bodyMesh);
+      const lensMesh = new THREE.Mesh(lens, lensGlass);
+      lensMesh.rotation.x = Math.PI / 2;
+      lensMesh.position.z = 0.017;
+      group.add(lensMesh);
+      const standMesh = new THREE.Mesh(stand, dark);
+      standMesh.position.y = -0.037;
+      group.add(standMesh);
+
+      this.scene.add(group);
+      this.webcam = group;
+    }
+    this.webcam.visible = true;
+    this.webcam.position.set(...position);
+    this.webcam.up.set(0, 1, 0);
+    this.webcam.lookAt(...lookAt);
+  }
+
+  /** Hide the camera prop when the recording demo isn't running. */
+  hideWebcam(): void {
+    if (this.webcam) this.webcam.visible = false;
+  }
+
   /** Position and size the WebGL canvas over a region of the scene. */
   place(box: { left: number; top: number; width: number; height: number }, view: { width: number; height: number }): void {
     this.canvas.style.left = `${(box.left / view.width) * 100}%`;
@@ -414,6 +457,7 @@ export class RobotView {
     for (const geometry of this.meshes) geometry.dispose();
     for (const material of this.materials) material.dispose();
     this.brick = undefined;
+    this.webcam = undefined;
     this.angleArcs = [];
     this.renderer.dispose();
     this.canvas.remove();

@@ -306,7 +306,10 @@ export const scene: SceneModule = {
           const pipY = b.height - pipHeight - margin;
           if (showFeed) {
             const offset = view.armOffset(0);
-            view.setSceneCamera(offsetBrick(sceneCamLocal!.position, offset)!, offsetBrick(sceneCamLocal!.lookAt, offset)!);
+            const camPos = offsetBrick(sceneCamLocal!.position, offset)!;
+            const camLookAt = offsetBrick(sceneCamLocal!.lookAt, offset)!;
+            view.setSceneCamera(camPos, camLookAt);
+            view.setWebcam(camPos, camLookAt);
             view.render({ x: pipX, y: pipY, width: pipWidth, height: pipHeight });
             // The DOM frame sits over the canvas at the matching on-screen
             // spot: the canvas box is itself a percentage of the whole scene,
@@ -316,6 +319,7 @@ export const scene: SceneModule = {
             camFeed.style.width = `${(pipWidth / size.width) * 100}%`;
             camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
           } else {
+            view.hideWebcam();
             view.render();
           }
 
