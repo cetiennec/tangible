@@ -5,7 +5,7 @@ Today we will discuss how robots are controlled. We'll first present Forward and
 
 First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(label.motors = true) motors that can move their @cue(label.angles = true) angles q1 and q2, the robot is thus said to be 2 @cue(label.dof = true) @board(kwDof: "2 degrees of freedom (DOF)") degrees of freedom or 2 DOF.
 
-The tip of the robot is called the @cue(label.tip = true) @board(kwEnd: "end-effector") end-effector.
+The tip of the robot is called the @cue(label.tip = true) @board(kwEnd: "End-effector") end-effector.
 
 See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the angles between 0 and 2pi directly affects end-effector position in (x,y) plane. 
 @clear(board)
@@ -45,7 +45,7 @@ Pause and think a bit about cases where the number of solutions could be 0?
 @clear(ik)
 For our 2 DOF robot, we either have @cue(show.workspace = true) 0 or 2 solutions in the general case, and sometimes 1 solution if we consider joint limits.
 
-We have @cue(show.unreachable = true) 0 solutions outside of the @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach. In our case, this space is a ring around the base.
+We have @cue(show.unreachable = true) 0 solutions outside of the @board(kwReach: "Reachable space") reachable space, which is all the points that the end-effector can reach. In our case, this space is a ring around the base.
 
 @cue(show.unreachable = false)
 Of course the area and shape of this reachable space @cue(l2 -> 4, over: 2.5s) depend on the length of the links. Pause and play with the link lengths to see how the reachable space evolve.
@@ -124,7 +124,7 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-@cue(show.jacobian = true) The J in there is the Jacobian, the matrix of partial derivatives that says how a small turn of each joint nudges the tip in x and y. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
+@cue(show.jacobian = true) The J in there is the Jacobian, the matrix @cue(q1 -> 1.54, over: 0.5s) @cue(q2 -> -1.3, over: 0.5s) of partial derivatives that says @cue(q1 -> 1.3, over: 0.5s) @cue(q2 -> -1.54, over: 0.5s) how a small turn of @cue(q1 -> 1.54, over: 0.5s) @cue(q2 -> -1.3, over: 0.5s) each joint nudges @cue(q1 -> 1.422, over: 0.5s) @cue(q2 -> -1.424, over: 0.5s) the tip in x and y — watch the arrows move as the arm does. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
 
 @cue(show.jacobian = false)
 
@@ -138,9 +138,8 @@ It's not enough that the start and the end are reachable: every point along the 
 
 And it's not just circles either.
 
-@cue(show.circle = false) @cue(q1 -> 1.368, over: 2s) @cue(q2 -> -0.655, over: 2s) @cue(show.wave = true) Any continuous path works the same way, as long as the whole thing stays reachable, one elbow branch at a time.
+@cue(show.circle = false) @cue(q1 -> 1.368, over: 2s) @cue(q2 -> -0.655, over: 2s) @cue(show.wave = true) Any continuous path works the same way, as long as the whole thing @bake(wave, steps: 32, over: 6s) stays reachable, one elbow branch at a time.
 
-@bake(wave, steps: 32, over: 6s)
 Same equations, same idea — just applied to a curve that isn't a circle.
 
 @cue(show.wave = false)

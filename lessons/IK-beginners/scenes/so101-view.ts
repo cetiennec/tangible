@@ -222,14 +222,29 @@ export class RobotView {
   }
 
   /**
-   * The on-screen offset arrange() has given this arm right now. A point
-   * measured with measureGrip (before arrange had ever run once, so before
-   * any offset existed) needs this added back in before it means anything on
-   * screen, the same way gripPoint's live reading already includes it.
+   * The on-screen offset arrange() has given this arm right now, in world
+   * space. A point measured with measureGrip (before arrange had ever run
+   * once, so before any offset existed) needs this added back in before it
+   * means anything on screen, the same way gripPoint's live reading already
+   * includes it.
+   *
+   * This reads the root's *world* position, not its local .position: the
+   * whole assembly sits under a -90-degree rotation about x (the URDF is
+   * Z-up, the scene is Y-up), so arrange()'s local (dx, dy, 0) offset lands
+   * at world (dx, 0, -dy), not (dx, dy, 0). Adding the raw local values
+   * would leak dy into world height instead of depth -- which is exactly
+   * what made the brick sit far too high before this fix, since HOME's
+   * azimuth gives sin(azimuth) a sizeable value. The root sat at local
+   * (0,0,0) when measureGrip ran, and rotating the zero vector is still
+   * zero, so the baseline this offset is added to was never affected by the
+   * mistake -- only the offset read back later was.
    */
   armOffset(arm = 0): [number, number, number] {
     const root = this.arms[arm]?.root;
-    return root ? [root.position.x, root.position.y, root.position.z] : [0, 0, 0];
+    if (!root) return [0, 0, 0];
+    root.updateWorldMatrix(true, false);
+    const world = root.getWorldPosition(new THREE.Vector3());
+    return [world.x, world.y, world.z];
   }
 
   /** Place the camera on an orbit around the arms. */
@@ -388,6 +403,11 @@ export class RobotView {
     this.renderer.clearDepth();
     this.renderer.render(this.scene, this.sceneCam);
     this.renderer.setScissorTest(false);
+  }
+
+  /** Hide the canvas without disposing anything, for a beat that precedes it. */
+  setVisible(visible: boolean): void {
+    this.canvas.style.visibility = visible ? "" : "hidden";
   }
 
   dispose(): void {

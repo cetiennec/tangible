@@ -222,10 +222,11 @@ export const scene: SceneModule = {
             (pickAt[1] + placeAt[1]) / 2,
             (pickAt[2] + placeAt[2]) / 2,
           ];
-          // Above and to one side of the midpoint, angled down at it — a
-          // fixed external view, not one that tracks the gripper, the way a
-          // real recording camera mounted beside the workspace would be.
-          sceneCamLocal = { position: [mid[0] + 0.06, mid[1] + 0.22, mid[2] + 0.26], lookAt: mid };
+          // Mounted to one side of the workspace at roughly table height,
+          // looking across at the midpoint — a fixed external view, not one
+          // that tracks the gripper, the way a real recording camera bolted
+          // beside the workspace would be.
+          sceneCamLocal = { position: [mid[0] + 0.3, mid[1] + 0.05, mid[2] + 0.04], lookAt: mid };
         }
       })
       .catch((error: unknown) => {
@@ -244,7 +245,12 @@ export const scene: SceneModule = {
       render(state: Readonly<PlainState>) {
         const size = ctx.size();
         view.place(box(), size);
-        root.classList.toggle("so101-brand-intro", Boolean(state["show.brand"]));
+        const introBeat = Boolean(state["show.brand"]);
+        root.classList.toggle("so101-brand-intro", introBeat);
+        // The model may still be loading behind this beat, or may already be
+        // sitting there ready — either way it has no business being seen
+        // until the LeRobot introduction itself is done with the screen.
+        view.setVisible(!introBeat);
         const pair = state["show.leader"] as boolean;
         if (ready) {
           // Both arms are driven by the same numbers: that is the whole point of
@@ -292,7 +298,7 @@ export const scene: SceneModule = {
             view.render();
           }
         } else if (!failed) {
-          status.hidden = false;
+          status.hidden = introBeat;
         }
         // The follower is on screen from the start; the leader label should
         // only appear once the leader arm itself does.
@@ -347,6 +353,10 @@ const STYLE = `
 .so101-brand-label { margin: 2px 0 0; font-size: 15px; font-weight: 800; color: ${INK}; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 700ms ease; }
 .so101-brand-intro .so101-logo { width: 76px; height: 76px; }
 .so101-brand-intro .so101-brand-label { opacity: 1; max-height: 30px; font-size: 26px; }
+/* Nothing about the 3D view — canvas, its credit line — belongs on screen
+   until the LeRobot introduction is done with the screen. */
+.so101-brand-intro .so101-credit { display: none; }
+.so101-brand-intro h1 { visibility: hidden; }
 .so101-scene h1 { margin: 0; font-size: clamp(16px, 2.2vw, 26px); line-height: 1.15; font-weight: 600; }
 .so101-status { position: absolute; left: 3%; top: 48%; width: 62%; margin: 0; text-align: center; font-size: 14px; color: ${MUTED}; }
 .so101-status.so101-failed { color: ${TIP}; }
