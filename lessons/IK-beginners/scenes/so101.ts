@@ -405,6 +405,7 @@ const STYLE = `
    until the LeRobot introduction is done with the screen. */
 .so101-brand-intro .so101-credit { display: none; }
 .so101-brand-intro h1 { visibility: hidden; }
+.so101-brand-intro .so101-names { display: none; }
 .so101-scene h1 { margin: 0; font-size: clamp(16px, 2.2vw, 26px); line-height: 1.15; font-weight: 600; }
 .so101-status { position: absolute; left: 3%; top: 48%; width: 62%; margin: 0; text-align: center; font-size: 14px; color: ${MUTED}; }
 .so101-status.so101-failed { color: ${TIP}; }
