@@ -12,12 +12,35 @@ describe("the scripted pick and place", () => {
   });
 
   it("keeps the arm still while the jaws close, so the brick is not knocked", () => {
-    const before = taskFrame(0.26);
+    const before = taskFrame(0.28);
     const after = taskFrame(GRASP_AT);
     for (const key of ["pan", "lift", "elbow", "wristFlex"] as const) {
       expect(after[key]).toBeCloseTo(before[key], 6);
     }
     expect(after.gripper).toBeLessThan(before.gripper);
+  });
+
+  it("comes down onto the brick and lifts away along the same line", () => {
+    // The descent and the lift pass through the same poses in reverse, at
+    // both ends of the task, so the gripper travels one vertical line down
+    // and the same one back up rather than swinging in from the side.
+    const pairs = [[0.14, 0.5], [0.21, 0.43], [0.62, 0.94], [0.69, 0.89]];
+    for (const [down, up] of pairs) {
+      for (const joint of ["pan", "lift", "elbow", "wristFlex"] as const) {
+        expect(taskFrame(down!)[joint]).toBeCloseTo(taskFrame(up!)[joint], 6);
+      }
+    }
+  });
+
+  it("only swings sideways at its hovering height, never across the table", () => {
+    // The shoulder turns between the two hovering keyframes and nowhere
+    // else, so the gripper is well clear of both spots whenever it moves
+    // horizontally.
+    for (let i = 0; i <= 100; i += 1) {
+      const t = i / 100;
+      if (t <= 0.5) expect(taskFrame(t).pan).toBeCloseTo(-0.55, 6);
+      if (t >= 0.62) expect(taskFrame(t).pan).toBeCloseTo(0.5, 6);
+    }
   });
 
   it("swings across only while the brick is held", () => {

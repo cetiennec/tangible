@@ -21,22 +21,56 @@ interface Key {
   pose: [number, number, number, number, number, number];
 }
 
-/** pan, lift, elbow, wrist flex, wrist roll, gripper. */
+/**
+ * The four joints that reach; the wrist roll stays at zero throughout.
+ *
+ * Each pair below is the same point in space at three heights: on the brick,
+ * three centimetres above it, and six. They were solved for rather than
+ * guessed, by asking the arm's own forward kinematics which angles put the
+ * gripper straight above the grasp point, holding shoulder lift plus elbow
+ * plus wrist flex constant -- those three turn about parallel axes, so a
+ * constant sum keeps the jaws at the same pitch all the way down.
+ */
+type Reach = [number, number, number, number];
+const PICK_DOWN: Reach = [-0.55, -0.95, 1.45, 0.6];
+const PICK_HALF: Reach = [-0.55, -1.1092, 1.2744, 0.9348];
+const PICK_OVER: Reach = [-0.55, -1.1147, 1.0536, 1.1611];
+const PLACE_DOWN: Reach = [0.5, -0.92, 1.42, 0.58];
+const PLACE_HALF: Reach = [0.5, -1.0727, 1.2451, 0.9076];
+const PLACE_OVER: Reach = [0.5, -1.0805, 1.0252, 1.1353];
+
+const key = (at: number, reach: Reach, gripper: number): Key => ({ at, pose: [...reach, 0, gripper] });
+
+/**
+ * pan, lift, elbow, wrist flex, wrist roll, gripper.
+ *
+ * The arm stops above the brick, comes straight down onto it, lifts straight
+ * back up, crosses at that height, and repeats the descent to put the brick
+ * down. It used to run in along a diagonal instead, which drove the gripper
+ * through the brick at both ends: five millimetres above the brick's centre
+ * while already thirteen millimetres inside its footprint, so the jaws passed
+ * through the thing they were reaching for.
+ */
 const KEYS: Key[] = [
   { at: 0.0, pose: [-0.55, -0.45, 0.95, 0.35, 0, OPEN] },
-  { at: 0.16, pose: [-0.55, -0.62, 1.2, 0.5, 0, OPEN] },
-  { at: 0.26, pose: [-0.55, -0.95, 1.45, 0.6, 0, OPEN] },
-  { at: 0.34, pose: [-0.55, -0.95, 1.45, 0.6, 0, SHUT] },
-  { at: 0.46, pose: [-0.55, -0.5, 1.0, 0.4, 0, SHUT] },
-  { at: 0.64, pose: [0.5, -0.5, 1.0, 0.4, 0, SHUT] },
-  { at: 0.78, pose: [0.5, -0.92, 1.42, 0.58, 0, SHUT] },
-  { at: 0.86, pose: [0.5, -0.92, 1.42, 0.58, 0, OPEN] },
-  { at: 1.0, pose: [0.5, -0.4, 0.88, 0.3, 0, OPEN] },
+  key(0.14, PICK_OVER, OPEN),
+  key(0.21, PICK_HALF, OPEN),
+  key(0.28, PICK_DOWN, OPEN),
+  key(0.36, PICK_DOWN, SHUT),
+  key(0.43, PICK_HALF, SHUT),
+  key(0.5, PICK_OVER, SHUT),
+  key(0.62, PLACE_OVER, SHUT),
+  key(0.69, PLACE_HALF, SHUT),
+  key(0.76, PLACE_DOWN, SHUT),
+  key(0.84, PLACE_DOWN, OPEN),
+  key(0.89, PLACE_HALF, OPEN),
+  key(0.94, PLACE_OVER, OPEN),
+  { at: 1.0, pose: [0.5, -0.7, 0.95, 0.7, 0, OPEN] },
 ];
 
 /** The grasp closes here and opens here; between the two the brick travels. */
-export const GRASP_AT = 0.34;
-export const RELEASE_AT = 0.86;
+export const GRASP_AT = 0.36;
+export const RELEASE_AT = 0.84;
 
 /**
  * Slopes for a shape-preserving cubic. Easing each segment on its own brought
