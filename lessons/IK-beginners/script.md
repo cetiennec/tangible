@@ -204,6 +204,7 @@ Each demonstration is a stream of joint angles alongside that video, recorded fr
 
 @cue(show.task = false)
 @clear(board)
+@cue(show.brand = true)
 @cue(diagram = workflow2)
 Classical robotics has focused on planning in the Cartesian space, but most of the recent Vision Language Action models, core of imitation learning for vision, directly output joint goal positions.
 
@@ -212,3 +213,4 @@ Will this be transferable to every robot?
 Most of them use an action expert separately from the VLA itself, which can be fine-tuned on any robot. That's the rest of this workflow — coming in a later series.
 
 @cue(diagram = none)
+@cue(show.brand = false)
