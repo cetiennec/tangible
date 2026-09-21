@@ -17,6 +17,7 @@ import {
   JOINT_LIMITS,
   limitedRadii,
   reachableRadii,
+  oneSolutionSamples,
   reachableSamples,
   twoSolutionSamples,
   unreachableSamples,
@@ -310,7 +311,7 @@ function drawLimitedReach(g: CanvasRenderingContext2D, geometry: Geometry, l1: n
   g.fillText(`no closer than ${inner.toFixed(1)} cm`, geometry.cx, geometry.cy + inner * geometry.pxPerCm * 0.5);
 }
 
-/** Dots on points the tip can reach, each of which it can reach two ways. */
+/** Dots on points the tip can reach, each labelled with how many ways. */
 function drawSolutionSamples(
   g: CanvasRenderingContext2D,
   geometry: Geometry,
@@ -318,13 +319,27 @@ function drawSolutionSamples(
   l2: number,
   limited = false,
 ) {
-  // With the limits on, most of the ring keeps only one solution, so the dots
-  // have to come from the points that genuinely keep both.
-  const points = limited ? twoSolutionSamples(l1, l2) : reachableSamples(l1, l2);
+  if (!limited) {
+    drawSampleGroup(g, geometry, reachableSamples(l1, l2), WORKSPACE, "2 solutions");
+    return;
+  }
+  // With the limits on, most of the ring keeps only one solution, so both
+  // groups are searched for rather than placed by hand.
+  drawSampleGroup(g, geometry, twoSolutionSamples(l1, l2), WORKSPACE, "2 solutions");
+  drawSampleGroup(g, geometry, oneSolutionSamples(l1, l2), LINK2, "1 solution");
+}
+
+function drawSampleGroup(
+  g: CanvasRenderingContext2D,
+  geometry: Geometry,
+  points: Point[],
+  color: string,
+  label: string,
+) {
   if (points.length === 0) return;
   for (const point of points) {
     const at = toScreen(geometry, point);
-    g.fillStyle = WORKSPACE;
+    g.fillStyle = color;
     g.beginPath();
     g.arc(at.x, at.y, 5.5, 0, TAU);
     g.fill();
@@ -333,10 +348,10 @@ function drawSolutionSamples(
     g.stroke();
   }
   const first = toScreen(geometry, points[0]!);
-  g.fillStyle = WORKSPACE;
+  g.fillStyle = color;
   g.font = "700 12px system-ui, sans-serif";
   g.textAlign = "left";
-  g.fillText("2 solutions", first.x + 11, first.y - 8);
+  g.fillText(label, first.x + 11, first.y - 8);
 }
 
 /** Crosses on points the tip cannot reach, both too far out and too far in. */

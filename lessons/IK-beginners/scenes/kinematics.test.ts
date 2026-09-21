@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  oneSolutionSamples,
   twoSolutionSamples,
   withinJointLimits,
   clampToReach,
@@ -389,5 +390,43 @@ describe("twoSolutionSamples", () => {
       }),
     );
     expect(loose.length).toBeLessThan(reachableSamples(l1, l2).length);
+  });
+});
+
+describe("oneSolutionSamples", () => {
+  const shapes = [
+    [12, 12],
+    [14, 10],
+    [10, 14],
+    [8, 16],
+  ] as const;
+
+  it("only offers points reachable exactly one of the two ways", () => {
+    for (const [l1, l2] of shapes) {
+      const points = oneSolutionSamples(l1, l2);
+      expect(points.length).toBeGreaterThan(0);
+      for (const point of points) {
+        const valid = (["up", "down"] as const).filter((branch) => {
+          const solved = inverseKinematics(point, l1, l2, branch);
+          const reaches = Math.hypot(solved.reached.x - point.x, solved.reached.y - point.y) < 1e-6;
+          return reaches && withinJointLimits(solved.q1, solved.q2);
+        });
+        expect(valid).toHaveLength(1);
+      }
+    }
+  });
+
+  it("never overlaps with the two-solution samples for the same shape", () => {
+    // The two dot groups are drawn together, in different colours; a point
+    // in both would be a contradiction on screen.
+    for (const [l1, l2] of shapes) {
+      const ones = oneSolutionSamples(l1, l2);
+      const twos = twoSolutionSamples(l1, l2);
+      for (const one of ones) {
+        for (const two of twos) {
+          expect(Math.hypot(one.x - two.x, one.y - two.y)).toBeGreaterThan(1e-6);
+        }
+      }
+    }
   });
 });

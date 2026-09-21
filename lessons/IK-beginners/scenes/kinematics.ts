@@ -208,17 +208,54 @@ export function twoSolutionSamples(l1: number, l2: number, count = 4, clearance 
   );
 }
 
+/** How far inside the limits a pose sits, in radians on the tighter axis. */
+function limitClearance(pose: { q1: number; q2: number }): number {
+  const [q1Low, q1High] = JOINT_LIMITS.q1;
+  const [q2Low, q2High] = JOINT_LIMITS.q2;
+  return Math.min(pose.q1 - q1Low, q1High - pose.q1, pose.q2 - q2Low, q2High - pose.q2);
+}
+
 function bothClear(
   up: { q1: number; q2: number },
   down: { q1: number; q2: number },
   clearance: number,
 ): boolean {
-  const [q1Low, q1High] = JOINT_LIMITS.q1;
-  const [q2Low, q2High] = JOINT_LIMITS.q2;
-  const clear = (pose: { q1: number; q2: number }) =>
-    pose.q1 - q1Low >= clearance && q1High - pose.q1 >= clearance &&
-    pose.q2 - q2Low >= clearance && q2High - pose.q2 >= clearance;
-  return clear(up) && clear(down);
+  return limitClearance(up) >= clearance && limitClearance(down) >= clearance;
+}
+
+/**
+ * Points reachable only one of the two ways once the joint limits apply: the
+ * more common case, and the one the narration calls "most points keep just
+ * one." `clearance` keeps the valid branch clear of its own limit edge and
+ * the blocked branch clearly outside, so the example is not a boundary case
+ * that would flip with the next frame's rounding.
+ */
+export function oneSolutionSamples(l1: number, l2: number, count = 4, clearance = 0.12): Point[] {
+  const { outer } = reachableRadii(l1, l2);
+  const found: { point: Point; angle: number }[] = [];
+  for (let step = 0; step < 720; step++) {
+    const angle = (step / 720) * TAU;
+    for (let ring = 0.95; ring > 0.1; ring -= 0.02) {
+      const point = { x: outer * ring * Math.cos(angle), y: outer * ring * Math.sin(angle) };
+      const up = inverseKinematics(point, l1, l2, "up");
+      const down = inverseKinematics(point, l1, l2, "down");
+      const upReaches = Math.hypot(up.reached.x - point.x, up.reached.y - point.y) < 1e-6;
+      const downReaches = Math.hypot(down.reached.x - point.x, down.reached.y - point.y) < 1e-6;
+      const upOk = upReaches && limitClearance(up) >= clearance;
+      const downOk = downReaches && limitClearance(down) >= clearance;
+      if (upOk === downOk) continue; // both or neither: not the "just one" case
+      const blocked = upOk ? down : up;
+      const blockedReaches = upOk ? downReaches : upReaches;
+      // The blocked branch should be clearly outside, not perched on the edge.
+      if (blockedReaches && limitClearance(blocked) > -clearance) continue;
+      found.push({ point, angle });
+      break;
+    }
+  }
+  if (found.length === 0) return [];
+  return Array.from({ length: Math.min(count, found.length) }, (_unused, index) =>
+    found[Math.round((index * (found.length - 1)) / Math.max(1, Math.min(count, found.length) - 1))]!.point,
+  );
 }
 
 /**

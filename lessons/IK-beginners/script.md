@@ -1,7 +1,7 @@
 @chapter(Introduction)
 
 @cue(label.motors = false) @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false) @cue(label.dof = false)
-Today we will discuss how robots are controlled. We'll discuss Forward and Inverse Kinematics, which is the art of switching between the joint and the Cartesian space before focusing on the case of imitation learning and LeRobot library from HuggingFace. You'll be able to play with the simulation while I speak and pause to ask questions.
+Today we will discuss how robots are controlled. We'll first present Forward and Inverse Kinematics, which is the art of switching between the joint and the Cartesian space. Then, w'e'll study the case of imitation learning and take as an example LeRobot library from HuggingFace. You'll be able to play with the simulation while I speak and pause to ask questions.
 
 First, look at our robot, it has 2 @cue(label.links = true) links and 2 @cue(label.motors = true) motors that can move their @cue(label.angles = true) angles q1 and q2, the robot is thus said to be 2 @cue(label.dof = true) @board(kwDof: "2 degrees of freedom (DOF)") degrees of freedom or 2 DOF.
 
@@ -16,7 +16,6 @@ This means that there exists a mapping @board(fk: $x = f(\theta)$) between radia
 
 The relation between angles and end-effector position is called the @board(kwFk: "Forward Kinematics (FK)") @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
-@clear(board)
 @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false)
 For serial robots, like ours, it can be obtained by modeling each joint position.
 For instance, @board(p1: $p_1 = (0,\ 0)$) motor 1 is at the base (0,0).
@@ -27,7 +26,7 @@ And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_
 With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
 
 
-But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space x,y,z , for instance, @cue(show.circle = true) drawing a circle around a position (x_c,y_c) will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) (x,y) equation: 
+But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space x,y,z , for instance, @cue(show.circle = true) drawing a circle around a position (x_c,y_c) will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$)  equation: 
 
 But from this, one needs to find what motor action we should apply to the robot to make it follow this circle.
 
@@ -43,6 +42,7 @@ Pause and think a bit about cases where the number of solutions could be 0?
 @pause(prompt: "When can the arm not reach a point at all?", speak: false)
 
 @clear(kwIk)
+@clear(ik)
 For our 2 DOF robot, we either have @cue(show.workspace = true) 0 or 2 solutions in the general case, and sometimes 1 solution if we consider joint limits.
 
 We have @cue(show.unreachable = true) 0 solutions outside of the @board(kwReach: "reachable space") reachable space, which is all the points that the end-effector can reach. In our case, this space is a ring around the base.
@@ -59,12 +59,13 @@ What value of L2 would let the robot reach closest to itself, according to you?
 @pause(prompt: "Pick your answer before we plot it.", speak: false)
 
 @cue(show.areaSurface = true)
-Yeah, this is actually @cue(l1 -> 12, over: 4s) @cue(l2 -> 12, over: 4s) L1=L2, 
-have you seen this somewhere?
+Yeah, this is actually @cue(l1 -> 12, over: 4s) @cue(l2 -> 12, over: 4s) L1=L2.
 
 The surface peaks along the diagonal, where the two links have the same length. Equal links are what close the blind spot near the base.
 
-@pause(prompt: "Read the surface: the ridge runs along L1 = L2.", speak: false)
+<!-- @pause(prompt: "Read the surface: the ridge runs along L1 = L2.", speak: false) -->
+
+Have you seen this somewhere?
 
 @cue(show.human = true)
 Look at your arms, your upper arm and your forearm are close to the same length, which is what lets your hand reach your own shoulder as easily as it reaches out in front of you.
@@ -82,7 +83,7 @@ Getting back to the IK problem, how could there be multiple solutions? Try to re
 @cue(show.solutions = false)
 We've worked in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
 
-A real system cannot spin freely for ever. Here q1 is allowed to turn between 0.25 and 2.85 radians, and q2 between minus 2.6 and 1.15, and those two bounds alone carve the ring down to this shape.
+Indeed, a real system cannot spin freely for ever. Here q1 is allowed to turn between 0.25 and 2.85 radians, and q2 between minus 2.6 and 1.15, and those two bounds alone carve the ring down to this shape.
 
 @pause(prompt: "Move q1 and q2 and watch where the arm refuses to go.", speak: false)
 
@@ -92,7 +93,7 @@ Joint limits create a less straightforward answer to our earlier question. Take 
 
 @cue(q1 -> 0.749, over: 2s) @cue(q2 -> 1.030, over: 2s) Elbow down, it comes round underneath.
 
-@pause(prompt: "Both elbow solutions are legal here.", speak: false)
+<!-- @pause(prompt: "Both elbow solutions are legal here.", speak: false) -->
 
 Now move the target out to the right, and one of the two answers disappears.
 
@@ -105,6 +106,8 @@ This is why limits matter so much in practice. Across this whole ring, @cue(show
 @cue(show.solutions = false)
 @scene(redundant)
 If the robot has more degrees of freedom than the space, the number of @cue(spread -> 0.92, over: 3.4s) solutions can actually go to infinity.
+
+Look to these two examples : One 3 DOF arm in 2D and one 4 DOF in 3D
 
 @pause(prompt: "Flex the arm with the slider. The tip never leaves the target.", speak: false)
 
