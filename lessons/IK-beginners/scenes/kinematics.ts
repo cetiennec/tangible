@@ -126,6 +126,20 @@ export function circlePoint(l1: number, l2: number, lap: number): Point {
 }
 
 /**
+ * A second, open trajectory: not a loop, and not one continuous curvature
+ * like the circle, so tracing it makes the same point about a different
+ * shape rather than repeating the first demonstration. Unlike circlePath,
+ * this is not sized generically from the link lengths — it is a fixed path
+ * in Cartesian space, tuned for the equal link lengths it is actually baked
+ * and driven through (the same L1=L2 the circle uses). kinematics.test.ts
+ * checks it stays inside JOINT_LIMITS along its whole length there.
+ */
+export function wavePoint(t: number): Point {
+  const x0 = 11.5, x1 = 3.0, yMid = 19.6, amplitude = 1, cycles = 1.5;
+  return { x: x0 + t * (x1 - x0), y: yMid + amplitude * Math.sin(t * TAU * cycles) };
+}
+
+/**
  * A handful of points the tip cannot reach, for the narration to point at.
  * Some lie beyond the outer edge, and some inside the dead zone at the centre,
  * which is the case people tend to forget: a target can be too close as well

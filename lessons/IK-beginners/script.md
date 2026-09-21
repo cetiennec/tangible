@@ -132,6 +132,13 @@ From the equation of the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(
 
 It's not enough that the start and the end are reachable: every point along the way needs a solution too, and the same elbow branch has to hold the whole time, or the arm would have to jump partway through.
 
+And it's not just circles either.
+
+@cue(show.circle = false) @cue(q1 -> 1.368, over: 2s) @cue(q2 -> -0.655, over: 2s) @cue(show.wave = true) Any continuous path works the same way, as long as the whole thing stays reachable, one elbow branch at a time.
+
+@bake(wave, steps: 32, over: 6s)
+
+@cue(show.wave = false)
 @clear(board)
 @scene(so101)
 @cue(show.brand = true)

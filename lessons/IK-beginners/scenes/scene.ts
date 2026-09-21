@@ -21,6 +21,7 @@ import {
   reachableSamples,
   twoSolutionSamples,
   unreachableSamples,
+  wavePoint,
   TAU,
   wrapAngle,
   type ArmPose,
@@ -133,6 +134,13 @@ export const schema: Schema = {
     ownership: "script",
     label: "draw the circle the end-effector is asked to trace",
   },
+  "show.wave": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "draw the second, open path the end-effector is asked to trace",
+  },
   "show.areaSurface": {
     type: { kind: "boolean" },
     default: false,
@@ -155,6 +163,19 @@ export const bakers: Bakers = {
       const l2 = input.l2 as number;
       return Array.from({ length: steps }, (_unused, index) => {
         const target = circlePoint(l1, l2, (index + 1) / steps);
+        const solved = inverseKinematics(target, l1, l2, "up");
+        return { q1: solved.q1, q2: solved.q2 };
+      });
+    },
+  },
+  wave: {
+    reads: ["l1", "l2"],
+    writes: ["q1", "q2"],
+    run(input, { steps }) {
+      const l1 = input.l1 as number;
+      const l2 = input.l2 as number;
+      return Array.from({ length: steps }, (_unused, index) => {
+        const target = wavePoint((index + 1) / steps);
         const solved = inverseKinematics(target, l1, l2, "up");
         return { q1: solved.q1, q2: solved.q2 };
       });
@@ -233,6 +254,7 @@ export const scene: SceneModule = {
           else drawWorkspace(g, geometry, l1, l2);
         }
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
+        if (state["show.wave"]) drawWave(g, geometry);
         if (state["show.solutions"]) {
           drawSolutionSamples(g, geometry, state.l1 as number, state.l2 as number, state["show.limits"] as boolean);
         }
@@ -383,6 +405,23 @@ function drawCircle(g: CanvasRenderingContext2D, geometry: Geometry, l1: number,
   g.setLineDash([6, 5]);
   g.beginPath();
   g.arc(middle.x, middle.y, radius * geometry.pxPerCm, 0, TAU);
+  g.stroke();
+  g.setLineDash([]);
+  g.globalAlpha = 1;
+}
+
+/** The second, open path the end-effector is asked to follow. */
+function drawWave(g: CanvasRenderingContext2D, geometry: Geometry) {
+  g.strokeStyle = TIP;
+  g.globalAlpha = 0.55;
+  g.lineWidth = 2;
+  g.setLineDash([6, 5]);
+  g.beginPath();
+  for (let step = 0; step <= 96; step++) {
+    const at = toScreen(geometry, wavePoint(step / 96));
+    if (step === 0) g.moveTo(at.x, at.y);
+    else g.lineTo(at.x, at.y);
+  }
   g.stroke();
   g.setLineDash([]);
   g.globalAlpha = 1;

@@ -159,6 +159,7 @@ export const scene: SceneModule = {
     const noteTitle = root.querySelector<HTMLElement>(".so101-note-title")!;
     const noteBody = root.querySelector<HTMLElement>(".so101-note-body")!;
     const names = root.querySelector<HTMLElement>(".so101-names")!;
+    const leaderName = root.querySelector<HTMLElement>(".so101-name-leader")!;
     const device = root.querySelector<HTMLElement>(".so101-device")!;
     let shownDevice = "";
 
@@ -228,7 +229,10 @@ export const scene: SceneModule = {
         } else if (!failed) {
           status.hidden = false;
         }
-        names.hidden = !pair || !ready;
+        // The follower is on screen from the start; the leader label should
+        // only appear once the leader arm itself does.
+        names.hidden = !ready;
+        leaderName.hidden = !pair;
 
         const teleop = String(state.teleop);
         const drawing = DEVICES[teleop];

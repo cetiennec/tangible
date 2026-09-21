@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  wavePoint,
   circlePoint,
   oneSolutionSamples,
   twoSolutionSamples,
@@ -444,5 +445,32 @@ describe("the baked circle", () => {
       const solved = inverseKinematics(point, l1, l2, "up");
       expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
     }
+  });
+});
+
+describe("the baked wave", () => {
+  it("stays inside JOINT_LIMITS along its whole length, at the equal-link shape it is actually driven through", () => {
+    const [l1, l2] = [12, 12];
+    for (let step = 0; step <= 96; step++) {
+      const point = wavePoint(step / 96);
+      const solved = inverseKinematics(point, l1, l2, "up");
+      expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
+      expect(Math.hypot(solved.reached.x - point.x, solved.reached.y - point.y)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("is a genuinely different shape from the circle, not a relabelled copy", () => {
+    // Curvature sign changes partway along a wave and never does around a
+    // circle, so comparing consecutive turn directions tells them apart.
+    const turns = Array.from({ length: 20 }, (_unused, i) => {
+      const a = wavePoint(i / 20);
+      const b = wavePoint((i + 1) / 20);
+      return Math.atan2(b.y - a.y, b.x - a.x);
+    });
+    const signs = new Set(
+      turns.slice(1).map((angle, i) => Math.sign(angle - turns[i]!)),
+    );
+    expect(signs.has(1)).toBe(true);
+    expect(signs.has(-1)).toBe(true);
   });
 });
