@@ -124,7 +124,7 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-@cue(show.jacobian = true) The J in there is the Jacobian, the matrix @cue(q1 -> 1.54, over: 0.5s) @cue(q2 -> -1.3, over: 0.5s) of partial derivatives that says @cue(q1 -> 1.3, over: 0.5s) @cue(q2 -> -1.54, over: 0.5s) how a small turn of @cue(q1 -> 1.54, over: 0.5s) @cue(q2 -> -1.3, over: 0.5s) each joint nudges @cue(q1 -> 1.422, over: 0.5s) @cue(q2 -> -1.424, over: 0.5s) the tip in x and y — watch the arrows move as the arm does. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
+@cue(show.jacobian = true) The J in there is the Jacobian, the matrix @cue(q1 -> 1.9, over: 0.7s) @cue(q2 -> -0.6, over: 0.7s) of partial derivatives that says @cue(q1 -> 0.9, over: 0.7s) @cue(q2 -> -1.9, over: 0.7s) how a small turn of @cue(q1 -> 1.7, over: 0.7s) @cue(q2 -> -0.3, over: 0.7s) each joint nudges @cue(q1 -> 1.422, over: 0.7s) @cue(q2 -> -1.424, over: 0.7s) the tip in x and y — watch the arrows move to a new spot each time. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
 
 @cue(show.jacobian = false)
 
