@@ -507,16 +507,17 @@ export class RobotView {
     let up = new THREE.Vector3(0, 0, 1);
     if (Math.abs(up.dot(forward)) > 0.9) up = new THREE.Vector3(1, 0, 0);
 
-    // Clear of the gripper's own shell, on a bracket above the jaws, looking
-    // out past them: back along the gripper axis, then out sideways. Without
-    // the sideways part the camera sits inside the gripper mesh, where it is
-    // both invisible and looking at the inside of the model.
-    const eye = tip.clone().addScaledVector(forward, -0.065).addScaledVector(up, 0.058);
+    // On the side of the gripper, clear of its shell, looking out past the
+    // jaws: back along the gripper axis, then out sideways. Without the
+    // sideways part the camera sits inside the gripper mesh, where it is both
+    // invisible and looking at the inside of the model.
+    const side = new THREE.Vector3().crossVectors(up, forward).normalize();
+    const eye = tip.clone().addScaledVector(forward, -0.065).addScaledVector(side, 0.045);
     // Aimed just past the jaws, not far beyond them: the tip is where the
     // brick is held, so that is what belongs in the middle of the picture.
     const target = tip.clone().addScaledVector(forward, 0.035);
     // Further from the lens still, so the camera is not inside its own body.
-    const body = eye.clone().addScaledVector(forward, -0.02).addScaledVector(up, 0.006);
+    const body = eye.clone().addScaledVector(forward, -0.02).addScaledVector(side, 0.006);
 
     const prop = this.cameraProp(0.78, false);
     prop.position.copy(body);
