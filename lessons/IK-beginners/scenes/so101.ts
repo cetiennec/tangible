@@ -1,7 +1,7 @@
 import type { OrbitState, PlainState, Schema } from "@tangible/core";
 import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
-import { INK, LINK1, MUTED, TIP } from "./controls.js";
+import { INK, LINK1, LINK2, MUTED, TIP } from "./controls.js";
 import { RobotView, warmRobotAssets } from "./so101-view.js";
 import { LEROBOT_WORKFLOW_BOTTOM, LEROBOT_WORKFLOW_TOP } from "./lerobot-diagram.js";
 import { GRASP_AT, RELEASE_AT, taskFrame, TASK_JOINTS } from "./task.js";
@@ -26,6 +26,16 @@ const JOINTS = [
 ] as const;
 
 const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.78, azimuth: 0.9, elevation: 0.42 };
+
+// The strip chart's Y axis: the elbow's own mechanical travel, not just the
+// range this one task happens to use, so the trace reads against what the
+// joint could do rather than always filling the height regardless of task.
+const ELBOW_RANGE = JOINTS.find((j) => j.param === "elbow")!.range;
+/** Elbow angle across the task, sampled once — a fixed curve to trace live. */
+const ELBOW_SAMPLES = Array.from({ length: 101 }, (_unused, i) => {
+  const t = i / 100;
+  return { t, v: taskFrame(t).elbow };
+});
 
 export const schema: Schema = {
   ...Object.fromEntries(
@@ -166,6 +176,14 @@ export const scene: SceneModule = {
       <figure class="so101-camfeed" hidden>
         <figcaption>Camera feed — recorded alongside the joint angles</figcaption>
       </figure>
+      <figure class="so101-graph" hidden>
+        <svg viewBox="0 0 200 90" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="0" y1="45" x2="200" y2="45" class="so101-graph-zero"></line>
+          <polyline class="so101-graph-trace" points=""></polyline>
+          <circle class="so101-graph-dot" r="3"></circle>
+        </svg>
+        <figcaption>Elbow angle — recorded over time</figcaption>
+      </figure>
     `;
     const style = document.createElement("style");
     style.textContent = STYLE;
@@ -186,6 +204,9 @@ export const scene: SceneModule = {
     const diagramImg = root.querySelector<HTMLImageElement>(".so101-diagram-img")!;
     let shownDiagram = "";
     const camFeed = root.querySelector<HTMLElement>(".so101-camfeed")!;
+    const graph = root.querySelector<HTMLElement>(".so101-graph")!;
+    const graphTrace = root.querySelector<SVGPolylineElement>(".so101-graph-trace")!;
+    const graphDot = root.querySelector<SVGCircleElement>(".so101-graph-dot")!;
     let shownDevice = "";
 
     const view = new RobotView(ctx.overlay);
@@ -277,15 +298,15 @@ export const scene: SceneModule = {
 
           const showFeed = running && Boolean(sceneCamLocal);
           camFeed.hidden = !showFeed;
+          const b = box();
+          const margin = 14;
+          const pipWidth = b.width * 0.3;
+          const pipHeight = pipWidth * 0.72;
+          const pipX = b.width - pipWidth - margin;
+          const pipY = b.height - pipHeight - margin;
           if (showFeed) {
             const offset = view.armOffset(0);
             view.setSceneCamera(offsetBrick(sceneCamLocal!.position, offset)!, offsetBrick(sceneCamLocal!.lookAt, offset)!);
-            const b = box();
-            const pipWidth = b.width * 0.3;
-            const pipHeight = pipWidth * 0.72;
-            const margin = 14;
-            const pipX = b.width - pipWidth - margin;
-            const pipY = b.height - pipHeight - margin;
             view.render({ x: pipX, y: pipY, width: pipWidth, height: pipHeight });
             // The DOM frame sits over the canvas at the matching on-screen
             // spot: the canvas box is itself a percentage of the whole scene,
@@ -296,6 +317,29 @@ export const scene: SceneModule = {
             camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
           } else {
             view.render();
+          }
+
+          // The strip chart traces live, beside the camera feed: only the
+          // part of the curve already "recorded" (task <= current progress)
+          // is drawn, the same way the video only has frames up to now.
+          graph.hidden = !running;
+          if (running) {
+            const progress = state.task as number;
+            const [low, high] = ELBOW_RANGE;
+            const toSvgY = (v: number) => 88 - ((v - low) / (high - low)) * 86;
+            const points = ELBOW_SAMPLES.filter((s) => s.t <= progress)
+              .map((s) => `${s.t * 200},${toSvgY(s.v)}`)
+              .join(" ");
+            graphTrace.setAttribute("points", points);
+            const current = taskFrame(progress).elbow;
+            graphDot.setAttribute("cx", String(progress * 200));
+            graphDot.setAttribute("cy", String(toSvgY(current)));
+
+            const graphWidth = pipX - margin - margin;
+            graph.style.left = `${((b.left + margin) / size.width) * 100}%`;
+            graph.style.top = `${((b.top + pipY) / size.height) * 100}%`;
+            graph.style.width = `${(graphWidth / size.width) * 100}%`;
+            graph.style.height = `${(pipHeight / size.height) * 100}%`;
           }
         } else if (!failed) {
           status.hidden = introBeat;
@@ -384,6 +428,15 @@ const STYLE = `
    over that rectangle, positioned to match it every frame. */
 .so101-camfeed { position: absolute; margin: 0; border: 2px solid ${INK}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
 .so101-camfeed figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 3px 6px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, .55); border-radius: 0 0 4px 4px; }
+/* A strip chart beside the camera feed: only the recorded portion of the
+   curve is drawn each frame, so it fills in live rather than showing the
+   whole shape up front. */
+.so101-graph { position: absolute; margin: 0; padding: 4px; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
+.so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
+.so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
+.so101-graph-trace { fill: none; stroke: ${LINK2}; stroke-width: 2; }
+.so101-graph-dot { fill: ${LINK2}; }
+.so101-graph figcaption { margin: 2px 0 0; font-size: 10px; font-weight: 700; color: ${INK}; text-align: center; }
 .so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 46%; padding: 0; font-size: 16px; }
 /* The closing names topics this lesson does not cover; they are shown as
    labelled blocks under a heading rather than passed over in speech. */

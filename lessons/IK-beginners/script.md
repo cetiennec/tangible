@@ -192,7 +192,7 @@ This is also how a dataset gets recorded. A person teleoperates the arms through
 
 Here the pair move a brick from one spot to another, watched the whole time by a camera fixed on the workspace, like the one in the corner there.
 
-Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from.
+Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays.
 
 @cue(show.task = false)
 @clear(board)
