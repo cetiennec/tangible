@@ -2,7 +2,7 @@ import type { OrbitState, PlainState, Schema } from "@tangible/core";
 import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
 import { INK, LINK1, LINK2, MUTED, TIP } from "./controls.js";
-import { RobotView, warmRobotAssets } from "./so101-view.js";
+import { type Feed, RobotView, warmRobotAssets } from "./so101-view.js";
 import { LEROBOT_WORKFLOW_BOTTOM, LEROBOT_WORKFLOW_TOP } from "./lerobot-diagram.js";
 import { GRASP_AT, RELEASE_AT, taskFrame, TASK_JOINTS } from "./task.js";
 
@@ -30,8 +30,10 @@ const JOINTS = [
 // pixel size to render into; the two must agree or the image is stretched.
 const PANEL_WIDTH = 0.32;
 const FEED_ASPECT = 16 / 9;
+/** The gap between the two feeds when both are on screen, in CSS pixels. */
+const FEED_GAP = 6;
 
-const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.78, azimuth: 0.9, elevation: 0.42 };
+const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.95, azimuth: 0.9, elevation: 0.42 };
 
 // The strip chart's Y axis: the elbow's own mechanical travel, not just the
 // range this one task happens to use, so the trace reads against what the
@@ -79,6 +81,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "let the pair run the task, with a brick on the table",
+  },
+  "show.wristCam": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "add a second camera on the gripper, with its own feed",
   },
   "show.angles": {
     type: { kind: "boolean" },
@@ -192,10 +201,16 @@ export const scene: SceneModule = {
       <p class="so101-credit">Robot description published by
         <a href="${SOURCE}" target="_blank" rel="noreferrer noopener">LeRobot</a>. Drag to turn the view.</p>
       <figure class="so101-diagram" hidden><img class="so101-diagram-img" alt=""></figure>
-      <figure class="so101-camfeed" hidden>
-        <canvas class="so101-camfeed-view" aria-hidden="true"></canvas>
-        <figcaption>Camera feed — recorded alongside the joint angles</figcaption>
-      </figure>
+      <div class="so101-feeds" hidden>
+        <figure class="so101-camfeed" hidden>
+          <canvas class="so101-camfeed-view" aria-hidden="true"></canvas>
+          <figcaption>Workspace camera</figcaption>
+        </figure>
+        <figure class="so101-camfeed so101-wristfeed" hidden>
+          <canvas class="so101-wristfeed-view" aria-hidden="true"></canvas>
+          <figcaption>Wrist camera</figcaption>
+        </figure>
+      </div>
       <figure class="so101-graph" hidden>
         <svg viewBox="0 0 200 90" preserveAspectRatio="none" aria-hidden="true">
           <line x1="0" y1="45" x2="200" y2="45" class="so101-graph-zero"></line>
@@ -228,8 +243,11 @@ export const scene: SceneModule = {
     const diagram = root.querySelector<HTMLElement>(".so101-diagram")!;
     const diagramImg = root.querySelector<HTMLImageElement>(".so101-diagram-img")!;
     let shownDiagram = "";
+    const feeds = root.querySelector<HTMLElement>(".so101-feeds")!;
     const camFeed = root.querySelector<HTMLElement>(".so101-camfeed")!;
     const camFeedView = root.querySelector<HTMLCanvasElement>(".so101-camfeed-view")!;
+    const wristFeed = root.querySelector<HTMLElement>(".so101-wristfeed")!;
+    const wristFeedView = root.querySelector<HTMLCanvasElement>(".so101-wristfeed-view")!;
     const graph = root.querySelector<HTMLElement>(".so101-graph")!;
     const graphLeaderTrace = root.querySelector<SVGPolylineElement>(".so101-graph-leader")!;
     const graphFollowerTrace = root.querySelector<SVGPolylineElement>(".so101-graph-follower")!;
@@ -336,19 +354,30 @@ export const scene: SceneModule = {
           // nothing underneath them there, and CSS can place them outright
           // rather than the render loop working out where they go.
           const showFeed = running && Boolean(sceneCamLocal);
+          const showWrist = showFeed && Boolean(state["show.wristCam"]);
+          feeds.hidden = !showFeed;
           camFeed.hidden = !showFeed;
+          wristFeed.hidden = !showWrist;
+          view.setWristCamera(showWrist, 0);
+          const panel: Feed[] = [];
           if (showFeed) {
             const offset = view.armOffset(0);
             const camPos = offsetBrick(sceneCamLocal!.position, offset)!;
             const camLookAt = offsetBrick(sceneCamLocal!.lookAt, offset)!;
             view.setSceneCamera(camPos, camLookAt);
             view.setWebcam(camPos, camLookAt);
-            const feedWidth = size.width * PANEL_WIDTH;
-            view.render({ canvas: camFeedView, width: feedWidth, height: feedWidth / FEED_ASPECT });
+            // The two feeds share the panel's width when both are up, so the
+            // pixels each is rendered at have to follow what CSS gives them.
+            const column = size.width * PANEL_WIDTH;
+            const width = showWrist ? (column - FEED_GAP) / 2 : column;
+            panel.push({ source: "workspace", canvas: camFeedView, width, height: width / FEED_ASPECT });
+            if (showWrist) {
+              panel.push({ source: "wrist", canvas: wristFeedView, width, height: width / FEED_ASPECT });
+            }
           } else {
             view.hideWebcam();
-            view.render();
           }
+          view.render(panel);
 
           // The strip chart traces live, directly above the camera feed:
           // only the part of each curve already "recorded" (task <= current
@@ -487,8 +516,12 @@ const STYLE = `
 /* The feed is a plain 2D canvas that the 3D view copies the recording
    camera's pass into each frame; its height comes from the canvas's own
    pixel aspect, so nothing has to state it twice. */
-.so101-camfeed { position: absolute; right: 3%; top: 34%; width: 32%; margin: 0; border: 2px solid ${INK}; border-radius: 6px; overflow: hidden; background: #20262a; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
-.so101-camfeed-view { display: block; width: 100%; height: auto; }
+.so101-feeds { position: absolute; right: 3%; top: 34%; width: 32%; display: flex; align-items: flex-start; gap: 6px; pointer-events: none; }
+/* Each feed takes an equal share of the row, so the pair that appears when
+   the gripper camera arrives simply halves the single one. Heights follow
+   from the canvas's own pixel aspect, so nothing states them twice. */
+.so101-camfeed { flex: 1 1 0; min-width: 0; position: relative; margin: 0; border: 2px solid ${INK}; border-radius: 6px; overflow: hidden; background: #20262a; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); }
+.so101-camfeed canvas { display: block; width: 100%; height: auto; }
 .so101-camfeed figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 3px 6px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, .55); }
 /* Only the recorded portion of each curve is drawn each frame, so the chart
    fills in live rather than showing the whole shape up front. */

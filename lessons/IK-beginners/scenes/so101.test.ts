@@ -47,7 +47,7 @@ describe("the URDF rotation convention", () => {
 describe("the SO-101 scene contract", () => {
   it("exposes one parameter per moving joint, plus the camera and the note", () => {
     expect(Object.keys(schema).sort()).toEqual(
-      ["activePart", "camera", "diagram", "elbow", "gripper", "lift", "pan", "show.angles", "show.brand", "show.leader", "show.task", "task", "teleop", "wristFlex", "wristRoll"].sort(),
+      ["activePart", "camera", "diagram", "elbow", "gripper", "lift", "pan", "show.angles", "show.brand", "show.leader", "show.task", "show.wristCam", "task", "teleop", "wristFlex", "wristRoll"].sort(),
     );
   });
 
@@ -70,10 +70,14 @@ describe("the SO-101 scene contract", () => {
 
   it("has no separate joint parameters for the leader arm", () => {
     // Both arms are driven by the same six numbers, which is the point being
-    // made: the follower copies the leader's joint angles directly.
-    const jointish = Object.keys(schema).filter((k) => !["camera", "teleop", "diagram", "activePart", "show.leader", "show.angles", "show.brand", "task", "show.task"].includes(k));
-    expect(jointish).toHaveLength(6);
-    expect(jointish.some((k) => k.toLowerCase().includes("leader"))).toBe(false);
+    // made: the follower copies the leader's joint angles directly. Read off
+    // the schema rather than listed by hand, so adding a flag to the scene
+    // does not look like adding a joint.
+    const angles = Object.keys(schema).filter(
+      (key) => key !== "task" && (schema[key]!.type as { kind: string }).kind === "scalar",
+    );
+    expect(angles).toHaveLength(6);
+    expect(angles.some((key) => key.toLowerCase().includes("leader"))).toBe(false);
   });
 
   it("keeps the second arm hidden until the narration asks for it", () => {

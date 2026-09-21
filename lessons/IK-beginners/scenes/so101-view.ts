@@ -60,6 +60,18 @@ export async function warmRobotAssets(fetchImpl: typeof fetch = fetch): Promise<
   );
 }
 
+/** Which camera a small feed panel shows. */
+export type FeedSource = "workspace" | "wrist";
+
+/** One feed panel: where its picture comes from, and how big it is on screen. */
+export interface Feed {
+  source: FeedSource;
+  canvas: HTMLCanvasElement;
+  /** Size on screen in CSS pixels. */
+  width: number;
+  height: number;
+}
+
 export class RobotView {
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
@@ -77,8 +89,11 @@ export class RobotView {
   private angleArcs: THREE.Line[] = [];
   private brick?: THREE.Group;
   private webcam?: THREE.Group;
+  private wristProp?: THREE.Group;
   /** A second, fixed camera watching the workspace, for the recording demo. */
   private sceneCam = new THREE.PerspectiveCamera(62, 1, 0.01, 50);
+  /** A third camera carried on the gripper, looking the way the jaws point. */
+  private wristCam = new THREE.PerspectiveCamera(70, 1, 0.005, 50);
 
   constructor(private overlay: HTMLElement) {
     this.canvas = overlay.ownerDocument.createElement("canvas");
@@ -403,28 +418,8 @@ export class RobotView {
    */
   setWebcam(position: [number, number, number], lookAt: [number, number, number]): void {
     if (!this.webcam) {
-      const group = new THREE.Group();
-      const dark = new THREE.MeshStandardMaterial({ color: 0x2b2f33, roughness: 0.5, metalness: 0.2 });
-      const lensGlass = new THREE.MeshStandardMaterial({ color: 0x1a1d1f, roughness: 0.15, metalness: 0.6 });
-      this.materials.push(dark, lensGlass);
-
-      const body = new THREE.BoxGeometry(0.03, 0.024, 0.02);
-      const lens = new THREE.CylinderGeometry(0.008, 0.009, 0.014, 16);
-      const stand = new THREE.CylinderGeometry(0.003, 0.003, 0.05, 8);
-      this.meshes.push(body, lens, stand);
-
-      const bodyMesh = new THREE.Mesh(body, dark);
-      group.add(bodyMesh);
-      const lensMesh = new THREE.Mesh(lens, lensGlass);
-      lensMesh.rotation.x = Math.PI / 2;
-      lensMesh.position.z = 0.017;
-      group.add(lensMesh);
-      const standMesh = new THREE.Mesh(stand, dark);
-      standMesh.position.y = -0.037;
-      group.add(standMesh);
-
-      this.scene.add(group);
-      this.webcam = group;
+      this.webcam = this.cameraProp(1, true);
+      this.scene.add(this.webcam);
     }
     // sceneCam sits exactly at `position`; placing the mesh's own centre
     // there too put the camera inside the dark body, rendering nothing but
@@ -438,6 +433,85 @@ export class RobotView {
     this.webcam.position.copy(bodyCentre);
     this.webcam.up.set(0, 1, 0);
     this.webcam.lookAt(target);
+  }
+
+  /**
+   * A small camera-shaped prop: a body, a lens, and optionally the stand a
+   * camera fixed above the workspace needs and one riding the gripper does
+   * not. It points along its own +z, so lookAt aims it.
+   */
+  private cameraProp(scale: number, stand: boolean): THREE.Group {
+    const group = new THREE.Group();
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2b2f33, roughness: 0.5, metalness: 0.2 });
+    const lensGlass = new THREE.MeshStandardMaterial({ color: 0x1a1d1f, roughness: 0.15, metalness: 0.6 });
+    this.materials.push(dark, lensGlass);
+
+    const body = new THREE.BoxGeometry(0.03 * scale, 0.024 * scale, 0.02 * scale);
+    const lens = new THREE.CylinderGeometry(0.008 * scale, 0.009 * scale, 0.014 * scale, 16);
+    this.meshes.push(body, lens);
+
+    group.add(new THREE.Mesh(body, dark));
+    const lensMesh = new THREE.Mesh(lens, lensGlass);
+    lensMesh.rotation.x = Math.PI / 2;
+    lensMesh.position.z = 0.017 * scale;
+    group.add(lensMesh);
+    if (stand) {
+      const post = new THREE.CylinderGeometry(0.003, 0.003, 0.05, 8);
+      this.meshes.push(post);
+      const postMesh = new THREE.Mesh(post, dark);
+      postMesh.position.y = -0.037;
+      group.add(postMesh);
+    }
+    return group;
+  }
+
+  /** A named link's position in world space. */
+  private linkPosition(name: string, arm: number): THREE.Vector3 | undefined {
+    const link = this.arms[arm]?.links.get(name);
+    if (!link) return undefined;
+    link.updateWorldMatrix(true, false);
+    return link.getWorldPosition(new THREE.Vector3());
+  }
+
+  /**
+   * A camera carried on the gripper, looking out past the jaws — the second
+   * point of view a real recording rig has, besides the fixed one.
+   *
+   * Which way the gripper points is read off the arm itself, as the direction
+   * from the gripper link to the gripper's own tip frame, rather than guessed
+   * from the description's axes. The camera's up vector has to come from the
+   * gripper's own frame too: the jaws often point straight down, and a world
+   * up of (0, 1, 0) would then be parallel to the view direction, where
+   * lookAt has no single answer and the picture spins.
+   */
+  setWristCamera(visible: boolean, arm = 0): void {
+    if (this.wristProp) this.wristProp.visible = false;
+    if (!visible) return;
+    const from = this.linkPosition("gripper_link", arm);
+    const tip = this.linkPosition("gripper_frame_link", arm);
+    const link = this.arms[arm]?.links.get("gripper_frame_link");
+    if (!from || !tip || !link) return;
+    const forward = tip.clone().sub(from).normalize();
+
+    const frame = link.getWorldQuaternion(new THREE.Quaternion());
+    let up = new THREE.Vector3(1, 0, 0).applyQuaternion(frame);
+    if (Math.abs(up.dot(forward)) > 0.9) up = new THREE.Vector3(0, 0, 1).applyQuaternion(frame);
+
+    // Behind the jaws looking out past them, so they frame the shot.
+    const eye = tip.clone().addScaledVector(forward, -0.05);
+    const target = tip.clone().addScaledVector(forward, 0.2);
+    if (!this.wristProp) {
+      this.wristProp = this.cameraProp(0.55, false);
+      this.scene.add(this.wristProp);
+    }
+    this.wristProp.visible = true;
+    // Further back still, so the camera is not inside its own body.
+    this.wristProp.position.copy(eye).addScaledVector(forward, -0.022);
+    this.wristProp.up.copy(up);
+    this.wristProp.lookAt(target);
+    this.wristCam.position.copy(eye);
+    this.wristCam.up.copy(up);
+    this.wristCam.lookAt(target);
   }
 
   /** Hide the camera prop when the recording demo isn't running. */
@@ -461,55 +535,60 @@ export class RobotView {
   }
 
   /**
-   * Render the main view, and optionally the recording camera's view into a
-   * separate 2D canvas.
+   * Render the main view, and each small camera feed into its own 2D canvas.
    *
-   * The feed pass is drawn first, into the bottom-left corner of this canvas's
-   * own buffer, copied straight out of it, and then painted over by the main
-   * view — so that corner is never seen. Copying it rather than leaving it in
-   * place as a scissored sub-viewport is what lets the feed sit anywhere on
-   * screen: a sub-viewport can only ever live inside this canvas, which covers
-   * the left part of the scene, and the feed belongs in the board panel on the
-   * right. `width` and `height` are the feed's size in CSS pixels; its backing
-   * store is sized from them here, so the pixel ratio stays in one place.
+   * A feed is drawn first, into the bottom-left corner of this canvas's own
+   * buffer, copied straight out of it, and then painted over by the main
+   * view — so that corner is never seen. Copying rather than leaving it in
+   * place as a scissored sub-viewport is what lets a feed sit anywhere on
+   * screen, including the board panel on the right, which is outside this
+   * canvas altogether. Each feed costs one more pass over the scene, so only
+   * ask for the ones actually on screen.
    */
-  render(feed?: { canvas: HTMLCanvasElement; width: number; height: number }): void {
+  render(feeds: Feed[] = []): void {
     const ratio = this.renderer.getPixelRatio();
     const width = this.renderer.domElement.width / ratio;
     const height = this.renderer.domElement.height / ratio;
-    if (feed) {
-      // The copy is one for one, so the feed can be no larger than the buffer
-      // it is read out of.
-      const feedWidth = Math.max(1, Math.min(width, feed.width));
-      const feedHeight = Math.max(1, Math.min(height, feed.height));
-      const pixelWidth = Math.round(feedWidth * ratio);
-      const pixelHeight = Math.round(feedHeight * ratio);
-      if (feed.canvas.width !== pixelWidth) feed.canvas.width = pixelWidth;
-      if (feed.canvas.height !== pixelHeight) feed.canvas.height = pixelHeight;
-      this.sceneCam.aspect = feedWidth / feedHeight;
-      this.sceneCam.updateProjectionMatrix();
-      this.renderer.setViewport(0, 0, feedWidth, feedHeight);
-      this.renderer.render(this.scene, this.sceneCam);
-      const g = feed.canvas.getContext("2d");
-      if (g) {
-        // WebGL's origin is the bottom-left, so the corner just drawn is the
-        // last rows of the image drawImage reads.
-        g.clearRect(0, 0, pixelWidth, pixelHeight);
-        g.drawImage(
-          this.canvas,
-          0,
-          this.renderer.domElement.height - pixelHeight,
-          pixelWidth,
-          pixelHeight,
-          0,
-          0,
-          pixelWidth,
-          pixelHeight,
-        );
-      }
-    }
+    for (const feed of feeds) this.drawFeed(feed, ratio, width, height);
     this.renderer.setViewport(0, 0, width, height);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * One feed pass. `width` and `height` on the feed are its size on screen in
+   * CSS pixels; its backing store is sized from them here, so the pixel ratio
+   * stays in one place.
+   */
+  private drawFeed(feed: Feed, ratio: number, viewWidth: number, viewHeight: number): void {
+    const camera = feed.source === "wrist" ? this.wristCam : this.sceneCam;
+    // The copy is one for one, so a feed can be no larger than the buffer it
+    // is read out of.
+    const feedWidth = Math.max(1, Math.min(viewWidth, feed.width));
+    const feedHeight = Math.max(1, Math.min(viewHeight, feed.height));
+    const pixelWidth = Math.round(feedWidth * ratio);
+    const pixelHeight = Math.round(feedHeight * ratio);
+    if (feed.canvas.width !== pixelWidth) feed.canvas.width = pixelWidth;
+    if (feed.canvas.height !== pixelHeight) feed.canvas.height = pixelHeight;
+    camera.aspect = feedWidth / feedHeight;
+    camera.updateProjectionMatrix();
+    this.renderer.setViewport(0, 0, feedWidth, feedHeight);
+    this.renderer.render(this.scene, camera);
+    const g = feed.canvas.getContext("2d");
+    if (!g) return;
+    // WebGL's origin is the bottom-left, so the corner just drawn is the last
+    // rows of the image drawImage reads.
+    g.clearRect(0, 0, pixelWidth, pixelHeight);
+    g.drawImage(
+      this.canvas,
+      0,
+      this.renderer.domElement.height - pixelHeight,
+      pixelWidth,
+      pixelHeight,
+      0,
+      0,
+      pixelWidth,
+      pixelHeight,
+    );
   }
 
   /** Hide the canvas without disposing anything, for a beat that precedes it. */
@@ -522,6 +601,7 @@ export class RobotView {
     for (const material of this.materials) material.dispose();
     this.brick = undefined;
     this.webcam = undefined;
+    this.wristProp = undefined;
     this.angleArcs = [];
     this.renderer.dispose();
     this.canvas.remove();
