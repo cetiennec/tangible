@@ -3,6 +3,7 @@ import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
 import { INK, LINK1, MUTED, TIP } from "./controls.js";
 import { RobotView, warmRobotAssets } from "./so101-view.js";
+import { LEROBOT_WORKFLOW_BOTTOM, LEROBOT_WORKFLOW_TOP } from "./lerobot-diagram.js";
 import { GRASP_AT, RELEASE_AT, taskFrame, TASK_JOINTS } from "./task.js";
 
 // The arms are a large download and this scene appears late, so start fetching
@@ -74,6 +75,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "which teleoperation route the side note explains",
+  },
+  diagram: {
+    type: { kind: "enum", values: ["none", "workflow1", "workflow2"] },
+    default: "none",
+    interpolate: "snap",
+    ownership: "script",
+    label: "show a panel of LeRobot's own workflow diagram",
   },
   "show.brand": {
     type: { kind: "boolean" },
@@ -154,6 +162,10 @@ export const scene: SceneModule = {
       </aside>
       <p class="so101-credit">Robot description published by
         <a href="${SOURCE}" target="_blank" rel="noreferrer noopener">LeRobot</a>. Drag to turn the view.</p>
+      <figure class="so101-diagram" hidden><img class="so101-diagram-img" alt=""></figure>
+      <figure class="so101-camfeed" hidden>
+        <figcaption>Camera feed — recorded alongside the joint angles</figcaption>
+      </figure>
     `;
     const style = document.createElement("style");
     style.textContent = STYLE;
@@ -170,6 +182,10 @@ export const scene: SceneModule = {
     const names = root.querySelector<HTMLElement>(".so101-names")!;
     const leaderName = root.querySelector<HTMLElement>(".so101-name-leader")!;
     const device = root.querySelector<HTMLElement>(".so101-device")!;
+    const diagram = root.querySelector<HTMLElement>(".so101-diagram")!;
+    const diagramImg = root.querySelector<HTMLImageElement>(".so101-diagram-img")!;
+    let shownDiagram = "";
+    const camFeed = root.querySelector<HTMLElement>(".so101-camfeed")!;
     let shownDevice = "";
 
     const view = new RobotView(ctx.overlay);
@@ -178,6 +194,9 @@ export const scene: SceneModule = {
     // Where the brick waits before the grasp, and where it is left afterwards.
     let pickAt: [number, number, number] | undefined;
     let placeAt: [number, number, number] | undefined;
+    // A fixed "external" camera watching the pick-and-place area, in the same
+    // pre-arrange local frame as pickAt/placeAt above.
+    let sceneCamLocal: { position: [number, number, number]; lookAt: [number, number, number] } | undefined;
     const jointsFor = (progress: number) => {
       const frame = taskFrame(progress);
       return TASK_JOINTS.map((param, i) => ({
@@ -197,6 +216,17 @@ export const scene: SceneModule = {
         // exactly where the gripper closes and opens.
         pickAt = view.measureGrip(jointsFor(GRASP_AT));
         placeAt = view.measureGrip(jointsFor(RELEASE_AT));
+        if (pickAt && placeAt) {
+          const mid: [number, number, number] = [
+            (pickAt[0] + placeAt[0]) / 2,
+            (pickAt[1] + placeAt[1]) / 2,
+            (pickAt[2] + placeAt[2]) / 2,
+          ];
+          // Above and to one side of the midpoint, angled down at it — a
+          // fixed external view, not one that tracks the gripper, the way a
+          // real recording camera mounted beside the workspace would be.
+          sceneCamLocal = { position: [mid[0] + 0.06, mid[1] + 0.22, mid[2] + 0.26], lookAt: mid };
+        }
       })
       .catch((error: unknown) => {
         failed = true;
@@ -238,7 +268,29 @@ export const scene: SceneModule = {
           else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
           else view.setBrick(offsetBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, view.armOffset(0)), TIP);
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
-          view.render();
+
+          const showFeed = running && Boolean(sceneCamLocal);
+          camFeed.hidden = !showFeed;
+          if (showFeed) {
+            const offset = view.armOffset(0);
+            view.setSceneCamera(offsetBrick(sceneCamLocal!.position, offset)!, offsetBrick(sceneCamLocal!.lookAt, offset)!);
+            const b = box();
+            const pipWidth = b.width * 0.3;
+            const pipHeight = pipWidth * 0.72;
+            const margin = 14;
+            const pipX = b.width - pipWidth - margin;
+            const pipY = b.height - pipHeight - margin;
+            view.render({ x: pipX, y: pipY, width: pipWidth, height: pipHeight });
+            // The DOM frame sits over the canvas at the matching on-screen
+            // spot: the canvas box is itself a percentage of the whole scene,
+            // so the pip's position within it needs converting the same way.
+            camFeed.style.left = `${((b.left + pipX) / size.width) * 100}%`;
+            camFeed.style.top = `${((b.top + pipY) / size.height) * 100}%`;
+            camFeed.style.width = `${(pipWidth / size.width) * 100}%`;
+            camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
+          } else {
+            view.render();
+          }
         } else if (!failed) {
           status.hidden = false;
         }
@@ -261,6 +313,13 @@ export const scene: SceneModule = {
           noteTitle.textContent = chosen.title;
           noteBody.textContent = chosen.body;
           note.style.setProperty("--accent", chosen.accent);
+        }
+
+        const diagramState = String(state.diagram);
+        diagram.hidden = diagramState === "none";
+        if (diagramState !== "none" && shownDiagram !== diagramState) {
+          diagramImg.src = diagramState === "workflow1" ? LEROBOT_WORKFLOW_TOP : LEROBOT_WORKFLOW_BOTTOM;
+          shownDiagram = diagramState;
         }
       },
       handles: () => [orbitHandle({ speed: 0.006, minElevation: -0.2, maxElevation: 1.3, zoomSpeed: 0.0008, minDistance: 0.35, maxDistance: 1.2 })],
@@ -306,6 +365,15 @@ const STYLE = `
 .so101-name-follower { color: ${TIP}; }
 .so101-credit { position: absolute; left: 3%; bottom: 58px; margin: 0; font-size: 11px; color: ${MUTED}; }
 .so101-credit a { color: ${MUTED}; }
+/* LeRobot's own workflow diagram, centred over the canvas's own box (not the
+   whole scene) so it never reaches into the note/board area on the right. */
+.so101-diagram { position: absolute; left: 33%; top: 58%; transform: translate(-50%, -50%); width: 56%; max-width: 600px; margin: 0; padding: 10px; background: rgba(255, 255, 255, .97); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .22); }
+.so101-diagram-img { display: block; width: 100%; height: auto; border-radius: 6px; }
+/* A second, live viewport rendered straight into the same WebGL canvas
+   (renderer.setScissor); this frame is just the border and caption drawn
+   over that rectangle, positioned to match it every frame. */
+.so101-camfeed { position: absolute; margin: 0; border: 2px solid ${INK}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
+.so101-camfeed figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 3px 6px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, .55); border-radius: 0 0 4px 4px; }
 .so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 46%; padding: 0; font-size: 16px; }
 /* The closing names topics this lesson does not cover; they are shown as
    labelled blocks under a heading rather than passed over in speech. */

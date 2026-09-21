@@ -149,8 +149,9 @@ Same equations, same idea — just applied to a curve that isn't a circle.
 @cue(show.brand = true)
 Now let's talk about @board(kwLerobot: "LeRobot") LeRobot which is Hugging Face library for Physical AI and Imitation learning. How is all of this being used?
 
-You've already seen three of its pieces without the name: the @board(lrRobot: "Robot descriptions") robot description that built this arm, the @board(lrTeleop: "Teleoperation") leader-follower teleoperation you're about to try, and the @board(lrData: "Datasets") dataset format that records it all.
+@cue(diagram = workflow1) You've already seen three of its pieces without the name: the @board(lrRobot: "Robot descriptions") robot description that built this arm, the @board(lrTeleop: "Teleoperation") leader-follower teleoperation you're about to try, and the @board(lrData: "Datasets") dataset format that records it all.
 
+@cue(diagram = none)
 @cue(show.brand = false)
 @clear(board)
 @cue(lift -> -0.75) @cue(elbow -> 1.35) @cue(wristFlex -> 0.45) @cue(gripper -> 0.5)
@@ -190,15 +191,17 @@ That is the whole appeal of teleoperating in the joint space. It is a copy, not 
 @cue(task -> 1, over: 13s)
 This is also how a dataset gets recorded. A person teleoperates the arms through a task, again and again, and every run is kept.
 
-Here the pair move a brick from one spot to another.
+Here the pair move a brick from one spot to another, watched the whole time by a camera fixed on the workspace, like the one in the corner there.
 
-Each demonstration is just a stream of joint angles over time, and that is what the robot learns from.
+Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from.
 
 @cue(show.task = false)
 @clear(board)
-@board(later: "Coming in a later series")
-Classical robotics has focused on planning in the Cartesian space, but most of the recent @board(t1: "Vision Language Action models") Vision Language Action models, core of the @board(t2: "Imitation learning") imitation learning for vision, directly output joint goal positions.
+@cue(diagram = workflow2)
+Classical robotics has focused on planning in the Cartesian space, but most of the recent Vision Language Action models, core of imitation learning for vision, directly output joint goal positions.
 
 Will this be transferable to every robot?
 
-Most of them use an @board(t3: "Action experts") action expert separately from the VLA itself, which can be fine-tuned on any robot.
+Most of them use an action expert separately from the VLA itself, which can be fine-tuned on any robot. That's the rest of this workflow — coming in a later series.
+
+@cue(diagram = none)

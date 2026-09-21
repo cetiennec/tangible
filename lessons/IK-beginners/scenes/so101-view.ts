@@ -76,6 +76,8 @@ export class RobotView {
   private sized = "";
   private angleArcs: THREE.Line[] = [];
   private brick?: THREE.Group;
+  /** A second, fixed camera watching the workspace, for the recording demo. */
+  private sceneCam = new THREE.PerspectiveCamera(40, 1, 0.01, 50);
 
   constructor(private overlay: HTMLElement) {
     this.canvas = overlay.ownerDocument.createElement("canvas");
@@ -337,6 +339,17 @@ export class RobotView {
     this.camera.lookAt(target);
   }
 
+  /**
+   * A second, fixed camera pointed at the workspace, in world coordinates —
+   * the caller is responsible for adding the follower's current arrange()
+   * offset first, the same way offsetBrick does for the brick.
+   */
+  setSceneCamera(position: [number, number, number], lookAt: [number, number, number]): void {
+    this.sceneCam.position.set(...position);
+    this.sceneCam.up.set(0, 1, 0);
+    this.sceneCam.lookAt(...lookAt);
+  }
+
   /** Position and size the WebGL canvas over a region of the scene. */
   place(box: { left: number; top: number; width: number; height: number }, view: { width: number; height: number }): void {
     this.canvas.style.left = `${(box.left / view.width) * 100}%`;
@@ -352,8 +365,29 @@ export class RobotView {
     this.camera.updateProjectionMatrix();
   }
 
-  render(): void {
+  /**
+   * Render the main view, then optionally a second pass from sceneCam into a
+   * corner of the same canvas — an actual second "screen", not an icon,
+   * showing what the recording camera watching the task would see. `pip` is
+   * in the same box-relative pixel units as place(); WebGL's viewport origin
+   * is the bottom-left, so the y coordinate is flipped here once, rather than
+   * asking every caller to think in that convention.
+   */
+  render(pip?: { x: number; y: number; width: number; height: number }): void {
+    const width = this.renderer.domElement.width / this.renderer.getPixelRatio();
+    const height = this.renderer.domElement.height / this.renderer.getPixelRatio();
+    this.renderer.setViewport(0, 0, width, height);
     this.renderer.render(this.scene, this.camera);
+    if (!pip) return;
+    this.sceneCam.aspect = Math.max(0.1, pip.width / Math.max(1, pip.height));
+    this.sceneCam.updateProjectionMatrix();
+    const glY = height - pip.y - pip.height;
+    this.renderer.setScissorTest(true);
+    this.renderer.setScissor(pip.x, glY, pip.width, pip.height);
+    this.renderer.setViewport(pip.x, glY, pip.width, pip.height);
+    this.renderer.clearDepth();
+    this.renderer.render(this.scene, this.sceneCam);
+    this.renderer.setScissorTest(false);
   }
 
   dispose(): void {
