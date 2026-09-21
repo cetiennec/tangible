@@ -81,7 +81,7 @@ Getting back to the IK problem, how could there be multiple solutions? Try to re
 @cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the @cue(show.solutions = true) reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
 @cue(show.solutions = false)
-We've worked in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "joint limits") joint limits. The reachable space is no longer a ring here.
+We've worked in the case where q1 and q2 can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "Joint limits") joint limits. The reachable space is no longer a ring here.
 
 Indeed, a real system cannot spin freely for ever. Here q1 is allowed to turn between 0.25 and 2.85 radians, and q2 between minus 2.6 and 1.15, and those two bounds alone carve the ring down to this shape.
 
@@ -124,7 +124,7 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-@cue(show.jacobian = true) The J in there is the Jacobian, the matrix @cue(q1 -> 1.9, over: 1.1s) @cue(q2 -> -0.6, over: 1.1s) of partial derivatives that says @cue(q1 -> 0.9, over: 1.1s) @cue(q2 -> -1.9, over: 1.1s) how a small turn of @cue(q1 -> 1.7, over: 1.1s) @cue(q2 -> -0.3, over: 1.1s) each joint nudges @cue(q1 -> 1.422, over: 1.1s) @cue(q2 -> -1.424, over: 1.1s) the tip in x and y — watch the arrows move to a new spot each time. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
+@cue(show.jacobian = true) The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix @cue(q1 -> 1.9, over: 1.1s) @cue(q2 -> -0.6, over: 1.1s) of partial derivatives that says @cue(q1 -> 0.9, over: 1.1s) @cue(q2 -> -1.9, over: 1.1s) how a small turn of @cue(q1 -> 1.7, over: 1.1s) @cue(q2 -> -0.3, over: 1.1s) each joint nudges @cue(q1 -> 1.422, over: 1.1s) @cue(q2 -> -1.424, over: 1.1s) the tip in x and y — watch the arrows move to a new spot each time. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
 
 @cue(show.jacobian = false)
 
@@ -209,7 +209,7 @@ Classical robotics has focused on planning in the Cartesian space, but most of t
 
 Will this be transferable to every robot?
 
-Most of them use an action expert separately from the VLA itself, which can be fine-tuned on any robot. That's the rest of this workflow — coming in a later series.
+Most of them use an action expert separately from the VLA itself, which can be fine-tuned on any robot. That's the rest of this workflow, along with the LeRobot dataset format itself — coming in a later series.
 
 @cue(diagram = none)
 @cue(show.brand = false)

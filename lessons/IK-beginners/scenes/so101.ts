@@ -328,13 +328,13 @@ export const scene: SceneModule = {
           const margin = 14;
           // The feed is a real WebGL sub-viewport (renderer.setScissor), so
           // it can only live inside the canvas's own pixel buffer — the
-          // canvas box only spans the scene's left ~62%. Top-right corner of
-          // that box, not the note's spot further right, which the canvas
-          // does not reach.
+          // canvas box only spans the scene's left ~62%, short of where the
+          // board panel starts (~65%). Bottom-right corner of the box, below
+          // the arm, rather than a spot the canvas can't actually reach.
           const pipWidth = b.width * 0.3;
           const pipHeight = pipWidth * 0.72;
           const pipX = b.width - pipWidth - margin;
-          const pipY = margin;
+          const pipY = b.height - pipHeight - margin;
           if (showFeed) {
             const offset = view.armOffset(0);
             const camPos = offsetBrick(sceneCamLocal!.position, offset)!;
@@ -447,7 +447,7 @@ const STYLE = `
    this they stack in DOM order — the canvas was appended after root, so
    every label here (joint names especially, drawn right over the model)
    painted behind it instead of on top. */
-.so101-scene { position: relative; z-index: 1; font-family: system-ui, sans-serif; }
+.so101-scene { position: relative; z-index: 1; width: 100%; height: 100%; font-family: system-ui, sans-serif; }
 .so101-scene header { position: absolute; top: 4%; left: 3%; width: 52%; }
 .so101-brand { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
 .so101-logo { display: block; width: 34px; height: 34px; border-radius: 7px; object-fit: contain; background: #fff; transition: width 900ms ease, height 900ms ease; }
@@ -494,9 +494,10 @@ const STYLE = `
 /* A strip chart beside the camera feed: only the recorded portion of the
    curve is drawn each frame, so it fills in live rather than showing the
    whole shape up front. */
-/* The "leader arm as teleoperator" note's old rectangle — nothing needs it
-   once the task is running, since teleop stays "leader" by then. */
-.so101-graph { position: absolute; right: 3%; top: 32%; width: 28%; height: 22%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
+/* The board panel's own rectangle (matched to the .xv-board override just
+   below) — nothing is boarded during the task, so the chart sits where
+   equations would otherwise go, rather than overlapping the arm. */
+.so101-graph { position: absolute; right: 3%; top: 4%; width: 32%; height: 26%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
 .so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
 .so101-graph-trace { fill: none; stroke-width: 2; }
@@ -529,7 +530,7 @@ const STYLE = `
 @media (max-height: 500px) and (orientation: landscape) {
   .so101-scene h1 { font-size: 15px; }
   .so101-note { top: 28%; padding: 9px 11px; }
-  .so101-graph { top: 28%; padding: 6px; }
+  .so101-graph { padding: 6px; }
   .so101-note-body { font-size: 11px; }
   .so101-credit { display: none; }
 }
