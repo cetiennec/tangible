@@ -131,11 +131,14 @@ export function circlePoint(l1: number, l2: number, lap: number): Point {
  * shape rather than repeating the first demonstration. Unlike circlePath,
  * this is not sized generically from the link lengths — it is a fixed path
  * in Cartesian space, tuned for the equal link lengths it is actually baked
- * and driven through (the same L1=L2 the circle uses). kinematics.test.ts
- * checks it stays inside JOINT_LIMITS along its whole length there.
+ * and driven through (the same L1=L2 the circle uses).
+ *
+ * It runs from the right, across the top of the workspace, and off the far
+ * side of it: the last stretch is deliberately out of reach, which is the
+ * point the narration makes here. waveReachable says where that begins.
  */
 export function wavePoint(t: number): Point {
-  const x0 = 11.5, x1 = 3.0, yMid = 19.6, amplitude = 1, cycles = 1.5;
+  const x0 = 11.5, x1 = -18, yMid = 19.6, amplitude = 1, cycles = 5;
   return { x: x0 + t * (x1 - x0), y: yMid + amplitude * Math.sin(t * TAU * cycles) };
 }
 
@@ -341,6 +344,27 @@ export function inverseKinematics(target: Point, l1: number, l2: number, branch:
 }
 
 /** The angle of the vector from `from` to `to`, measured from the positive x axis. */
+/**
+ * How much of the wave the tip can actually follow, as a fraction of the
+ * path's length. The far end lies outside the workspace on purpose, so this
+ * is where the arm has to stop. It is found by walking the path rather than
+ * solved for, because the boundary is set by the reach and the joint limits
+ * together, and either can be the one that bites first.
+ */
+export function waveReachable(l1: number, l2: number): number {
+  const { inner, outer } = reachableRadii(l1, l2);
+  const steps = 400;
+  for (let step = 0; step <= steps; step += 1) {
+    const point = wavePoint(step / steps);
+    const distance = Math.hypot(point.x, point.y);
+    const solved = inverseKinematics(point, l1, l2, "up");
+    if (distance > outer || distance < inner || !withinJointLimits(solved.q1, solved.q2)) {
+      return Math.max(0, step - 1) / steps;
+    }
+  }
+  return 1;
+}
+
 export function directionOf(from: Point, to: Point): number {
   return Math.atan2(to.y - from.y, to.x - from.x);
 }

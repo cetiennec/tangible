@@ -22,6 +22,7 @@ import {
   twoSolutionSamples,
   unreachableSamples,
   wavePoint,
+  waveReachable,
   TAU,
   wrapAngle,
   type ArmPose,
@@ -175,14 +176,18 @@ export const bakers: Bakers = {
       });
     },
   },
+  // Only as far as the arm can actually go: the wave's last stretch is out
+  // of reach on purpose, so the walk stops at the edge and the arm holds
+  // there while the rest of the path stays untraced.
   wave: {
     reads: ["l1", "l2"],
     writes: ["q1", "q2"],
     run(input, { steps }) {
       const l1 = input.l1 as number;
       const l2 = input.l2 as number;
+      const reach = waveReachable(l1, l2);
       return Array.from({ length: steps }, (_unused, index) => {
-        const target = wavePoint((index + 1) / steps);
+        const target = wavePoint(((index + 1) / steps) * reach);
         const solved = inverseKinematics(target, l1, l2, "up");
         return { q1: solved.q1, q2: solved.q2 };
       });
@@ -261,7 +266,7 @@ export const scene: SceneModule = {
           else drawWorkspace(g, geometry, l1, l2);
         }
         if (state["show.circle"]) drawCircle(g, geometry, state.l1 as number, state.l2 as number);
-        if (state["show.wave"]) drawWave(g, geometry);
+        if (state["show.wave"]) drawWave(g, geometry, l1, l2);
         if (state["show.solutions"]) {
           drawSolutionSamples(g, geometry, state.l1 as number, state.l2 as number, state["show.limits"] as boolean);
         }
@@ -418,21 +423,44 @@ function drawCircle(g: CanvasRenderingContext2D, geometry: Geometry, l1: number,
   g.globalAlpha = 1;
 }
 
-/** The second, open path the end-effector is asked to follow. */
-function drawWave(g: CanvasRenderingContext2D, geometry: Geometry) {
+/**
+ * The second, open path the end-effector is asked to follow. Its last
+ * stretch runs outside the workspace, so the path is drawn in two pieces:
+ * the part the arm can trace, and the part that has no solution at all,
+ * with a cross where one turns into the other.
+ */
+function drawWave(g: CanvasRenderingContext2D, geometry: Geometry, l1: number, l2: number) {
+  const reach = waveReachable(l1, l2);
+  const stretch = (from: number, to: number, color: string, alpha: number) => {
+    g.strokeStyle = color;
+    g.globalAlpha = alpha;
+    g.lineWidth = 2;
+    g.setLineDash([6, 5]);
+    g.beginPath();
+    for (let step = 0; step <= 64; step++) {
+      const at = toScreen(geometry, wavePoint(from + ((to - from) * step) / 64));
+      if (step === 0) g.moveTo(at.x, at.y);
+      else g.lineTo(at.x, at.y);
+    }
+    g.stroke();
+    g.setLineDash([]);
+    g.globalAlpha = 1;
+  };
+  stretch(0, reach, TIP, 0.55);
+  if (reach >= 1) return;
+  stretch(reach, 1, MUTED, 0.5);
+
+  const edge = toScreen(geometry, wavePoint(reach));
   g.strokeStyle = TIP;
-  g.globalAlpha = 0.55;
-  g.lineWidth = 2;
-  g.setLineDash([6, 5]);
-  g.beginPath();
-  for (let step = 0; step <= 96; step++) {
-    const at = toScreen(geometry, wavePoint(step / 96));
-    if (step === 0) g.moveTo(at.x, at.y);
-    else g.lineTo(at.x, at.y);
-  }
-  g.stroke();
-  g.setLineDash([]);
-  g.globalAlpha = 1;
+  g.lineWidth = 2.5;
+  g.lineCap = "round";
+  const arm = 6;
+  line(g, edge.x - arm, edge.y - arm, edge.x + arm, edge.y + arm);
+  line(g, edge.x - arm, edge.y + arm, edge.x + arm, edge.y - arm);
+  g.fillStyle = TIP;
+  g.font = "700 12px system-ui, sans-serif";
+  g.textAlign = "left";
+  g.fillText("no solution past here", edge.x + 11, edge.y + 20);
 }
 
 /**

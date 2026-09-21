@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   wavePoint,
+  waveReachable,
   circlePoint,
   oneSolutionSamples,
   twoSolutionSamples,
@@ -466,13 +467,31 @@ describe("the baked circle", () => {
 });
 
 describe("the baked wave", () => {
-  it("stays inside JOINT_LIMITS along its whole length, at the equal-link shape it is actually driven through", () => {
+  it("can be followed exactly as far as waveReachable says, at the equal-link shape it is driven through", () => {
     const [l1, l2] = [12, 12];
+    const reach = waveReachable(l1, l2);
+    // Well short of the end, so the arm has a real path to trace, and well
+    // short of the start, so the part it cannot reach is plainly visible.
+    expect(reach).toBeGreaterThan(0.6);
+    expect(reach).toBeLessThan(0.95);
     for (let step = 0; step <= 96; step++) {
-      const point = wavePoint(step / 96);
+      const point = wavePoint((step / 96) * reach);
       const solved = inverseKinematics(point, l1, l2, "up");
       expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
       expect(Math.hypot(solved.reached.x - point.x, solved.reached.y - point.y)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("runs out of the workspace after that, and never comes back into it", () => {
+    const [l1, l2] = [12, 12];
+    const reach = waveReachable(l1, l2);
+    const { outer } = reachableRadii(l1, l2);
+    // Every point past the cut is genuinely out of reach, so the unreachable
+    // tail the narration points at is one continuous piece rather than the
+    // path dipping in and out of the workspace.
+    for (let step = 1; step <= 40; step++) {
+      const point = wavePoint(reach + ((1 - reach) * step) / 40);
+      expect(Math.hypot(point.x, point.y)).toBeGreaterThan(outer);
     }
   });
 
