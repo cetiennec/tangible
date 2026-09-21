@@ -102,6 +102,12 @@ export function reachCoverage(l1: number, l2: number, elbow: readonly [number, n
  * reachable annulus for any link lengths. The centre is lifted away from the
  * positive x axis because a circle placed there drives q1 through zero, and a
  * joint angle held in [0, TAU) would jump a whole turn part-way round.
+ *
+ * The radius is smaller than the annulus alone requires: at equal link
+ * lengths, the one shape this circle is actually baked and driven through,
+ * a bigger circle dips outside JOINT_LIMITS.q2 by a couple of degrees over
+ * part of the lap. The narration claims every point on this path is a pose
+ * the motors can genuinely hold; kinematics.test.ts checks that at L1=L2.
  */
 export function circlePath(l1: number, l2: number) {
   const { inner, outer } = reachableRadii(l1, l2);
@@ -109,7 +115,7 @@ export function circlePath(l1: number, l2: number) {
   const direction = (45 * Math.PI) / 180;
   return {
     centre: { x: distance * Math.cos(direction), y: distance * Math.sin(direction) },
-    radius: (outer - inner) * 0.25,
+    radius: (outer - inner) * 0.2,
   };
 }
 

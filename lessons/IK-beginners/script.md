@@ -107,7 +107,7 @@ This is why limits matter so much in practice. Across this whole ring, @cue(show
 @scene(redundant)
 If the robot has more degrees of freedom than the space, the number of @cue(spread -> 0.92, over: 3.4s) solutions can actually go to infinity.
 
-Look to these two examples : One 3 DOF arm in 2D and one 4 DOF in 3D
+Look to these two examples : One 3 DOF arm in 2D and one 4 DOF in 3D.@cue(spread -> 0.1, over: 3.4s) 
 
 @pause(prompt: "Flex the arm with the slider. The tip never leaves the target.", speak: false)
 
@@ -125,10 +125,12 @@ the best known is @board(kwNewton: "Newton's method") Newton's iterative method,
 The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix of partial derivatives that says how a small turn of each joint nudges the tip in x and y.
 
 @clear(board)
-@cue(q1 -> 1.326, over: 2s) @cue(q2 -> -1.592, over: 2s) OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
+@cue(q1 -> 1.423, over: 2s) @cue(q2 -> -1.708, over: 2s) OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
 
 @bake(circle, steps: 32, over: 7s)
 From the equation of the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) circle with regard to time t, we know x and y, and obtain q1 and q2 for this.
+
+It's not enough that the start and the end are reachable: every point along the way needs a solution too, and the same elbow branch has to hold the whole time, or the arm would have to jump partway through.
 
 @clear(board)
 @scene(so101)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  circlePoint,
   oneSolutionSamples,
   twoSolutionSamples,
   withinJointLimits,
@@ -427,6 +428,21 @@ describe("oneSolutionSamples", () => {
           expect(Math.hypot(one.x - two.x, one.y - two.y)).toBeGreaterThan(1e-6);
         }
       }
+    }
+  });
+});
+
+describe("the baked circle", () => {
+  it("stays inside JOINT_LIMITS along the whole lap, at the equal-link shape it is actually driven through", () => {
+    // The narration claims every point on this path is a pose the motors can
+    // hold, not just the start and end. That is only true because the radius
+    // was chosen to fit; a naive size (a quarter of the annulus) dips outside
+    // JOINT_LIMITS.q2 by a couple of degrees, which this pins against.
+    const [l1, l2] = [12, 12];
+    for (let step = 0; step < 360; step++) {
+      const point = circlePoint(l1, l2, step / 360);
+      const solved = inverseKinematics(point, l1, l2, "up");
+      expect(withinJointLimits(solved.q1, solved.q2)).toBe(true);
     }
   });
 });
