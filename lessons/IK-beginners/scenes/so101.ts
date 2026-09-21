@@ -487,12 +487,12 @@ const STYLE = `
 /* The feed is a plain 2D canvas that the 3D view copies the recording
    camera's pass into each frame; its height comes from the canvas's own
    pixel aspect, so nothing has to state it twice. */
-.so101-camfeed { position: absolute; right: 3%; top: 25%; width: 32%; margin: 0; border: 2px solid ${INK}; border-radius: 6px; overflow: hidden; background: #20262a; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
+.so101-camfeed { position: absolute; right: 3%; top: 34%; width: 32%; margin: 0; border: 2px solid ${INK}; border-radius: 6px; overflow: hidden; background: #20262a; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; }
 .so101-camfeed-view { display: block; width: 100%; height: auto; }
 .so101-camfeed figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 3px 6px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, .55); }
 /* Only the recorded portion of each curve is drawn each frame, so the chart
    fills in live rather than showing the whole shape up front. */
-.so101-graph { position: absolute; right: 3%; top: 5%; width: 32%; height: 17%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
+.so101-graph { position: absolute; right: 3%; top: 5%; width: 32%; height: 26%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
 .so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
 .so101-graph-trace { fill: none; stroke-width: 2; }
