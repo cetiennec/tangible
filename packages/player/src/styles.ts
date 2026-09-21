@@ -11,6 +11,20 @@ export const PLAYER_CSS = `
 .xv-overlay { position: absolute; inset: 0; pointer-events: none; }
 .xv-board { position: absolute; top: 0; right: 0; width: 28%; height: 100%; padding: 12px; box-sizing: border-box; overflow: auto; pointer-events: none; }
 .xv-captions { position: absolute; left: 3%; right: 30%; bottom: 60px; padding: 3px 8px; text-align: center; font: clamp(15px, 2.1vw, 18px)/1.35 sans-serif; color: #111; text-shadow: 0 1px 2px #fff; pointer-events: none; }
+/* The pause bar sits in the caption band, which is empty for as long as a
+   checkpoint holds, and stays a bar rather than a covering screen so the
+   scene behind it remains usable — which is the point of a checkpoint. */
+/* display:flex would otherwise beat the hidden attribute's UA display:none,
+   leaving the bar on screen for the whole lesson. */
+.xv-pause-panel[hidden] { display: none; }
+.xv-pause-panel { position: absolute; left: 3%; right: 30%; bottom: 54px; z-index: 6; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; padding: 10px 16px; border-radius: 12px; background: rgba(12, 18, 28, 0.86); color: #fff; font-family: system-ui, sans-serif; }
+.xv-pause-text { min-width: 0; text-align: left; }
+.xv-pause-title { margin: 0; font: 700 15px/1.3 system-ui, sans-serif; }
+.xv-pause-prompt { margin: 2px 0 0; font: 400 13px/1.4 system-ui, sans-serif; color: #d6e2f2; }
+.xv-pause-button { flex: none; min-height: 40px; padding: 9px 20px; border: 0; border-radius: 999px; background: #fff; color: #172033; font: 700 15px/1.2 system-ui, sans-serif; cursor: pointer; }
+.xv-pause-button:hover { background: #dff2ff; }
+.xv-pause-button:focus-visible { outline: 3px solid #78c7ff; outline-offset: 3px; }
+@media (max-width: 520px) { .xv-pause-panel { right: 3%; gap: 10px; padding: 8px 12px; } .xv-pause-title { font-size: 13px; } .xv-pause-prompt { font-size: 12px; } }
 .xv-board-inner { display: flex; flex-direction: column; gap: 10px; }
 .xv-board-item { transition: opacity 200ms ease; pointer-events: auto; }
 .xv-board-item.xv-hidden { display: none; }

@@ -19,6 +19,7 @@ import { AssistantPanel } from "./assistant-panel.js";
 import { lessonPositionAt } from "./lesson-position.js";
 import { ParameterActivityTracker } from "./parameter-activity.js";
 import { mimeForAudio } from "./audio-source.js";
+import { PausePanel } from "./pause-panel.js";
 import { StartScreen, type LessonIntroduction } from "./start-screen.js";
 import { resizeScene, type DesignSize, type SceneSize } from "./scene-size.js";
 
@@ -65,6 +66,7 @@ export class Player {
   readonly board: Board;
   readonly captions: Captions;
   readonly pauseGate: PauseGate;
+  private pausePanel: PausePanel;
   readonly chrome?: Chrome;
   readonly audio: HTMLAudioElement;
   readonly assistant?: AssistantPanel;
@@ -133,8 +135,11 @@ export class Player {
     boardPanel.append(this.board.el);
     this.captions = new Captions(opts.captionsVtt ?? "");
     this.pauseGate = new PauseGate(this.clock, opts.tracks.pauses);
+    // Resuming by any means satisfies the gate, so this needs no more than the
+    // ordinary play the transport button and the space bar already use.
+    this.pausePanel = new PausePanel({ onContinue: () => void this.clock.play() });
 
-    this.container.append(this.canvas, overlay, boardPanel, this.captions.el, this.audio);
+    this.container.append(this.canvas, overlay, boardPanel, this.captions.el, this.pausePanel.el, this.audio);
     this.container.append(portraitMessage());
     this.shell.append(this.container);
     opts.mount.append(this.shell);
@@ -300,6 +305,7 @@ export class Player {
       dt,
       activity: this.activityTracker.evaluate(t, this.store.meta, assistantActivity),
     });
+    this.pausePanel.update(this.pauseGate.holding, this.pauseGate.activePrompt);
     if (this.pauseGate.activePrompt === null) this.captions.update(t);
     this.chrome?.update(t);
     if (this.dumpState) window.__XV_STATE__ = { ...this.store.plain };
