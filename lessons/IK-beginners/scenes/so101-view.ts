@@ -477,41 +477,53 @@ export class RobotView {
    * A camera carried on the gripper, looking out past the jaws — the second
    * point of view a real recording rig has, besides the fixed one.
    *
-   * Which way the gripper points is read off the arm itself, as the direction
-   * from the gripper link to the gripper's own tip frame, rather than guessed
-   * from the description's axes. The camera's up vector has to come from the
-   * gripper's own frame too: the jaws often point straight down, and a world
-   * up of (0, 1, 0) would then be parallel to the view direction, where
-   * lookAt has no single answer and the picture spins.
+   * The published SO-101 description has no camera in it, so this is added
+   * to the model here rather than loaded: the prop and its camera become
+   * children of the gripper link with a fixed local transform, which is what
+   * a URDF fixed joint would have given them. Being children, they then ride
+   * the arm on their own and need no work per frame.
+   *
+   * The placement is measured off the arm rather than guessed. The gripper
+   * tip's position in the gripper link's own frame is a constant of the
+   * robot, since the joint between those two links is fixed, so it gives a
+   * reliable forward direction without knowing the description's axes. The up
+   * direction has to come from that frame too: the jaws often point straight
+   * down, and a world up of (0, 1, 0) would then be parallel to the view
+   * direction, where there is no single answer and the picture would spin.
    */
   setWristCamera(visible: boolean, arm = 0): void {
-    if (this.wristProp) this.wristProp.visible = false;
-    if (!visible) return;
-    const from = this.linkPosition("gripper_link", arm);
-    const tip = this.linkPosition("gripper_frame_link", arm);
-    const link = this.arms[arm]?.links.get("gripper_frame_link");
-    if (!from || !tip || !link) return;
-    const forward = tip.clone().sub(from).normalize();
+    if (!this.wristProp && visible) this.attachWristCamera(arm);
+    if (this.wristProp) this.wristProp.visible = visible;
+  }
 
-    const frame = link.getWorldQuaternion(new THREE.Quaternion());
-    let up = new THREE.Vector3(1, 0, 0).applyQuaternion(frame);
-    if (Math.abs(up.dot(forward)) > 0.9) up = new THREE.Vector3(0, 0, 1).applyQuaternion(frame);
+  private attachWristCamera(arm: number): void {
+    const link = this.arms[arm]?.links.get("gripper_link");
+    const tipLink = this.arms[arm]?.links.get("gripper_frame_link");
+    if (!link || !tipLink) return;
+    link.updateWorldMatrix(true, false);
+    tipLink.updateWorldMatrix(true, false);
+    const tip = link.worldToLocal(tipLink.getWorldPosition(new THREE.Vector3()));
+    const forward = tip.clone().normalize();
+    let up = new THREE.Vector3(0, 0, 1);
+    if (Math.abs(up.dot(forward)) > 0.9) up = new THREE.Vector3(1, 0, 0);
 
-    // Behind the jaws looking out past them, so they frame the shot.
+    // Behind the jaws, looking out past them, so they frame the shot.
     const eye = tip.clone().addScaledVector(forward, -0.05);
     const target = tip.clone().addScaledVector(forward, 0.2);
-    if (!this.wristProp) {
-      this.wristProp = this.cameraProp(0.55, false);
-      this.scene.add(this.wristProp);
-    }
-    this.wristProp.visible = true;
     // Further back still, so the camera is not inside its own body.
-    this.wristProp.position.copy(eye).addScaledVector(forward, -0.022);
-    this.wristProp.up.copy(up);
-    this.wristProp.lookAt(target);
+    const body = eye.clone().addScaledVector(forward, -0.022);
+
+    const prop = this.cameraProp(0.55, false);
+    prop.position.copy(body);
+    // A plain object's lookAt points its +z at the target, a camera's points
+    // its -z, and the lens of the prop is on its +z. Hence the swap.
+    prop.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(target, body, up));
+    link.add(prop);
+    this.wristProp = prop;
+
     this.wristCam.position.copy(eye);
-    this.wristCam.up.copy(up);
-    this.wristCam.lookAt(target);
+    this.wristCam.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, target, up));
+    link.add(this.wristCam);
   }
 
   /** Hide the camera prop when the recording demo isn't running. */

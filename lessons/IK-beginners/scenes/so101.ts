@@ -35,10 +35,8 @@ const FEED_GAP = 6;
 
 const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.95, azimuth: 0.9, elevation: 0.42 };
 
-// The strip chart's Y axis: the elbow's own mechanical travel, not just the
-// range this one task happens to use, so the trace reads against what the
-// joint could do rather than always filling the height regardless of task.
-const ELBOW_RANGE = JOINTS.find((j) => j.param === "elbow")!.range;
+/** The elbow's full mechanical travel, quoted on the chart for scale. */
+const ELBOW_TRAVEL = JOINTS.find((j) => j.param === "elbow")!.range;
 // The follower's real control loop lags the leader's by a little; the 3D
 // motion itself stays perfectly synchronised (the point of this demo is that
 // the copy needs no calculation), but the graph shows the small real delay a
@@ -53,6 +51,24 @@ const ELBOW_SAMPLES_FOLLOWER = Array.from({ length: 101 }, (_unused, i) => {
   const t = i / 100;
   return { t, v: taskFrame(t - FOLLOWER_DELAY).elbow };
 });
+/**
+ * The chart's Y axis: the span this task actually visits, padded a little.
+ *
+ * It used to be the joint's whole mechanical travel, which is a fair thing
+ * to show but left the two traces squeezed into the top fifth of the box,
+ * exactly where the small delay between them is hardest to see. The axis is
+ * labelled with its own numbers and the full travel is quoted in the
+ * caption, so nothing is lost by scaling to the part in use.
+ */
+const ELBOW_AXIS = (() => {
+  const values = [...ELBOW_SAMPLES_LEADER, ...ELBOW_SAMPLES_FOLLOWER].map((sample) => sample.v);
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const pad = (high - low) * 0.15;
+  return [low - pad, high + pad] as const;
+})();
+/** The plot area inside the chart's own 230 by 100 coordinates. */
+const PLOT = { left: 27, right: 226, top: 9, bottom: 80 };
 
 export const schema: Schema = {
   ...Object.fromEntries(
@@ -212,14 +228,21 @@ export const scene: SceneModule = {
         </figure>
       </div>
       <figure class="so101-graph" hidden>
-        <svg viewBox="0 0 200 90" preserveAspectRatio="none" aria-hidden="true">
-          <line x1="0" y1="45" x2="200" y2="45" class="so101-graph-zero"></line>
+        <svg viewBox="0 0 230 100" preserveAspectRatio="none" aria-hidden="true">
+          <line class="so101-graph-rule" x1="${PLOT.left}" y1="${PLOT.top}" x2="${PLOT.right}" y2="${PLOT.top}"></line>
+          <line class="so101-graph-rule" x1="${PLOT.left}" y1="${(PLOT.top + PLOT.bottom) / 2}" x2="${PLOT.right}" y2="${(PLOT.top + PLOT.bottom) / 2}"></line>
+          <line class="so101-graph-axis" x1="${PLOT.left}" y1="${PLOT.top}" x2="${PLOT.left}" y2="${PLOT.bottom}"></line>
+          <line class="so101-graph-axis" x1="${PLOT.left}" y1="${PLOT.bottom}" x2="${PLOT.right}" y2="${PLOT.bottom}"></line>
+          <text class="so101-graph-tick" x="${PLOT.left - 4}" y="${PLOT.top + 3}"></text>
+          <text class="so101-graph-tick" x="${PLOT.left - 4}" y="${(PLOT.top + PLOT.bottom) / 2 + 3}"></text>
+          <text class="so101-graph-tick" x="${PLOT.left - 4}" y="${PLOT.bottom + 3}"></text>
+          <text class="so101-graph-axislabel" x="${PLOT.right}" y="${PLOT.bottom + 13}">through the run →</text>
           <polyline class="so101-graph-trace so101-graph-leader" points=""></polyline>
           <polyline class="so101-graph-trace so101-graph-follower" points=""></polyline>
-          <circle class="so101-graph-dot so101-graph-dot-leader" r="3"></circle>
-          <circle class="so101-graph-dot so101-graph-dot-follower" r="3"></circle>
+          <circle class="so101-graph-dot so101-graph-dot-leader" r="2.6"></circle>
+          <circle class="so101-graph-dot so101-graph-dot-follower" r="2.6"></circle>
         </svg>
-        <figcaption>Elbow angle — <span class="so101-graph-key so101-graph-key-leader">leader</span> <span class="so101-graph-key so101-graph-key-follower">follower</span></figcaption>
+        <figcaption>Elbow angle in radians (joint travels ${ELBOW_TRAVEL[0].toFixed(2)} to ${ELBOW_TRAVEL[1].toFixed(2)}) — <span class="so101-graph-key so101-graph-key-leader">leader</span> <span class="so101-graph-key so101-graph-key-follower">follower</span></figcaption>
       </figure>
       <div class="so101-parts" hidden>
         ${JOINTS.map((entry) => `<span class="so101-part" data-joint="${entry.joint}" hidden>${entry.label}</span>`).join("")}
@@ -249,6 +272,7 @@ export const scene: SceneModule = {
     const wristFeed = root.querySelector<HTMLElement>(".so101-wristfeed")!;
     const wristFeedView = root.querySelector<HTMLCanvasElement>(".so101-wristfeed-view")!;
     const graph = root.querySelector<HTMLElement>(".so101-graph")!;
+    const graphTicks = [...root.querySelectorAll<SVGTextElement>(".so101-graph-tick")];
     const graphLeaderTrace = root.querySelector<SVGPolylineElement>(".so101-graph-leader")!;
     const graphFollowerTrace = root.querySelector<SVGPolylineElement>(".so101-graph-follower")!;
     const graphLeaderDot = root.querySelector<SVGCircleElement>(".so101-graph-dot-leader")!;
@@ -386,19 +410,26 @@ export const scene: SceneModule = {
           graph.hidden = !running;
           if (running) {
             const progress = state.task as number;
-            const [low, high] = ELBOW_RANGE;
-            const toSvgY = (v: number) => 88 - ((v - low) / (high - low)) * 86;
+            const [low, high] = ELBOW_AXIS;
+            const toY = (v: number) => PLOT.bottom - ((v - low) / (high - low)) * (PLOT.bottom - PLOT.top);
+            const toX = (t: number) => PLOT.left + t * (PLOT.right - PLOT.left);
             const trace = (samples: typeof ELBOW_SAMPLES_LEADER) =>
               samples
-                .filter((s) => s.t <= progress)
-                .map((s) => `${s.t * 200},${toSvgY(s.v)}`)
+                .filter((sample) => sample.t <= progress)
+                .map((sample) => `${toX(sample.t).toFixed(1)},${toY(sample.v).toFixed(1)}`)
                 .join(" ");
             graphLeaderTrace.setAttribute("points", trace(ELBOW_SAMPLES_LEADER));
             graphFollowerTrace.setAttribute("points", trace(ELBOW_SAMPLES_FOLLOWER));
-            graphLeaderDot.setAttribute("cx", String(progress * 200));
-            graphLeaderDot.setAttribute("cy", String(toSvgY(taskFrame(progress).elbow)));
-            graphFollowerDot.setAttribute("cx", String(progress * 200));
-            graphFollowerDot.setAttribute("cy", String(toSvgY(taskFrame(progress - FOLLOWER_DELAY).elbow)));
+            graphLeaderDot.setAttribute("cx", String(toX(progress)));
+            graphLeaderDot.setAttribute("cy", String(toY(taskFrame(progress).elbow)));
+            graphFollowerDot.setAttribute("cx", String(toX(progress)));
+            graphFollowerDot.setAttribute("cy", String(toY(taskFrame(progress - FOLLOWER_DELAY).elbow)));
+            // Written once the scale is known rather than baked into the
+            // markup, so the axis and its labels cannot drift apart.
+            const labels = [high, (low + high) / 2, low].map((v) => v.toFixed(2));
+            graphTicks.forEach((tick, i) => {
+              if (tick.textContent !== labels[i]) tick.textContent = labels[i]!;
+            });
           }
 
           // Name one joint at a time, where it actually is, projected from
@@ -527,13 +558,19 @@ const STYLE = `
    fills in live rather than showing the whole shape up front. */
 .so101-graph { position: absolute; right: 3%; top: 5%; width: 32%; height: 26%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
-.so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
-.so101-graph-trace { fill: none; stroke-width: 2; }
+/* The viewBox is 230 by 100 to match the panel's own proportions, so the
+   stretch to fill it is close to one to one and nothing is visibly
+   distorted. Strokes are kept off the scaling anyway. */
+.so101-graph-axis { stroke: ${INK}; stroke-width: 1; opacity: .5; vector-effect: non-scaling-stroke; }
+.so101-graph-rule { stroke: ${MUTED}; stroke-width: 1; stroke-dasharray: 3 3; opacity: .45; vector-effect: non-scaling-stroke; }
+.so101-graph-tick { fill: ${MUTED}; font: 600 7px system-ui, sans-serif; text-anchor: end; }
+.so101-graph-axislabel { fill: ${MUTED}; font: 600 7px system-ui, sans-serif; text-anchor: end; }
+.so101-graph-trace { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .so101-graph-leader { stroke: ${LINK1}; }
-.so101-graph-follower { stroke: ${TIP}; stroke-dasharray: 3 2; }
+.so101-graph-follower { stroke: ${TIP}; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; }
 .so101-graph-dot-leader { fill: ${LINK1}; }
 .so101-graph-dot-follower { fill: ${TIP}; }
-.so101-graph figcaption { margin: 2px 0 0; font-size: 10px; font-weight: 700; color: ${INK}; text-align: center; }
+.so101-graph figcaption { margin: 2px 0 0; font-size: 10px; font-weight: 600; color: ${MUTED}; text-align: center; }
 .so101-graph-key::before { content: "●"; margin-right: 2px; }
 .so101-graph-key-leader { color: ${LINK1}; }
 .so101-graph-key-follower { color: ${TIP}; }
@@ -541,18 +578,19 @@ const STYLE = `
    frame; the container only toggles which set is in play. */
 .so101-parts { pointer-events: none; }
 .so101-part { position: absolute; transform: translate(-50%, -130%); padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .95); border: 1px solid ${INK}; font-size: 13px; font-weight: 700; color: ${INK}; white-space: nowrap; }
-.so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 46%; padding: 0; font-size: 16px; }
-/* The closing names topics this lesson does not cover; they are shown as
-   labelled blocks under a heading rather than passed over in speech. */
-.so101-player .xv-board-inner { gap: 7px; }
-.so101-player .xv-board-item[data-id="later"] { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: ${MUTED}; }
-.so101-player .xv-board-item[data-id="t1"],
-.so101-player .xv-board-item[data-id="t2"],
-.so101-player .xv-board-item[data-id="t3"],
-.so101-player .xv-board-item[data-id="t4"],
-.so101-player .xv-board-item[data-id="t5"] {
+.so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 56%; padding: 0; font-size: 16px; }
+/* Every card on this scene's board reads as a labelled block. The closing
+   list of topics was styled this way and it is far easier to read across a
+   room than plain lines, so the LeRobot introduction uses it too. The one
+   exception is "later", which is a small heading above its list. */
+.so101-player .xv-board-inner { gap: 8px; }
+.so101-player .xv-board-item {
   padding: 11px 14px; border-left: 4px solid ${LINK1}; border-radius: 0 9px 9px 0;
-  background: rgba(255, 255, 255, .92); font-size: 16px; font-weight: 600; line-height: 1.25; color: ${INK};
+  background: rgba(255, 255, 255, .92); font-size: 17px; font-weight: 600; line-height: 1.25; color: ${INK};
+}
+.so101-player .xv-board-item[data-id="later"] {
+  padding: 2px 0 0; border-left: 0; border-radius: 0; background: none;
+  font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: ${MUTED};
 }
 .so101-player .xv-captions { color: ${INK}; text-shadow: none; }
 @media (max-height: 500px) and (orientation: landscape) {
