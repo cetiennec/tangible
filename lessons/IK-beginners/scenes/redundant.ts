@@ -113,8 +113,8 @@ export const scene: SceneModule = {
         <p class="red-kicker">Spare joints</p>
         <h1>One point, endlessly many ways to reach it</h1>
       </header>
-      <p class="red-caption red-caption-flat">3 joints, in a plane</p>
-      <p class="red-caption red-caption-space">5 joints, in space</p>
+      <p class="red-caption red-caption-flat">3 links, 3 DOF, in a plane</p>
+      <p class="red-caption red-caption-space">5 links, 5 DOF, in space</p>
       <div class="red-panel">
         <label class="red-label" for="red-spread">Flex the arm</label>
         <input id="red-spread" type="range" min="0" max="1" step="0.001"

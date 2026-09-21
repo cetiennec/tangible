@@ -107,7 +107,7 @@ This is why limits matter so much in practice. Across this whole ring, @cue(show
 @scene(redundant)
 If the robot @cue(spread -> 0.9, over: 0.7s) has more degrees @cue(spread -> 0.2, over: 0.7s) of freedom than the @cue(spread -> 0.75, over: 0.7s) space, the number of @cue(spread -> 0.35, over: 0.7s) solutions can actually go to infinity.
 
-Look to these two examples : One 3 DOF arm in 2D and one 4 DOF in 3D.@cue(spread -> 0.1, over: 3.4s) 
+Look to these two examples : One 3 DOF arm in 2D and one 5 DOF in 3D.@cue(spread -> 0.1, over: 3.4s) 
 
 Flex the arm with the slider. The tip never leaves the target, showing that there is an infinite number of solutions to the IK problem, especially if we don't consider end-effector angle.
 
@@ -124,7 +124,7 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-@cue(show.jacobian = true) The J in there is the Jacobian, the matrix @cue(q1 -> 1.9, over: 0.7s) @cue(q2 -> -0.6, over: 0.7s) of partial derivatives that says @cue(q1 -> 0.9, over: 0.7s) @cue(q2 -> -1.9, over: 0.7s) how a small turn of @cue(q1 -> 1.7, over: 0.7s) @cue(q2 -> -0.3, over: 0.7s) each joint nudges @cue(q1 -> 1.422, over: 0.7s) @cue(q2 -> -1.424, over: 0.7s) the tip in x and y — watch the arrows move to a new spot each time. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
+@cue(show.jacobian = true) The J in there is the Jacobian, the matrix @cue(q1 -> 1.9, over: 1.1s) @cue(q2 -> -0.6, over: 1.1s) of partial derivatives that says @cue(q1 -> 0.9, over: 1.1s) @cue(q2 -> -1.9, over: 1.1s) how a small turn of @cue(q1 -> 1.7, over: 1.1s) @cue(q2 -> -0.3, over: 1.1s) each joint nudges @cue(q1 -> 1.422, over: 1.1s) @cue(q2 -> -1.424, over: 1.1s) the tip in x and y — watch the arrows move to a new spot each time. Turning q1 alone swings the tip around the base; turning q2 alone swings it around the elbow.
 
 @cue(show.jacobian = false)
 
@@ -158,12 +158,11 @@ Now let's talk about @board(kwLerobot: "LeRobot") LeRobot which is Hugging Face 
 @cue(lift -> -0.75) @cue(elbow -> 1.35) @cue(wristFlex -> 0.45) @cue(gripper -> 0.5)
 This actually depends on the teleoperator. Here is the SO-101 follower arm.
 
-@cue(show.parts = true)
-From base to tip: shoulder pan, shoulder lift, elbow, wrist flex, wrist roll, and the gripper.
+From base to tip: @cue(activePart = shoulder_pan) shoulder pan, @cue(activePart = shoulder_lift) shoulder lift, @cue(activePart = elbow_flex) elbow, @cue(activePart = wrist_flex) wrist flex, @cue(activePart = wrist_roll) wrist roll, and the @cue(activePart = gripper) gripper.
 
 @pause(prompt: "Match each label to the joint it names.", speak: false)
 
-@cue(show.parts = false)
+@cue(activePart = none)
 Teleoperation just means a person drives the robot in real time, and the way they drive it decides whether we need inverse kinematics at all.
 
 There are broadly two ways to do it. Either you say where you want the gripper to be, as a position in space, or you say what angle each joint should hold. The first is planning in the Cartesian space, the second in the joint space.

@@ -109,12 +109,12 @@ export const schema: Schema = {
     ownership: "script",
     label: "grow the LeRobot mark for the introduction beat",
   },
-  "show.parts": {
-    type: { kind: "boolean" },
-    default: false,
+  activePart: {
+    type: { kind: "enum", values: ["none", ...JOINTS.map((entry) => entry.joint)] },
+    default: "none",
     interpolate: "snap",
     ownership: "script",
-    label: "name each joint on the follower, for the introduction",
+    label: "name one joint on the follower at a time, for the introduction",
   },
 } as Schema;
 
@@ -148,16 +148,13 @@ export function offsetBrick(
   return [at[0] + offset[0], at[1] + offset[1], at[2] + offset[2]];
 }
 
+// No "leader" entry: that note's screen spot (right:3%, top:32%) is where
+// the camera feed and strip chart sit once the task starts.
 const NOTES: Record<string, { title: string; body: string; accent: string }> = {
   phone: {
     title: "Phone as teleoperator",
     body: "The operator moves a pose in Cartesian space, so the arm must solve IK to find its joint angles.",
     accent: TIP,
-  },
-  leader: {
-    title: "Leader arm as teleoperator",
-    body: "The leader's joint angles are copied straight to the follower. Planning happens in joint space, so no IK is needed.",
-    accent: LINK1,
   },
 };
 
@@ -329,33 +326,40 @@ export const scene: SceneModule = {
           camFeed.hidden = !showFeed;
           const b = box();
           const margin = 14;
-          const colWidth = b.width * 0.3;
-          const colX = b.width - colWidth - margin;
-          const pipHeight = colWidth * 0.72;
-          const pipY = b.height - pipHeight - margin;
+          // The feed is a real WebGL sub-viewport (renderer.setScissor), so
+          // it can only live inside the canvas's own pixel buffer — the
+          // canvas box only spans the scene's left ~62%. Top-right corner of
+          // that box, not the note's spot further right, which the canvas
+          // does not reach.
+          const pipWidth = b.width * 0.3;
+          const pipHeight = pipWidth * 0.72;
+          const pipX = b.width - pipWidth - margin;
+          const pipY = margin;
           if (showFeed) {
             const offset = view.armOffset(0);
             const camPos = offsetBrick(sceneCamLocal!.position, offset)!;
             const camLookAt = offsetBrick(sceneCamLocal!.lookAt, offset)!;
             view.setSceneCamera(camPos, camLookAt);
             view.setWebcam(camPos, camLookAt);
-            view.render({ x: colX, y: pipY, width: colWidth, height: pipHeight });
+            view.render({ x: pipX, y: pipY, width: pipWidth, height: pipHeight });
             // The DOM frame sits over the canvas at the matching on-screen
             // spot: the canvas box is itself a percentage of the whole scene,
             // so the pip's position within it needs converting the same way.
-            camFeed.style.left = `${((b.left + colX) / size.width) * 100}%`;
+            camFeed.style.left = `${((b.left + pipX) / size.width) * 100}%`;
             camFeed.style.top = `${((b.top + pipY) / size.height) * 100}%`;
-            camFeed.style.width = `${(colWidth / size.width) * 100}%`;
+            camFeed.style.width = `${(pipWidth / size.width) * 100}%`;
             camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
           } else {
             view.hideWebcam();
             view.render();
           }
 
-          // The strip chart traces live, above the camera feed: only the
-          // part of each curve already "recorded" (task <= current progress)
-          // is drawn, the same way the video only has frames up to now. The
-          // follower's trace runs a beat behind the leader's.
+          // The strip chart traces live: only the part of each curve already
+          // "recorded" (task <= current progress) is drawn, the same way the
+          // video only has frames up to now. The follower's trace runs a
+          // beat behind the leader's. Unlike the feed this is plain DOM/SVG,
+          // so it can sit anywhere — the "leader arm as teleoperator" note's
+          // old spot, which nothing needs any more once the task is running.
           graph.hidden = !running;
           if (running) {
             const progress = state.task as number;
@@ -372,31 +376,26 @@ export const scene: SceneModule = {
             graphLeaderDot.setAttribute("cy", String(toSvgY(taskFrame(progress).elbow)));
             graphFollowerDot.setAttribute("cx", String(progress * 200));
             graphFollowerDot.setAttribute("cy", String(toSvgY(taskFrame(progress - FOLLOWER_DELAY).elbow)));
-
-            const graphHeight = pipHeight * 0.85;
-            const gap = 8;
-            const graphY = pipY - graphHeight - gap;
-            graph.style.left = `${((b.left + colX) / size.width) * 100}%`;
-            graph.style.top = `${((b.top + graphY) / size.height) * 100}%`;
-            graph.style.width = `${(colWidth / size.width) * 100}%`;
-            graph.style.height = `${(graphHeight / size.height) * 100}%`;
           }
 
-          // Name each joint where it actually is, projected from its live 3D
-          // position — the labels track the arm rather than sitting fixed,
-          // so they stay put on the joint through whatever pose introduces it.
-          const showParts = Boolean(state["show.parts"]);
-          partsContainer.hidden = !showParts;
-          if (showParts) {
-            for (const entry of JOINTS) {
-              const label = partLabels.get(entry.joint)!;
-              const world = view.jointWorldPosition(entry.joint, 0);
-              const at = world && view.projectToScreen(world, b.width, b.height);
-              label.hidden = !at;
-              if (at) {
-                label.style.left = `${((b.left + at.x) / size.width) * 100}%`;
-                label.style.top = `${((b.top + at.y) / size.height) * 100}%`;
-              }
+          // Name one joint at a time, where it actually is, projected from
+          // its live 3D position, in step with the narration: activePart
+          // changes as each name is spoken, so a label appears, then makes
+          // way for the next rather than all six crowding the arm at once.
+          const activePart = String(state.activePart);
+          partsContainer.hidden = activePart === "none";
+          for (const entry of JOINTS) {
+            const label = partLabels.get(entry.joint)!;
+            if (entry.joint !== activePart) {
+              label.hidden = true;
+              continue;
+            }
+            const world = view.jointWorldPosition(entry.joint, 0);
+            const at = world && view.projectToScreen(world, b.width, b.height);
+            label.hidden = !at;
+            if (at) {
+              label.style.left = `${((b.left + at.x) / size.width) * 100}%`;
+              label.style.top = `${((b.top + at.y) / size.height) * 100}%`;
             }
           }
         } else if (!failed) {
@@ -443,7 +442,12 @@ export const scene: SceneModule = {
 
 const STYLE = `
 .so101-player { background: #eef1f2; color: ${INK}; }
-.so101-scene { font-family: system-ui, sans-serif; }
+/* root (this section) and the WebGL canvas are both plain absolute-position
+   siblings of the overlay with no stacking context of their own, so without
+   this they stack in DOM order — the canvas was appended after root, so
+   every label here (joint names especially, drawn right over the model)
+   painted behind it instead of on top. */
+.so101-scene { position: relative; z-index: 1; font-family: system-ui, sans-serif; }
 .so101-scene header { position: absolute; top: 4%; left: 3%; width: 52%; }
 .so101-brand { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
 .so101-logo { display: block; width: 34px; height: 34px; border-radius: 7px; object-fit: contain; background: #fff; transition: width 900ms ease, height 900ms ease; }
@@ -490,7 +494,9 @@ const STYLE = `
 /* A strip chart beside the camera feed: only the recorded portion of the
    curve is drawn each frame, so it fills in live rather than showing the
    whole shape up front. */
-.so101-graph { position: absolute; margin: 0; padding: 4px; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
+/* The "leader arm as teleoperator" note's old rectangle — nothing needs it
+   once the task is running, since teleop stays "leader" by then. */
+.so101-graph { position: absolute; right: 3%; top: 32%; width: 28%; height: 22%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
 .so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
 .so101-graph-trace { fill: none; stroke-width: 2; }
@@ -505,7 +511,7 @@ const STYLE = `
 /* One label per joint, each positioned from its own projected 3D point every
    frame; the container only toggles which set is in play. */
 .so101-parts { pointer-events: none; }
-.so101-part { position: absolute; transform: translate(-50%, -130%); padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .92); border: 1px solid ${INK}; font-size: 11px; font-weight: 700; color: ${INK}; white-space: nowrap; }
+.so101-part { position: absolute; transform: translate(-50%, -130%); padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .95); border: 1px solid ${INK}; font-size: 13px; font-weight: 700; color: ${INK}; white-space: nowrap; }
 .so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 46%; padding: 0; font-size: 16px; }
 /* The closing names topics this lesson does not cover; they are shown as
    labelled blocks under a heading rather than passed over in speech. */
@@ -523,6 +529,7 @@ const STYLE = `
 @media (max-height: 500px) and (orientation: landscape) {
   .so101-scene h1 { font-size: 15px; }
   .so101-note { top: 28%; padding: 9px 11px; }
+  .so101-graph { top: 28%; padding: 6px; }
   .so101-note-body { font-size: 11px; }
   .so101-credit { display: none; }
 }

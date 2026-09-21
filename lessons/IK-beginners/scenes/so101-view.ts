@@ -84,6 +84,7 @@ export class RobotView {
     this.canvas = overlay.ownerDocument.createElement("canvas");
     this.canvas.setAttribute("aria-hidden", "true");
     this.canvas.style.position = "absolute";
+    this.canvas.style.zIndex = "0";
     this.canvas.style.pointerEvents = "none";
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
