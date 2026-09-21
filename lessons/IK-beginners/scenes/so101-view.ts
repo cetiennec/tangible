@@ -219,6 +219,17 @@ export class RobotView {
     return this.arms.length;
   }
 
+  /**
+   * The on-screen offset arrange() has given this arm right now. A point
+   * measured with measureGrip (before arrange had ever run once, so before
+   * any offset existed) needs this added back in before it means anything on
+   * screen, the same way gripPoint's live reading already includes it.
+   */
+  armOffset(arm = 0): [number, number, number] {
+    const root = this.arms[arm]?.root;
+    return root ? [root.position.x, root.position.y, root.position.z] : [0, 0, 0];
+  }
+
   /** Place the camera on an orbit around the arms. */
   /**
    * Draw the bend at two joints, as an arc between the link coming in and the

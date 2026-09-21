@@ -105,6 +105,15 @@ const DEVICES: Record<string, string> = {
     </svg>`,
 };
 
+/** Add the arm's current on-screen offset to a point measured before it existed. */
+export function offsetBrick(
+  at: [number, number, number] | undefined,
+  offset: [number, number, number],
+): [number, number, number] | undefined {
+  if (!at) return at;
+  return [at[0] + offset[0], at[1] + offset[1], at[2] + offset[2]];
+}
+
 const NOTES: Record<string, { title: string; body: string; accent: string }> = {
   phone: {
     title: "Phone as teleoperator",
@@ -219,11 +228,15 @@ export const scene: SceneModule = {
             for (let arm = 0; arm < view.armCount; arm += 1) view.setJoint(entry.joint, angle, arm);
           }
           view.showJointAngles(0, state["show.angles"] as boolean, TIP);
-          if (!running) view.setBrick(undefined, TIP);
-          else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
-          else view.setBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, TIP);
+          // Arrange before the brick, not after: pickAt and placeAt were
+          // measured before arrange had ever run once, in the follower's own
+          // frame, so they need the offset arrange just gave it added back in
+          // — the same offset gripPoint's live reading already carries.
           const camera = state.camera as OrbitState;
           view.arrange(pair, 0.46, camera.azimuth);
+          if (!running) view.setBrick(undefined, TIP);
+          else if (frame!.holding) view.setBrick(view.gripPoint(0), TIP);
+          else view.setBrick(offsetBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, view.armOffset(0)), TIP);
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
           view.render();
         } else if (!failed) {
