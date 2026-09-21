@@ -45,6 +45,31 @@ test("checkpoint pauses after the spoken tail and resumes from the play button",
   await page.waitForFunction(() => (window as any).__player.clock.playing === true);
 });
 
+test("a held checkpoint says so on screen and offers its own way to continue", async ({ page }) => {
+  await ready(page);
+  const pauseT = tracks.pauses[0].t as number;
+  const bar = page.locator(".xv-pause-panel");
+  await expect(bar).toBeHidden();
+
+  await page.evaluate((pt) => {
+    const p = (window as any).__player;
+    p.clock.seek(pt - 0.4);
+    p.clock.play();
+  }, pauseT);
+  await page.waitForFunction(() => (window as any).__player.clock.playing === false, null, { timeout: 6000 });
+
+  // The learner is told the lesson is waiting for them, not that it broke.
+  await expect(bar).toBeVisible();
+  await expect(bar.locator(".xv-pause-title")).toHaveText("Paused — play with the simulation");
+  const prompt = tracks.pauses[0].prompt as string | undefined;
+  if (prompt) await expect(bar.locator(".xv-pause-prompt")).toHaveText(prompt);
+
+  // Continuing from the bar itself, rather than hunting for the transport bar.
+  await bar.locator(".xv-pause-button").click();
+  await page.waitForFunction(() => (window as any).__player.clock.playing === true);
+  await expect(bar).toBeHidden();
+});
+
 test("catch-up: a paused edit freezes, then holds and glides after resume", async ({ page }) => {
   await ready(page);
   // Seek first and let the rAF loop settle (a seek clears interactions).

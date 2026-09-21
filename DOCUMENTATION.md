@@ -1943,8 +1943,15 @@ selection, timing, and state rules. `@chapter` adds a timeline marker without
 changing the active module.
 
 A spoken pause inserts its prompt into narration and stops at the prompt
-boundary. A silent pause stops without adding text. The normal play control
-resumes.
+boundary. A silent pause stops without adding text to the narration.
+
+While a checkpoint holds, the player shows a bar reading "Paused — play with
+the simulation", with the prompt beneath it and a Continue button. The scene
+stays fully interactive behind it, which is the point of a checkpoint. Any of
+the Continue button, the transport play control, and the space bar resumes,
+and a prompt is optional: a pause without one still shows the bar, so a
+stopped lesson never looks like a stuck one.
+
 Checkpoint times are rounded to the player's hundredth-of-a-second clock so
 resuming cannot immediately trigger the same pause again.
 
