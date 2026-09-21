@@ -31,10 +31,19 @@ const HOME: OrbitState = { target: [0, 0.12, 0], distance: 0.78, azimuth: 0.9, e
 // range this one task happens to use, so the trace reads against what the
 // joint could do rather than always filling the height regardless of task.
 const ELBOW_RANGE = JOINTS.find((j) => j.param === "elbow")!.range;
+// The follower's real control loop lags the leader's by a little; the 3D
+// motion itself stays perfectly synchronised (the point of this demo is that
+// the copy needs no calculation), but the graph shows the small real delay a
+// physical system would have between commanded and actual position.
+const FOLLOWER_DELAY = 0.03;
 /** Elbow angle across the task, sampled once — a fixed curve to trace live. */
-const ELBOW_SAMPLES = Array.from({ length: 101 }, (_unused, i) => {
+const ELBOW_SAMPLES_LEADER = Array.from({ length: 101 }, (_unused, i) => {
   const t = i / 100;
   return { t, v: taskFrame(t).elbow };
+});
+const ELBOW_SAMPLES_FOLLOWER = Array.from({ length: 101 }, (_unused, i) => {
+  const t = i / 100;
+  return { t, v: taskFrame(t - FOLLOWER_DELAY).elbow };
 });
 
 export const schema: Schema = {
@@ -99,6 +108,13 @@ export const schema: Schema = {
     interpolate: "snap",
     ownership: "script",
     label: "grow the LeRobot mark for the introduction beat",
+  },
+  "show.parts": {
+    type: { kind: "boolean" },
+    default: false,
+    interpolate: "snap",
+    ownership: "script",
+    label: "name each joint on the follower, for the introduction",
   },
 } as Schema;
 
@@ -179,11 +195,16 @@ export const scene: SceneModule = {
       <figure class="so101-graph" hidden>
         <svg viewBox="0 0 200 90" preserveAspectRatio="none" aria-hidden="true">
           <line x1="0" y1="45" x2="200" y2="45" class="so101-graph-zero"></line>
-          <polyline class="so101-graph-trace" points=""></polyline>
-          <circle class="so101-graph-dot" r="3"></circle>
+          <polyline class="so101-graph-trace so101-graph-leader" points=""></polyline>
+          <polyline class="so101-graph-trace so101-graph-follower" points=""></polyline>
+          <circle class="so101-graph-dot so101-graph-dot-leader" r="3"></circle>
+          <circle class="so101-graph-dot so101-graph-dot-follower" r="3"></circle>
         </svg>
-        <figcaption>Elbow angle — recorded over time</figcaption>
+        <figcaption>Elbow angle — <span class="so101-graph-key so101-graph-key-leader">leader</span> <span class="so101-graph-key so101-graph-key-follower">follower</span></figcaption>
       </figure>
+      <div class="so101-parts" hidden>
+        ${JOINTS.map((entry) => `<span class="so101-part" data-joint="${entry.joint}" hidden>${entry.label}</span>`).join("")}
+      </div>
     `;
     const style = document.createElement("style");
     style.textContent = STYLE;
@@ -205,8 +226,14 @@ export const scene: SceneModule = {
     let shownDiagram = "";
     const camFeed = root.querySelector<HTMLElement>(".so101-camfeed")!;
     const graph = root.querySelector<HTMLElement>(".so101-graph")!;
-    const graphTrace = root.querySelector<SVGPolylineElement>(".so101-graph-trace")!;
-    const graphDot = root.querySelector<SVGCircleElement>(".so101-graph-dot")!;
+    const graphLeaderTrace = root.querySelector<SVGPolylineElement>(".so101-graph-leader")!;
+    const graphFollowerTrace = root.querySelector<SVGPolylineElement>(".so101-graph-follower")!;
+    const graphLeaderDot = root.querySelector<SVGCircleElement>(".so101-graph-dot-leader")!;
+    const graphFollowerDot = root.querySelector<SVGCircleElement>(".so101-graph-dot-follower")!;
+    const partsContainer = root.querySelector<HTMLElement>(".so101-parts")!;
+    const partLabels = new Map(
+      JOINTS.map((entry) => [entry.joint, root.querySelector<HTMLElement>(`.so101-part[data-joint="${entry.joint}"]`)!]),
+    );
     let shownDevice = "";
 
     const view = new RobotView(ctx.overlay);
@@ -296,13 +323,15 @@ export const scene: SceneModule = {
           else view.setBrick(offsetBrick((state.task as number) < GRASP_AT ? pickAt : placeAt, view.armOffset(0)), TIP);
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
 
+          // Both panels share one column on the right of the canvas box,
+          // stacked: the camera feed at the bottom, the strip chart above it.
           const showFeed = running && Boolean(sceneCamLocal);
           camFeed.hidden = !showFeed;
           const b = box();
           const margin = 14;
-          const pipWidth = b.width * 0.3;
-          const pipHeight = pipWidth * 0.72;
-          const pipX = b.width - pipWidth - margin;
+          const colWidth = b.width * 0.3;
+          const colX = b.width - colWidth - margin;
+          const pipHeight = colWidth * 0.72;
           const pipY = b.height - pipHeight - margin;
           if (showFeed) {
             const offset = view.armOffset(0);
@@ -310,40 +339,65 @@ export const scene: SceneModule = {
             const camLookAt = offsetBrick(sceneCamLocal!.lookAt, offset)!;
             view.setSceneCamera(camPos, camLookAt);
             view.setWebcam(camPos, camLookAt);
-            view.render({ x: pipX, y: pipY, width: pipWidth, height: pipHeight });
+            view.render({ x: colX, y: pipY, width: colWidth, height: pipHeight });
             // The DOM frame sits over the canvas at the matching on-screen
             // spot: the canvas box is itself a percentage of the whole scene,
             // so the pip's position within it needs converting the same way.
-            camFeed.style.left = `${((b.left + pipX) / size.width) * 100}%`;
+            camFeed.style.left = `${((b.left + colX) / size.width) * 100}%`;
             camFeed.style.top = `${((b.top + pipY) / size.height) * 100}%`;
-            camFeed.style.width = `${(pipWidth / size.width) * 100}%`;
+            camFeed.style.width = `${(colWidth / size.width) * 100}%`;
             camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
           } else {
             view.hideWebcam();
             view.render();
           }
 
-          // The strip chart traces live, beside the camera feed: only the
-          // part of the curve already "recorded" (task <= current progress)
-          // is drawn, the same way the video only has frames up to now.
+          // The strip chart traces live, above the camera feed: only the
+          // part of each curve already "recorded" (task <= current progress)
+          // is drawn, the same way the video only has frames up to now. The
+          // follower's trace runs a beat behind the leader's.
           graph.hidden = !running;
           if (running) {
             const progress = state.task as number;
             const [low, high] = ELBOW_RANGE;
             const toSvgY = (v: number) => 88 - ((v - low) / (high - low)) * 86;
-            const points = ELBOW_SAMPLES.filter((s) => s.t <= progress)
-              .map((s) => `${s.t * 200},${toSvgY(s.v)}`)
-              .join(" ");
-            graphTrace.setAttribute("points", points);
-            const current = taskFrame(progress).elbow;
-            graphDot.setAttribute("cx", String(progress * 200));
-            graphDot.setAttribute("cy", String(toSvgY(current)));
+            const trace = (samples: typeof ELBOW_SAMPLES_LEADER) =>
+              samples
+                .filter((s) => s.t <= progress)
+                .map((s) => `${s.t * 200},${toSvgY(s.v)}`)
+                .join(" ");
+            graphLeaderTrace.setAttribute("points", trace(ELBOW_SAMPLES_LEADER));
+            graphFollowerTrace.setAttribute("points", trace(ELBOW_SAMPLES_FOLLOWER));
+            graphLeaderDot.setAttribute("cx", String(progress * 200));
+            graphLeaderDot.setAttribute("cy", String(toSvgY(taskFrame(progress).elbow)));
+            graphFollowerDot.setAttribute("cx", String(progress * 200));
+            graphFollowerDot.setAttribute("cy", String(toSvgY(taskFrame(progress - FOLLOWER_DELAY).elbow)));
 
-            const graphWidth = pipX - margin - margin;
-            graph.style.left = `${((b.left + margin) / size.width) * 100}%`;
-            graph.style.top = `${((b.top + pipY) / size.height) * 100}%`;
-            graph.style.width = `${(graphWidth / size.width) * 100}%`;
-            graph.style.height = `${(pipHeight / size.height) * 100}%`;
+            const graphHeight = pipHeight * 0.85;
+            const gap = 8;
+            const graphY = pipY - graphHeight - gap;
+            graph.style.left = `${((b.left + colX) / size.width) * 100}%`;
+            graph.style.top = `${((b.top + graphY) / size.height) * 100}%`;
+            graph.style.width = `${(colWidth / size.width) * 100}%`;
+            graph.style.height = `${(graphHeight / size.height) * 100}%`;
+          }
+
+          // Name each joint where it actually is, projected from its live 3D
+          // position — the labels track the arm rather than sitting fixed,
+          // so they stay put on the joint through whatever pose introduces it.
+          const showParts = Boolean(state["show.parts"]);
+          partsContainer.hidden = !showParts;
+          if (showParts) {
+            for (const entry of JOINTS) {
+              const label = partLabels.get(entry.joint)!;
+              const world = view.jointWorldPosition(entry.joint, 0);
+              const at = world && view.projectToScreen(world, b.width, b.height);
+              label.hidden = !at;
+              if (at) {
+                label.style.left = `${((b.left + at.x) / size.width) * 100}%`;
+                label.style.top = `${((b.top + at.y) / size.height) * 100}%`;
+              }
+            }
           }
         } else if (!failed) {
           status.hidden = introBeat;
@@ -439,9 +493,19 @@ const STYLE = `
 .so101-graph { position: absolute; margin: 0; padding: 4px; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
 .so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
-.so101-graph-trace { fill: none; stroke: ${LINK2}; stroke-width: 2; }
-.so101-graph-dot { fill: ${LINK2}; }
+.so101-graph-trace { fill: none; stroke-width: 2; }
+.so101-graph-leader { stroke: ${LINK1}; }
+.so101-graph-follower { stroke: ${TIP}; stroke-dasharray: 3 2; }
+.so101-graph-dot-leader { fill: ${LINK1}; }
+.so101-graph-dot-follower { fill: ${TIP}; }
 .so101-graph figcaption { margin: 2px 0 0; font-size: 10px; font-weight: 700; color: ${INK}; text-align: center; }
+.so101-graph-key::before { content: "●"; margin-right: 2px; }
+.so101-graph-key-leader { color: ${LINK1}; }
+.so101-graph-key-follower { color: ${TIP}; }
+/* One label per joint, each positioned from its own projected 3D point every
+   frame; the container only toggles which set is in play. */
+.so101-parts { pointer-events: none; }
+.so101-part { position: absolute; transform: translate(-50%, -130%); padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .92); border: 1px solid ${INK}; font-size: 11px; font-weight: 700; color: ${INK}; white-space: nowrap; }
 .so101-player .xv-board { top: 4%; right: 3%; width: 32%; height: 46%; padding: 0; font-size: 16px; }
 /* The closing names topics this lesson does not cover; they are shown as
    labelled blocks under a heading rather than passed over in speech. */

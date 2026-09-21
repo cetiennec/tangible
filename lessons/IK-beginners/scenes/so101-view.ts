@@ -338,6 +338,26 @@ export class RobotView {
     return [at.x, at.y, at.z];
   }
 
+  /** Where a named joint's pivot is right now, for labelling it on screen. */
+  jointWorldPosition(name: string, arm = 0): [number, number, number] | undefined {
+    const pivot = this.arms[arm]?.pivots.get(name);
+    if (!pivot) return undefined;
+    pivot.object.updateWorldMatrix(true, false);
+    const at = pivot.object.getWorldPosition(new THREE.Vector3());
+    return [at.x, at.y, at.z];
+  }
+
+  /**
+   * A world point projected through the main camera, in the same box-local
+   * pixel units place() uses — undefined once the point is behind the
+   * camera, so a label does not appear on the wrong side of the screen.
+   */
+  projectToScreen(worldPos: [number, number, number], boxWidth: number, boxHeight: number): { x: number; y: number } | undefined {
+    const v = new THREE.Vector3(...worldPos).project(this.camera);
+    if (v.z > 1) return undefined;
+    return { x: (v.x * 0.5 + 0.5) * boxWidth, y: (1 - (v.y * 0.5 + 0.5)) * boxHeight };
+  }
+
   /** Hold a pose just long enough to read where the gripper lands. */
   measureGrip(pose: { joint: string; angle: number }[], arm = 0): [number, number, number] | undefined {
     for (const entry of pose) this.setJoint(entry.joint, entry.angle, arm);
@@ -397,10 +417,18 @@ export class RobotView {
       this.scene.add(group);
       this.webcam = group;
     }
+    // sceneCam sits exactly at `position`; placing the mesh's own centre
+    // there too put the camera inside the dark body, rendering nothing but
+    // that material — a black feed. Pull the body back along the view
+    // direction so the lens tip lands at the camera's eye instead.
+    const eye = new THREE.Vector3(...position);
+    const target = new THREE.Vector3(...lookAt);
+    const forward = target.clone().sub(eye).normalize();
+    const bodyCentre = eye.clone().addScaledVector(forward, -0.02);
     this.webcam.visible = true;
-    this.webcam.position.set(...position);
+    this.webcam.position.copy(bodyCentre);
     this.webcam.up.set(0, 1, 0);
-    this.webcam.lookAt(...lookAt);
+    this.webcam.lookAt(target);
   }
 
   /** Hide the camera prop when the recording demo isn't running. */

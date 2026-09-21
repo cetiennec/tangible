@@ -158,6 +158,12 @@ Now let's talk about @board(kwLerobot: "LeRobot") LeRobot which is Hugging Face 
 @cue(lift -> -0.75) @cue(elbow -> 1.35) @cue(wristFlex -> 0.45) @cue(gripper -> 0.5)
 This actually depends on the teleoperator. Here is the SO-101 follower arm.
 
+@cue(show.parts = true)
+From base to tip: shoulder pan, shoulder lift, elbow, wrist flex, wrist roll, and the gripper.
+
+@pause(prompt: "Match each label to the joint it names.", speak: false)
+
+@cue(show.parts = false)
 Teleoperation just means a person drives the robot in real time, and the way they drive it decides whether we need inverse kinematics at all.
 
 There are broadly two ways to do it. Either you say where you want the gripper to be, as a position in space, or you say what angle each joint should hold. The first is planning in the Cartesian space, the second in the joint space.
@@ -194,7 +200,7 @@ This is also how a dataset gets recorded. A person teleoperates the arms through
 
 Here the pair move a brick from one spot to another, watched the whole time by a camera fixed on the workspace, like the one in the corner there.
 
-Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays.
+Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays — leader and follower, almost on top of each other, the follower just a beat behind.
 
 @cue(show.task = false)
 @clear(board)

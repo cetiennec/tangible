@@ -47,7 +47,7 @@ describe("the URDF rotation convention", () => {
 describe("the SO-101 scene contract", () => {
   it("exposes one parameter per moving joint, plus the camera and the note", () => {
     expect(Object.keys(schema).sort()).toEqual(
-      ["camera", "diagram", "elbow", "gripper", "lift", "pan", "show.angles", "show.brand", "show.leader", "show.task", "task", "teleop", "wristFlex", "wristRoll"].sort(),
+      ["camera", "diagram", "elbow", "gripper", "lift", "pan", "show.angles", "show.brand", "show.leader", "show.parts", "show.task", "task", "teleop", "wristFlex", "wristRoll"].sort(),
     );
   });
 
@@ -71,7 +71,7 @@ describe("the SO-101 scene contract", () => {
   it("has no separate joint parameters for the leader arm", () => {
     // Both arms are driven by the same six numbers, which is the point being
     // made: the follower copies the leader's joint angles directly.
-    const jointish = Object.keys(schema).filter((k) => !["camera", "teleop", "diagram", "show.leader", "show.angles", "show.brand", "task", "show.task"].includes(k));
+    const jointish = Object.keys(schema).filter((k) => !["camera", "teleop", "diagram", "show.leader", "show.angles", "show.brand", "show.parts", "task", "show.task"].includes(k));
     expect(jointish).toHaveLength(6);
     expect(jointish.some((k) => k.toLowerCase().includes("leader"))).toBe(false);
   });
