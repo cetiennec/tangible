@@ -267,11 +267,13 @@ export const scene: SceneModule = {
             (pickAt[1] + placeAt[1]) / 2,
             (pickAt[2] + placeAt[2]) / 2,
           ];
-          // Mounted to one side of the workspace at roughly table height,
-          // looking across at the midpoint — a fixed external view, not one
-          // that tracks the gripper, the way a real recording camera bolted
-          // beside the workspace would be.
-          sceneCamLocal = { position: [mid[0] + 0.3, mid[1] + 0.05, mid[2] + 0.04], lookAt: mid };
+          // Mounted overhead, looking straight down at the midpoint — a
+          // fixed external view, not one that tracks the gripper, the way a
+          // real recording camera bolted above the workspace would be. The
+          // small z offset keeps the view a few degrees off true vertical,
+          // away from the up-vector singularity a perfectly straight-down
+          // look would hit.
+          sceneCamLocal = { position: [mid[0], mid[1] + 0.35, mid[2] + 0.08], lookAt: mid };
         }
       })
       .catch((error: unknown) => {
@@ -321,19 +323,19 @@ export const scene: SceneModule = {
           view.setCamera(camera.azimuth, camera.elevation, camera.distance);
 
           // Both panels share one column on the right of the canvas box,
-          // stacked: the camera feed at the bottom, the strip chart above it.
+          // stacked: the strip chart above, the camera feed below it. The
+          // feed is a real WebGL sub-viewport (renderer.setScissor), so it
+          // can only live inside the canvas's own pixel buffer — the canvas
+          // box spans just the scene's left ~62%, short of where the board
+          // panel starts (~65%) — so both stay inside the box rather than
+          // the chart living in the board area on its own.
           const showFeed = running && Boolean(sceneCamLocal);
           camFeed.hidden = !showFeed;
           const b = box();
           const margin = 14;
-          // The feed is a real WebGL sub-viewport (renderer.setScissor), so
-          // it can only live inside the canvas's own pixel buffer — the
-          // canvas box only spans the scene's left ~62%, short of where the
-          // board panel starts (~65%). Bottom-right corner of the box, below
-          // the arm, rather than a spot the canvas can't actually reach.
-          const pipWidth = b.width * 0.3;
-          const pipHeight = pipWidth * 0.72;
-          const pipX = b.width - pipWidth - margin;
+          const colWidth = b.width * 0.3;
+          const colX = b.width - colWidth - margin;
+          const pipHeight = colWidth * 0.72;
           const pipY = b.height - pipHeight - margin;
           if (showFeed) {
             const offset = view.armOffset(0);
@@ -341,25 +343,23 @@ export const scene: SceneModule = {
             const camLookAt = offsetBrick(sceneCamLocal!.lookAt, offset)!;
             view.setSceneCamera(camPos, camLookAt);
             view.setWebcam(camPos, camLookAt);
-            view.render({ x: pipX, y: pipY, width: pipWidth, height: pipHeight });
+            view.render({ x: colX, y: pipY, width: colWidth, height: pipHeight });
             // The DOM frame sits over the canvas at the matching on-screen
             // spot: the canvas box is itself a percentage of the whole scene,
             // so the pip's position within it needs converting the same way.
-            camFeed.style.left = `${((b.left + pipX) / size.width) * 100}%`;
+            camFeed.style.left = `${((b.left + colX) / size.width) * 100}%`;
             camFeed.style.top = `${((b.top + pipY) / size.height) * 100}%`;
-            camFeed.style.width = `${(pipWidth / size.width) * 100}%`;
+            camFeed.style.width = `${(colWidth / size.width) * 100}%`;
             camFeed.style.height = `${(pipHeight / size.height) * 100}%`;
           } else {
             view.hideWebcam();
             view.render();
           }
 
-          // The strip chart traces live: only the part of each curve already
-          // "recorded" (task <= current progress) is drawn, the same way the
-          // video only has frames up to now. The follower's trace runs a
-          // beat behind the leader's. Unlike the feed this is plain DOM/SVG,
-          // so it can sit anywhere — the "leader arm as teleoperator" note's
-          // old spot, which nothing needs any more once the task is running.
+          // The strip chart traces live, directly above the camera feed:
+          // only the part of each curve already "recorded" (task <= current
+          // progress) is drawn, the same way the video only has frames up to
+          // now. The follower's trace runs a beat behind the leader's.
           graph.hidden = !running;
           if (running) {
             const progress = state.task as number;
@@ -376,6 +376,14 @@ export const scene: SceneModule = {
             graphLeaderDot.setAttribute("cy", String(toSvgY(taskFrame(progress).elbow)));
             graphFollowerDot.setAttribute("cx", String(progress * 200));
             graphFollowerDot.setAttribute("cy", String(toSvgY(taskFrame(progress - FOLLOWER_DELAY).elbow)));
+
+            const graphHeight = pipHeight * 0.85;
+            const gap = 8;
+            const graphY = pipY - graphHeight - gap;
+            graph.style.left = `${((b.left + colX) / size.width) * 100}%`;
+            graph.style.top = `${((b.top + graphY) / size.height) * 100}%`;
+            graph.style.width = `${(colWidth / size.width) * 100}%`;
+            graph.style.height = `${(graphHeight / size.height) * 100}%`;
           }
 
           // Name one joint at a time, where it actually is, projected from
@@ -494,10 +502,7 @@ const STYLE = `
 /* A strip chart beside the camera feed: only the recorded portion of the
    curve is drawn each frame, so it fills in live rather than showing the
    whole shape up front. */
-/* The board panel's own rectangle (matched to the .xv-board override just
-   below) — nothing is boarded during the task, so the chart sits where
-   equations would otherwise go, rather than overlapping the arm. */
-.so101-graph { position: absolute; right: 3%; top: 4%; width: 32%; height: 26%; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
+.so101-graph { position: absolute; margin: 0; padding: 8px; box-sizing: border-box; background: rgba(255, 255, 255, .92); border: 1px solid ${MUTED}; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .22); pointer-events: none; }
 .so101-graph svg { display: block; width: 100%; height: calc(100% - 16px); }
 .so101-graph-zero { stroke: ${MUTED}; stroke-width: .5; stroke-dasharray: 2 2; }
 .so101-graph-trace { fill: none; stroke-width: 2; }
