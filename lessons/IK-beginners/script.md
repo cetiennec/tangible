@@ -122,7 +122,7 @@ The 2 elbow configurations depend on the @highlight(ikq2.sign) sign in front of 
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix of partial derivatives that says how a small turn of each joint nudges the tip in x and y.
+The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix of partial derivatives that says how a small turn of each joint @board(jacVec: $\begin{bmatrix} \delta x \\ \delta y \end{bmatrix} = J \begin{bmatrix} \delta q_1 \\ \delta q_2 \end{bmatrix}$) nudges the tip in x and y.
 
 @clear(board)
 @cue(q1 -> 1.423, over: 2s) @cue(q2 -> -1.708, over: 2s) OK, so now we fully know our robot's FK and IK, we can make it @cue(show.circle = true) draw a circle!
