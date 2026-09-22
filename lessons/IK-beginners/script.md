@@ -11,7 +11,7 @@ See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the
 @clear(board)
 This means that there exists a mapping @board(fk: $x = f(\theta)$) between radians and centimeters.
 
-@pause(prompt: "Turn q1 and q2 on the right, and watch the end-effector move.", speak: false)
+@pause(prompt: "Turn q1 and q2 on the right, and watch the end-effector move.", speak: true)
 
 The relation between angles and end-effector position is called the @board(kwFk: "Forward Kinematics (FK)") @board(fk: $x = f(\theta)$) Forward Kinematics or FK.
 
@@ -38,7 +38,7 @@ And this function does not always have a unique solution or even a solution.
 
 Pause and think a bit about cases where the number of solutions could be 0?
 
-@pause(prompt: "When can the arm not reach a point at all?", speak: false)
+@pause(prompt: "When can the arm not reach a point at all?", speak: true)
 
 @clear(kwIk)
 @clear(ik)
@@ -58,10 +58,9 @@ What value of L2 would let the robot reach closest to itself, according to you?
 @pause(prompt: "Pick your answer before we plot it.", speak: false)
 
 @cue(show.areaSurface = true)
-Yeah, this is actually @cue(l1 -> 12, over: 4s) @cue(l2 -> 12, over: 4s) L1=L2.
+Yeah, this is actually @cue(l1 -> 12, over: 6s) @cue(l2 -> 12, over: 6s) L1=L2.
 
-The surface peaks along the diagonal, where the two links have the same length. Equal links are what close the blind spot near the base.
-
+Look at this surface plot, this gives the reachable area as a function of L1 and L2. The surface peaks along the diagonal, where the two links have the same length, meaning that this is . Equal links are what close the blind spot near the base.
 
 Have you seen this somewhere?
 
@@ -91,7 +90,6 @@ Joint limits create a less straightforward answer to our earlier question. Take 
 
 @cue(q1 -> 0.749, over: 2s) @cue(q2 -> 1.030, over: 2s) Elbow down, it comes round underneath.
 
-<!-- @pause(prompt: "Both elbow solutions are legal here.", speak: false) -->
 
 Now move the target out to the right, and one of the two answers disappears.
 
@@ -226,6 +224,3 @@ Most of them use an @board(kwExpert: "Action expert") action expert separately f
 
 @clear(board)
 Just keep in mind that LeRobot helps you @board(later: "Next in this series") @board(t1: "Train your own policy") train your own policy, @board(t2: "Deploy it on a real robot") deploy it on a real robot, and @board(t3: "Evaluate what it learned") evaluate what it learned. All topics for the next series of lessons.
-
-
-@cue(show.brand = false)
