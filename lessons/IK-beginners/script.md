@@ -49,13 +49,13 @@ We have @cue(show.unreachable = true) 0 solutions outside of the @board(kwReach:
 @cue(show.unreachable = false)
 Of course the area and shape of this reachable space @cue(l2 -> 4, over: 2.5s) depend on the length of the links. Pause and play with the link lengths to see how the reachable space evolve.
 
-@pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
+@pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: true)
 
 @clear(kwReach)
 The larger the links the bigger the area. But there is a relationship between L1 and L2 that allows the robot to reach both close and farther places.
 What value of L2 would let the robot reach closest to itself, according to you?
 
-@pause(prompt: "Pick your answer before we plot it.", speak: false)
+Think about it a few seconds... 
 
 @cue(show.areaSurface = true)
 Yeah, this is actually @cue(l1 -> 12, over: 6s) @cue(l2 -> 12, over: 6s) L1=L2.
@@ -67,13 +67,13 @@ Have you seen this somewhere?
 @cue(show.human = true)
 Look at your arms, your upper arm and your forearm are close to the same length, which is what lets your hand reach your own shoulder as easily as it reaches out in front of you.
 
-@pause(prompt: "Compare your own upper arm and forearm.", speak: false)
+@pause(prompt: "Compare your own upper arm and forearm.", speak: true)
 
 @cue(show.human = false)
 @cue(show.areaSurface = false)
 Getting back to the IK problem, how could there be multiple solutions? Try to reach a point in 2 different ways.
 
-@pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: false)
+@pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: true)
 
 @cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the @cue(show.solutions = true) reachable space is reachable, in 2 ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to 2 solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
@@ -97,7 +97,7 @@ Now move the target out to the right, and one of the two answers disappears.
 
 This is why limits matter so much in practice. Across this whole surface, @cue(show.solutions = true) only a small part keeps both solutions, about one point in ten. These are the kind of points that do. Most points keep just one, and a good half of the area is lost altogether.
 
-@pause(prompt: "Every marked point can be reached with the elbow either way.", speak: false)
+@pause(prompt: "Every marked point can be reached with the elbow either way.", speak: true)
 
 @cue(show.solutions = false)
 @scene(redundant)
@@ -153,7 +153,7 @@ Now let's talk about @board(kwLerobot: "LeRobot") LeRobot, which is Hugging Face
 
 Starting from a robot description @board(lrRobot: "Robot descriptions"), LeRobot helps you performing the @board(lrTeleop: "Teleoperation") leader-follower teleoperation, and record @board(lrData: "Datasets") datasets to train physical AI models.
 
-@pause(prompt: "Take a look at the first part of the workflow. We'll come back to the arm next.", speak: false)
+@pause(prompt: "Take a look at the first part of the workflow. We'll come back to the arm next.", speak: fatruelse)
 
 @cue(diagram = none)
 @cue(show.brand = false)
@@ -165,16 +165,19 @@ First, say hi to today's robot: it's an SO-101, designed by Hugging Face to be a
 
 Let's take a full tour of the joints, from base to tip: @cue(activePart = shoulder_pan) shoulder pan, @cue(activePart = shoulder_lift) shoulder lift, @cue(activePart = elbow_flex) elbow, @cue(activePart = wrist_flex) wrist flex, @cue(activePart = wrist_roll) wrist roll, and the @cue(activePart = gripper) gripper.
 
-@pause(prompt: "Match each label to the joint it names.", speak: false)
-
 @cue(activePart = none)
+Here are those six names again, shuffled: @board(j1: "Wrist roll") @board(j2: "Shoulder pan") @board(j3: "Gripper") @board(j4: "Elbow") @board(j5: "Wrist flex") @board(j6: "Shoulder lift") see if you can put each one back on the joint it belongs to.
+
+@pause(prompt: "Match each label to the joint it names.", speak: true)
+
 Teleoperation just means a person drives the robot in real time, and the way they drive it decides whether we need inverse kinematics at all.
 
+@clear(board)
 There are broadly two ways to do it. Either you say where you want the gripper to be, as a position in space, or you say what angle each joint should hold. The first is planning in the @board(cp: "Cartesian space") Cartesian space, the second in the @board(jp: "Joint space") joint space.
 
 Only the first one needs IK, because only the first one hands the robot a position and asks it to find the angles.
 
-@pause(prompt: "Which way would you drive this arm?", speak: false)
+@pause(prompt: "Which way would you drive this arm?", speak: true)
 
 @clear(board)
 @cue(teleop = phone)
@@ -194,7 +197,7 @@ Every angle is mimicked, @cue(lift -> -0.7, over: 1.3s) @cue(elbow -> 1.2, over:
 
 That is the whole appeal of teleoperating in the joint space. It is a copy, not a calculation, so it cannot fail to find a solution and it cannot pick the wrong elbow.
 
-@pause(prompt: "Compare each joint on the leader with the same joint on the follower.", speak: false)
+@pause(prompt: "Compare each joint on the leader with the same joint on the follower.", speak: true)
 
 @cue(show.angles = false)
 @cue(pan -> -0.55, over: 2s) @cue(lift -> -0.45, over: 2s) @cue(elbow -> 0.95, over: 2s) @cue(wristFlex -> 0.35, over: 2s) @cue(wristRoll -> 0, over: 2s) @cue(gripper -> 1.25, over: 2s) Let's watch them work through a real task together. Most of today's physical AI algorithms are based on videos, so let's add a webcam to our setup.
