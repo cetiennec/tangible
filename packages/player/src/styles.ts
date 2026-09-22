@@ -68,6 +68,15 @@ export const PLAYER_CSS = `
 .xv-credit:hover { background: #fff; text-decoration: underline; }
 .xv-portrait-message { display: none; }
 .xv-assistant { border: 1px solid #cbd2da; border-top: 0; background: #f6f8fa; color: #20252c; font: 14px/1.4 system-ui, sans-serif; box-sizing: border-box; }
+/* The assistant sits outside the lesson's own frame, so it belongs to the page
+   around it and follows the reader's colour scheme with it. The lesson frame
+   above stays light either way. */
+@media (prefers-color-scheme: dark) {
+  .xv-assistant { border-color: #2b3646; background: #121a26; color: #dde5f0; }
+  .xv-assistant-body { border-top-color: #2b3646; }
+  .xv-assistant-turn { border-left-color: #35435a; }
+  .xv-assistant-input { border-color: #47546b; background: #0d141e; color: inherit; }
+}
 .xv-assistant-toggle { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border: 0; background: transparent; color: inherit; font: 650 15px/1.2 system-ui, sans-serif; text-align: left; cursor: pointer; }
 .xv-assistant-toggle::after { content: "⌄"; margin-left: 16px; font-size: 22px; line-height: 1; transition: transform 160ms ease; }
 .xv-assistant-toggle[aria-expanded="true"]::after { transform: rotate(180deg); }

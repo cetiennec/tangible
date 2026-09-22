@@ -172,7 +172,15 @@ function indexHtml(manifest: Manifest): string {
 <title>${title}</title>
 <link rel="stylesheet" href="katex.css">
 <style>
-body { margin: 0; font-family: system-ui, sans-serif; background: #0b111a; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #eef1f5; color-scheme: light dark; }
+/* The ground around the lesson follows the reader's colour scheme, so a Space
+   embedded in a light or dark page sits on a matching band rather than a fixed
+   dark one. Hugging Face does not pass its own theme to a Docker Space -- the
+   iframe carries no theme parameter and is cross-origin -- so this follows the
+   operating system setting, which its default theme follows as well. The
+   lesson itself stays light in both, because the scenes draw on a canvas with
+   colours compiled into the scene code rather than read from CSS. */
+@media (prefers-color-scheme: dark) { body { background: #0b111a; } }
 #app { width: 100%; }
 .xv-bootstrap { display: grid; place-items: center; width: min(100%, 177.7778dvh); aspect-ratio: 16 / 9; margin-inline: auto; padding: clamp(14px, 3vw, 28px); box-sizing: border-box; background: radial-gradient(circle at 50% 35%, #263b52 0%, #111a27 70%); color: #fff; }
 .xv-bootstrap-content { width: min(560px, 100%); padding: clamp(22px, 3.5vw, 34px); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 20px; box-sizing: border-box; background: rgba(18, 27, 41, 0.84); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.38); }
