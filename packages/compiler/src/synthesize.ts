@@ -47,18 +47,56 @@ export async function synthesize(adapter: TtsAdapter, text: string, params: Synt
   return result;
 }
 
+// Where a cue anchor may cut the narration. The synthesizer is handed each segment on
+// its own, with no sight of its neighbours, so a cut mid-phrase ("it has two" / "links
+// and two") is spoken as two standalone utterances, each with its own falling
+// intonation and trailing pause. Cutting only at a clause break keeps every segment a
+// unit a speaker would phrase as one, and the length floor stops a break that sits very
+// close to another from leaving a stub behind.
+const CLAUSE_BREAKS = ",;:\u2014\u2013";
+const MIN_SEGMENT_CHARS = 25;
+
 /** Cue anchors plus sentence starts, suitable for natural, timing-safe TTS chunks. */
 export function narrationSegmentOffsets(narration: string, directiveOffsets: number[]): number[] {
-  const offsets = [...directiveOffsets];
+  // Sentence starts are natural breaks and always survive. A cue anchor earns a seam
+  // only where it would not disfigure the speech; an anchor that loses its seam still
+  // gets a time, interpolated across the segment it falls in.
+  const kept = normalizeOffsets(narration, sentenceOffsets(narration));
+  for (const offset of normalizeOffsets(narration, directiveOffsets)) {
+    const previous = kept.filter((boundary) => boundary <= offset).pop() ?? 0;
+    const next = kept.find((boundary) => boundary > offset) ?? narration.length;
+    const preceding = precedingCharacter(narration, offset);
+    if (preceding === "" || !CLAUSE_BREAKS.includes(preceding)) continue;
+    if (offset - previous < MIN_SEGMENT_CHARS || next - offset < MIN_SEGMENT_CHARS) continue;
+    kept.push(offset);
+    kept.sort((a, b) => a - b);
+  }
+  return kept;
+}
+
+/** Sentence starts. A period between two digits is a decimal point, not a full stop. */
+function sentenceOffsets(narration: string): number[] {
+  const offsets: number[] = [];
   for (let i = 0; i < narration.length; i++) {
-    if (!".!?…".includes(narration[i]!)) continue;
+    if (!".!?\u2026".includes(narration[i]!)) continue;
+    if (narration[i] === "." && isDigit(narration[i - 1]) && isDigit(narration[i + 1])) continue;
     let next = i + 1;
-    while (next < narration.length && ".!?…".includes(narration[next]!)) next++;
+    while (next < narration.length && ".!?\u2026".includes(narration[next]!)) next++;
     while (next < narration.length && /\s/.test(narration[next]!)) next++;
     offsets.push(next);
   }
-  return normalizeOffsets(narration, offsets);
+  return offsets;
 }
+
+/** The last non-blank character before an offset, or "" at the start of the narration. */
+function precedingCharacter(narration: string, offset: number): string {
+  let i = offset - 1;
+  while (i >= 0 && /\s/.test(narration[i]!)) i--;
+  return i >= 0 ? narration[i]! : "";
+}
+
+const isDigit = (character: string | undefined): boolean =>
+  character !== undefined && character >= "0" && character <= "9";
 
 async function synthesizeAtBoundaries(
   adapter: TtsAdapter,
