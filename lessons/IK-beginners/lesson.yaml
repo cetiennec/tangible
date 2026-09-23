@@ -16,7 +16,9 @@ defaults:
   ease: inOutCubic
   transition: 1.0
 tts:
-  provider: supertonic
+  provider: hf-endpoint
+  voice: etienne3
+  revision: dad273fce0b5d3a42602821f1beca99de3f4dad6
 deployment:
   provider: huggingface
   space: cetiennec/ik-beginners
