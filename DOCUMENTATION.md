@@ -670,10 +670,16 @@ and a first lesson build, with links to the official implementation guides.
 Speech quality does not guarantee accurate timestamps. Supertonic provides no
 word alignment, so Tangible distributes character times across each sentence.
 The Qwen endpoint also provides no word alignment. Tangible instead synthesizes
-separate clips at sentence and cue boundaries and joins them using their exact
-audio durations. Clip boundaries are known, but word times inside each clip
-remain estimates, and cuts can affect natural phrasing. Review captions and
-visual cues against the actual recording for either option. ElevenLabs supplies
+separate clips and joins them using their exact audio durations. Every sentence
+starts a clip. A cue anchor starts one only where the cut would not disfigure the
+speech: it must fall on a clause break, with at least 25 characters of narration
+on either side. Each clip is synthesized without sight of its neighbours, so a
+cut mid-phrase is spoken as a standalone utterance, with its own falling
+intonation and trailing pause. A cue anchor that does not start a clip still gets
+a time, interpolated across the clip it falls in; on a full-length lesson this
+shifts such a cue by 0.15 seconds on average and by at most about 1.4 seconds.
+Clip boundaries are known, but word times inside each clip remain estimates.
+Review captions and visual cues against the actual recording for either option. ElevenLabs supplies
 character timestamps, which still need a final listening review.
 
 Generated audio and timing are cached in the lesson's `.cache/tts/` directory.
@@ -683,7 +689,8 @@ The key includes narration text, adapter and model identity, voice, speed, and,
 for segmented synthesis, the clip boundaries. Editing a cue's target value,
 transition duration, or timing offset without moving its text anchor reuses
 the audio. Moving, adding, or removing an anchor can change Qwen's clip
-boundaries and regenerate the recording even when the spoken words are unchanged.
+boundaries and regenerate the recording even when the spoken words are unchanged,
+but only when that anchor is one that starts a clip.
 
 The Qwen cache identity includes the endpoint URL, speaker, authored `revision`,
 seed, and generation settings. Changing any of these creates a new recording;

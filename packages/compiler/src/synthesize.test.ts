@@ -87,8 +87,43 @@ describe("synthesize caching", () => {
 });
 
 describe("narrationSegmentOffsets", () => {
+  // Long enough that a clause break leaves a readable span on either side.
+  const long = "The arm reaches every point inside the ring, and the elbow stays up the whole way round.";
+  const clause = long.indexOf("and the elbow");
+
   it("combines sentence starts and directive anchors without duplicates", () => {
-    expect(narrationSegmentOffsets("One. Two here.", [9, 5])).toEqual([5, 9]);
+    const lead = "One sentence that runs on for a while. ";
+    expect(narrationSegmentOffsets(lead + long, [lead.length + clause, lead.length])).toEqual([lead.length, lead.length + clause]);
+  });
+
+  it("keeps a cue anchor that falls on a clause break", () => {
+    expect(narrationSegmentOffsets(long, [clause])).toEqual([clause]);
+  });
+
+  it("drops a cue anchor that would cut a phrase in half", () => {
+    // "it has two" / "links and two" / "motors" — each piece would be spoken as its own
+    // utterance, so the sentence stops sounding like one sentence.
+    const text = "First, look at our robot, it has two links and two motors that can move their angles.";
+    expect(narrationSegmentOffsets(text, [text.indexOf("links"), text.indexOf("motors")])).toEqual([]);
+  });
+
+  it("drops a clause break that would leave a stub too short to read as speech", () => {
+    const text = "For instance, the arm reaches every point inside the ring without stopping anywhere.";
+    expect(narrationSegmentOffsets(text, [text.indexOf("the arm")])).toEqual([]);
+  });
+
+  it("ignores an anchor with nothing but blank space before it", () => {
+    const text = "   " + long;
+    expect(narrationSegmentOffsets(text, [3])).toEqual([]);
+  });
+
+  it("treats a period between digits as a decimal point, not a sentence end", () => {
+    expect(narrationSegmentOffsets("It turns between 0.25 and 2.85 radians without ever stopping.", [])).toEqual([]);
+  });
+
+  it("still breaks at a full stop that follows a number", () => {
+    const text = "The arm turns to 2.85. Then it stops moving entirely.";
+    expect(narrationSegmentOffsets(text, [])).toEqual([text.indexOf("Then")]);
   });
 });
 
