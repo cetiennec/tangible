@@ -39,6 +39,25 @@ brief when the author has already provided those two pieces of intent.
 - Prefer lesson-local code until a second lesson proves an ingredient reusable.
 - Test the model or computation when scientific correctness is non-trivial.
 
+## Narration rules
+
+- Give every number and symbol a spoken form: `two DOF`, `q one`,
+  `L one equals L two`. A synthesizer reads the script as written.
+- Never rewrite text inside a directive to change pronunciation. Directive
+  bodies are displayed, not spoken, so the edit corrupts the board and changes
+  no audio. A search and replace over `script.md` must skip them by scanning
+  `@name(` to its balanced closing parenthesis.
+- Captions come from the same text, so a phonetic spelling is visible to the
+  learner. Weigh that per term.
+- A `@pause` prompt is narrated unless it carries exactly `speak: false`.
+- For providers without word alignment, a cue anchored at a clause break gets an
+  exact time; one placed mid-phrase is interpolated.
+- Listen to the built audio before deploying. A build succeeds whether or not
+  the voice made sense.
+
+See [the synthesizer section](../DOCUMENTATION.md#write-for-the-synthesizer) for
+the reasoning behind each rule.
+
 ## Validation loop
 
 Before narration exists, validate the scene contract and let the human manipulate

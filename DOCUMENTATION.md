@@ -460,6 +460,78 @@ without a browser. Representative frames help verify visibility and composition.
 The complete directive syntax is in
 [the reference](#narration-directives).
 
+## Write for the synthesizer
+
+A synthesizer reads the narration exactly as written. It has no idea what the
+scene shows, so anything without an obvious spoken form becomes a guess. These
+rules cost nothing while drafting and are expensive to discover after a build.
+
+### Give every number and symbol a spoken form
+
+Write out a digit that sits against a word or a letter. `2 DOF` invites a pause
+in the middle of the phrase, and `q1` may be spelled out or mangled. Write
+`two DOF` and `q one`.
+
+Symbols are worse than digits, because many have no pronunciation at all. An
+equals sign is silent, so `L1=L2` loses the verb: write `L one equals L two`.
+Bracketed coordinates are read as punctuation or skipped, so write `x y` rather
+than `(x,y)`. A hyphen between letters and digits may be read as a minus sign,
+so write `S O one oh one` rather than `SO-101`.
+
+An abbreviation is read letter by letter unless it happens to look like a word.
+If you want `DOF` spoken as a single syllable, write `doff`. If you want the
+letters, leave it as capitals and confirm by listening.
+
+Decimal numbers are safe: a period between two digits is not treated as the end
+of a sentence.
+
+### Remember that captions share the text
+
+Narration and captions come from the same words, so a phonetic spelling is
+visible to the learner. `q one` in the captions sits beside a diagram labelled
+`q₁`, and that mismatch is the price of the correct reading. Decide per term
+which matters more. There is no way to spell a word one way for the voice and
+another for the caption.
+
+### Never "fix" pronunciation inside a directive
+
+The contents of `@board(...)`, `@cue(...)` and every other directive are removed
+before synthesis. They are displayed, never spoken. Rewriting `atan2` as
+`atan two` inside `@board(...)` corrupts the formula on screen and changes
+nothing you can hear.
+
+This matters most for search and replace. A pass over `script.md` that spells
+out numbers must skip directive bodies, or it will quietly damage equations and
+labels. Matching `@name(` and scanning to its balanced closing parenthesis,
+respecting quotes, is enough; a regular expression that stops at the first `)`
+will cut a formula in half.
+
+### A `@pause` prompt is spoken unless you opt out
+
+An authored prompt is injected into the narration and read aloud. Only the exact
+text `speak: false` suppresses it. Write the prompt as a spoken sentence, or opt
+out.
+
+### Put cues where a speaker would breathe
+
+This applies to providers without word alignment, such as the Qwen endpoint.
+Tangible cannot ask them when a word was spoken, so it cuts the narration into
+clips and takes the timing from clip durations. Every sentence starts a clip, and
+a cue anchor starts one when it falls on a clause break with enough narration on
+either side.
+
+A cue placed just after a comma therefore gets an exact time. A cue placed in the
+middle of a phrase still works, but its time is interpolated across the clip,
+which shifts it by a fraction of a second. Anchor a cue that must land on a
+particular beat at a clause break or a sentence start, and let looser cues fall
+where the prose wants them.
+
+### Listen before you publish
+
+Read the built audio, not the script. Numbers, acronyms, formulas and any word
+you invented for the synthesizer are the parts that go wrong, and they go wrong
+silently: a build succeeds whether or not the voice made sense.
+
 ## Choose and configure narration
 
 Tangible generates narration during a lesson build, then synchronizes the scene
