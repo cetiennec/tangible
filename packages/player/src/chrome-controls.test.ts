@@ -14,11 +14,13 @@ class FakeMedia implements MediaClockSource {
 }
 
 let media: FakeMedia;
+let chrome: Chrome;
 let unbind: () => void;
 beforeEach(() => {
   media = new FakeMedia();
   const tracks = { duration: 20, chapters: [], pauses: [] } as unknown as LessonTracks;
-  unbind = new Chrome(new AudioClock(media), tracks).bindKeys(window);
+  chrome = new Chrome(new AudioClock(media), tracks);
+  unbind = chrome.bindKeys(window);
 });
 afterEach(() => {
   unbind();
@@ -48,5 +50,20 @@ describe("Chrome keyboard shortcuts", () => {
     pressOn('<input type="text">', " ");
     pressOn("<button>Reset</button>", " ");
     expect(media.paused).toBe(true);
+  });
+});
+
+describe("Chrome play button", () => {
+  it("keeps its text node from frame to frame, so a held click is not dropped", () => {
+    const button = chrome.el.querySelector(".xv-play")!;
+    chrome.update(1);
+    const text = button.firstChild;
+    chrome.update(1.02);
+    expect(button.firstChild).toBe(text);
+
+    media.paused = false;
+    chrome.update(1.04);
+    expect(button.textContent).toBe("⏸");
+    expect(button.getAttribute("aria-label")).toBe("Pause lesson");
   });
 });
