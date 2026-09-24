@@ -131,3 +131,44 @@ export function labelBox(label: Label): Box {
 export function boxesOverlap(a: Box, b: Box): boolean {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
+
+// Callouts around points on screen, for naming several joints at once.
+export type Side = "above" | "below" | "right" | "left";
+export interface Callout {
+  side: Side;
+  /** How far out from the point: 0 sits next to it, each step moves one callout height further. */
+  level: number;
+}
+const SIDES: Side[] = ["above", "below", "right", "left"];
+const CALLOUT_GAP = 6;
+const MAX_LEVEL = 4;
+
+/** Distance from the point to the near edge of a callout at this level. */
+export function calloutGap(height: number, level: number): number {
+  return CALLOUT_GAP + level * (height + 2);
+}
+
+/** The box a callout of this size covers on one side of its point. */
+export function calloutBox(x: number, y: number, width: number, height: number, { side, level }: Callout): Box {
+  const gap = calloutGap(height, level);
+  if (side === "above") return { x0: x - width / 2, x1: x + width / 2, y0: y - gap - height, y1: y - gap };
+  if (side === "below") return { x0: x - width / 2, x1: x + width / 2, y0: y + gap, y1: y + gap + height };
+  if (side === "right") return { x0: x + gap, x1: x + gap + width, y0: y - height / 2, y1: y + height / 2 };
+  return { x0: x - gap - width, x1: x - gap, y0: y - height / 2, y1: y + height / 2 };
+}
+
+/**
+ * Put each callout, in order, as close to its point as it can go without
+ * overlapping those already placed: every side next to the point first, then
+ * every side one step further out, and so on.
+ */
+export function placeCallouts(items: { x: number; y: number; width: number; height: number }[]): Callout[] {
+  const placed: Box[] = [];
+  return items.map(({ x, y, width, height }) => {
+    const options = Array.from({ length: MAX_LEVEL + 1 }, (_, level) => SIDES.map((side) => ({ side, level }))).flat();
+    const choice = options.find((option) => !placed.some((box) => boxesOverlap(box, calloutBox(x, y, width, height, option))))
+      ?? { side: "above" as const, level: MAX_LEVEL };
+    placed.push(calloutBox(x, y, width, height, choice));
+    return choice;
+  });
+}

@@ -2,6 +2,7 @@ import type { OrbitState, PlainState, Schema } from "@tangible/core";
 import { orbitHandle } from "@tangible/ingredients";
 import type { SceneContext, SceneModule } from "@tangible/player";
 import { INK, LINK1, LINK2, MUTED, TIP } from "./controls.js";
+import { calloutGap, placeCallouts } from "./labels.js";
 import { type Feed, RobotView, warmRobotAssets } from "./so101-view.js";
 import { LEROBOT_WORKFLOW_BOTTOM, LEROBOT_WORKFLOW_TOP } from "./lerobot-diagram.js";
 import { GRASP_AT, RELEASE_AT, taskFrame, TASK_JOINTS } from "./task.js";
@@ -141,11 +142,11 @@ export const schema: Schema = {
     label: "grow the LeRobot mark for the introduction beat",
   },
   activePart: {
-    type: { kind: "enum", values: ["none", ...JOINTS.map((entry) => entry.joint)] },
+    type: { kind: "enum", values: ["none", "all", ...JOINTS.map((entry) => entry.joint)] },
     default: "none",
     interpolate: "snap",
     ownership: "script",
-    label: "name one joint on the follower at a time, for the introduction",
+    label: "name one joint on the follower at a time, for the introduction, or all six to check the matching exercise",
   },
 } as Schema;
 
@@ -436,22 +437,40 @@ export const scene: SceneModule = {
           // its live 3D position, in step with the narration: activePart
           // changes as each name is spoken, so a label appears, then makes
           // way for the next rather than all six crowding the arm at once.
+          // "all" shows every name together, briefly, as the answer to the
+          // matching exercise.
           const activePart = String(state.activePart);
           const b = box();
           partsContainer.hidden = activePart === "none";
+          const shown: { label: HTMLElement; x: number; y: number }[] = [];
           for (const entry of JOINTS) {
             const label = partLabels.get(entry.joint)!;
-            if (entry.joint !== activePart) {
+            if (activePart !== "all" && entry.joint !== activePart) {
               label.hidden = true;
               continue;
             }
             const world = view.jointWorldPosition(entry.joint, 0);
             const at = world && view.projectToScreen(world, b.width, b.height);
             label.hidden = !at;
+            label.style.transform = "";
             if (at) {
               label.style.left = `${((b.left + at.x) / size.width) * 100}%`;
               label.style.top = `${((b.top + at.y) / size.height) * 100}%`;
+              shown.push({ label, x: b.left + at.x, y: b.top + at.y });
             }
+          }
+          // Six names at once crowd the wrist, where three joints sit close
+          // together, so each is moved to whichever side of its joint is free.
+          if (activePart === "all") {
+            const items = shown.map(({ label, x, y }) => ({ x, y, width: label.offsetWidth, height: label.offsetHeight }));
+            placeCallouts(items).forEach(({ side, level }, i) => {
+              const gap = calloutGap(items[i]!.height, level);
+              shown[i]!.label.style.transform =
+                side === "above" ? `translate(-50%, calc(-100% - ${gap}px))`
+                : side === "below" ? `translate(-50%, ${gap}px)`
+                : side === "right" ? `translate(${gap}px, -50%)`
+                : `translate(calc(-100% - ${gap}px), -50%)`;
+            });
           }
         } else if (!failed) {
           status.hidden = introBeat;

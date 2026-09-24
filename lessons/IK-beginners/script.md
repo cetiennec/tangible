@@ -170,6 +170,8 @@ Here are those six names again, but shuffled: @board(j1: "Wrist roll") @board(j2
 
 @pause(prompt: "Match each label to the joint it names.", speak: false)
 
+@cue(activePart = all)
+@cue(activePart = none, at: +4s)
 Teleoperation just means a person drives the robot in real time, and the way they drive it decides whether we need inverse kinematics at all.
 
 @clear(board)

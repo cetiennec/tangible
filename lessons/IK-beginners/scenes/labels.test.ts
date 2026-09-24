@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { armLabels, boxesOverlap, labelBox, type LabelFlags, type ScreenPose } from "./labels.js";
+import { armLabels, boxesOverlap, calloutBox, labelBox, placeCallouts, type LabelFlags, type ScreenPose } from "./labels.js";
 import { forwardKinematics } from "./kinematics.js";
 
 const STYLE = { ink: "#000", muted: "#666", link1: "#00f", link2: "#f80", tip: "#f00" };
@@ -97,5 +97,25 @@ describe("label placement", () => {
     const side = (l: { x: number; y: number }, p: ScreenPose) =>
       Math.sign((p.tip.x - p.elbow.x) * (l.y - p.elbow.y) - (p.tip.y - p.elbow.y) * (l.x - p.elbow.x));
     expect(side(up, upPose)).not.toBe(side(down, downPose));
+  });
+});
+
+describe("callout placement", () => {
+  it("keeps callouts above their points when they do not collide", () => {
+    const far = [{ x: 100, y: 100, width: 80, height: 20 }, { x: 400, y: 100, width: 80, height: 20 }];
+    expect(placeCallouts(far)).toEqual([{ side: "above", level: 0 }, { side: "above", level: 0 }]);
+  });
+
+  it("moves crowded callouts to other sides so none overlap", () => {
+    // The SO-101's wrist and gripper project a few pixels apart.
+    const crowded = [
+      { x: 467, y: 367, width: 90, height: 22 }, { x: 501, y: 360, width: 80, height: 22 },
+      { x: 530, y: 408, width: 76, height: 22 }, { x: 560, y: 422, width: 66, height: 22 },
+    ];
+    const callouts = placeCallouts(crowded);
+    const boxes = crowded.map((c, i) => calloutBox(c.x, c.y, c.width, c.height, callouts[i]!));
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) expect(boxesOverlap(boxes[i]!, boxes[j]!)).toBe(false);
+    }
   });
 });
