@@ -134,9 +134,14 @@ export class Chrome {
     if (!this.scrubbing) this.scrubber.value = String(d > 0 ? Math.round((t / d) * 1000) : 0);
     this.elapsed.textContent = `${formatTime(t)} / ${formatTime(d)}`;
     // Drive the icon from the actual state (robust to browsers that fire media
-    // play/pause events unreliably, e.g. Safari).
-    this.playBtn.textContent = this.clock.playing ? "⏸" : "▶";
-    this.playBtn.setAttribute("aria-label", this.clock.playing ? "Pause lesson" : "Play lesson");
+    // play/pause events unreliably, e.g. Safari), but write it only when it
+    // changes: this runs every frame, and WebKit drops a click whose button text
+    // is replaced while the mouse is held down.
+    const icon = this.clock.playing ? "⏸" : "▶";
+    if (this.playBtn.textContent !== icon) {
+      this.playBtn.textContent = icon;
+      this.playBtn.setAttribute("aria-label", this.clock.playing ? "Pause lesson" : "Play lesson");
+    }
   }
 
   private togglePlay(): void {
