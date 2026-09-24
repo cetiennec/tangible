@@ -17,6 +17,10 @@ export interface HuggingFaceVoiceOptions {
 
 const SCALE_UP_WAIT_SECONDS = 600;
 const GENERATION_SETTINGS = { language: "English", temperature: 0.9, top_p: 0.95 };
+// Silence inserted after a clip, by the punctuation it ends on. Each clip is generated
+// alone, so the endpoint leaves the same short tail after a full stop as after a comma;
+// the pause a sentence ending deserves has to be added at the seam.
+const SEAM_SILENCE_SECONDS: Record<string, number> = { ".": 0.2, "!": 0.2, "\u2026": 0.2, "?": 0.3 };
 
 export class HuggingFaceVoiceAdapter implements TtsAdapter {
   id = "hf-endpoint";
@@ -44,6 +48,7 @@ export class HuggingFaceVoiceAdapter implements TtsAdapter {
       speaker: this.speaker,
       seed: this.seed,
       ...GENERATION_SETTINGS,
+      seamSilence: SEAM_SILENCE_SECONDS,
     })).digest("hex")}`;
   }
 
@@ -64,6 +69,12 @@ export class HuggingFaceVoiceAdapter implements TtsAdapter {
 
     for (const [i, text] of req.segments.entries()) {
       this.onStatus?.(`Tangible is generating narration segment ${i + 1} of ${req.segments.length}.`);
+      const previous = clips.at(-1);
+      if (previous) {
+        const silence = silentClip(previous, seamSilenceSeconds(req.segments[i - 1]!));
+        clips.push(silence);
+        duration += silence.duration;
+      }
       segmentStarts.push(duration);
       const audio = await this.generate(text, req.voice || this.speaker, this.seed + i);
       const clip = parsePcmWav(audio);
@@ -169,6 +180,19 @@ function parsePcmWav(audio: Uint8Array): ParsedWav {
     throw new Error("voice endpoint must return 16-bit PCM WAV audio");
   }
   return { format, channels, sampleRate, bitsPerSample, fmt, data, duration: data.length / byteRate };
+}
+
+/** Seconds of silence to follow a clip, from its last punctuation mark, ignoring closing quotes and brackets. */
+function seamSilenceSeconds(text: string): number {
+  const last = text.replace(/["'\u2019\u201d)\]]+$/, "").at(-1) ?? "";
+  return SEAM_SILENCE_SECONDS[last] ?? 0;
+}
+
+/** A clip of digital silence in the same PCM format as the given clip. */
+function silentClip(like: ParsedWav, seconds: number): ParsedWav {
+  const frameBytes = like.channels * (like.bitsPerSample / 8);
+  const data = new Uint8Array(Math.round(seconds * like.sampleRate) * frameBytes);
+  return { ...like, data, duration: data.length / (like.sampleRate * frameBytes) };
 }
 
 function concatenatePcmWavs(clips: ParsedWav[]): Uint8Array {
