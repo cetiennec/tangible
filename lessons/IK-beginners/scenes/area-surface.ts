@@ -24,13 +24,23 @@ function linkAt(fraction: number): number {
   return MIN_LINK_CM + fraction * (MAX_LINK_CM - MIN_LINK_CM);
 }
 
+// How far the view is turned around the vertical axis. At zero the viewer looks
+// straight along the diagonal, so the ridge collapses to a short vertical stick.
+const VIEW_TURN = (30 * Math.PI) / 180;
+/** How many times faster the drawn surface falls away from its ridge than coverage does. */
+const SLOPE_STRETCH = 2;
+
 /** Isometric projection: u runs along link 1, v along link 2, z is the area. */
 export function projectSurface(box: SurfaceBox, u: number, v: number, z: number) {
   const width = box.right - box.left;
   const height = box.bottom - box.top;
+  // Turn the square of link lengths about its centre before projecting it.
+  const [cu, cv] = [u - 0.5, v - 0.5];
+  const tu = 0.5 + cu * Math.cos(VIEW_TURN) - cv * Math.sin(VIEW_TURN);
+  const tv = 0.5 + cu * Math.sin(VIEW_TURN) + cv * Math.cos(VIEW_TURN);
   return {
-    x: (box.left + box.right) / 2 + (u - v) * width * 0.44,
-    y: box.bottom - height * 0.1 - (u + v) * height * 0.15 - z * height * 0.46,
+    x: (box.left + box.right) / 2 + (tu - tv) * width * 0.44,
+    y: box.bottom - height * 0.1 - (tu + tv) * height * 0.15 - z * height * 0.46,
   };
 }
 
@@ -41,7 +51,10 @@ export function projectSurface(box: SurfaceBox, u: number, v: number, z: number)
  * all, and the surface touches its ceiling along the diagonal.
  */
 function heightAt(u: number, v: number): number {
-  return reachCoverage(linkAt(u), linkAt(v), FREE_ELBOW);
+  // Over the slider range coverage only falls from 100% to 64%, which draws as
+  // a nearly flat sheet. Stretch the fall-off below the ridge so the crest
+  // reads; the marker still states the true percentage.
+  return Math.max(0, 1 - SLOPE_STRETCH * (1 - reachCoverage(linkAt(u), linkAt(v), FREE_ELBOW)));
 }
 
 function point(box: SurfaceBox, u: number, v: number) {
@@ -155,7 +168,13 @@ function drawMarker(
   g.fillText(`${Math.round(reachCoverage(l1, l2, FREE_ELBOW) * 100)}% reached`, top.x, top.y - 12);
 }
 
-function drawLabels(g: CanvasRenderingContext2D, box: SurfaceBox, colors: { muted: string; ridge: string }) {
+function drawLabels(g: CanvasRenderingContext2D, box: SurfaceBox, colors: { ink: string; muted: string; ridge: string }) {
+  // Name the plot: the narration calls it a surface plot, and without a title
+  // it reads as the reachable area, which is a different quantity.
+  g.font = "700 15px system-ui, sans-serif";
+  g.fillStyle = colors.ink;
+  g.textAlign = "left";
+  g.fillText("Coverage surface", box.left, box.top - 8);
   g.font = "600 12px system-ui, sans-serif";
   g.fillStyle = colors.muted;
   g.textAlign = "center";
