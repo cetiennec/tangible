@@ -30,7 +30,7 @@ export class PausePanel {
 
     const title = document.createElement("p");
     title.className = "xv-pause-title";
-    title.textContent = "Paused — play with the simulation";
+    title.textContent = "Paused";
 
     this.promptEl = document.createElement("p");
     this.promptEl.className = "xv-pause-prompt";

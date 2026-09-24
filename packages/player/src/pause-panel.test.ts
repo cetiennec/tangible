@@ -23,7 +23,7 @@ describe("PausePanel", () => {
     const { panel } = make();
     panel.update(true, "Try the slider.");
     expect(panel.el.hidden).toBe(false);
-    expect(text(panel, ".xv-pause-title")).toBe("Paused — play with the simulation");
+    expect(text(panel, ".xv-pause-title")).toBe("Paused");
     expect(text(panel, ".xv-pause-prompt")).toBe("Try the slider.");
   });
 
@@ -32,7 +32,7 @@ describe("PausePanel", () => {
     const { panel } = make();
     panel.update(true, null);
     expect(panel.el.hidden).toBe(false);
-    expect(text(panel, ".xv-pause-title")).toBe("Paused — play with the simulation");
+    expect(text(panel, ".xv-pause-title")).toBe("Paused");
     expect(panel.el.querySelector<HTMLElement>(".xv-pause-prompt")!.hidden).toBe(true);
   });
 
