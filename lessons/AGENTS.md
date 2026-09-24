@@ -49,7 +49,8 @@ brief when the author has already provided those two pieces of intent.
   `@name(` to its balanced closing parenthesis.
 - Captions come from the same text, so a phonetic spelling is visible to the
   learner. Weigh that per term.
-- A `@pause` prompt is narrated unless it carries exactly `speak: false`.
+- A `@pause` prompt is narrated unless it carries `speak: false`; any value other
+  than `true` or `false` fails the build.
 - For providers without word alignment, a cue anchored at a clause break gets an
   exact time; one placed mid-phrase is interpolated.
 - Listen to the built audio before deploying. A build succeeds whether or not

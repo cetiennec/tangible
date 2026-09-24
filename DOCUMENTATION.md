@@ -508,9 +508,10 @@ will cut a formula in half.
 
 ### A `@pause` prompt is spoken unless you opt out
 
-An authored prompt is injected into the narration and read aloud. Only the exact
-text `speak: false` suppresses it. Write the prompt as a spoken sentence, or opt
-out.
+An authored prompt is injected into the narration and read aloud unless the
+pause carries `speak: false`. `speak` accepts only `true` or `false`; any other
+value, such as a typo, fails the build instead of quietly narrating the prompt.
+Write the prompt as a spoken sentence, or opt out.
 
 ### Put cues where a speaker would breathe
 
