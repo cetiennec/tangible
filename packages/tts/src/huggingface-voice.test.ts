@@ -17,7 +17,7 @@ describe("HuggingFaceVoiceAdapter", () => {
     expect(original).not.toContain(options.endpointUrl);
   });
 
-  it("generates each answer beat and joins PCM WAV audio with exact start times", async () => {
+  it("generates each answer beat and joins PCM WAV audio with exact start times, pausing after a full stop", async () => {
     const requests: { url: string; authorization: string; scaleUpTimeout: string; body?: Record<string, unknown> }[] = [];
     const statuses: string[] = [];
     const clips = [pcmWav(0.25), pcmWav(0.5)];
@@ -51,10 +51,11 @@ describe("HuggingFaceVoiceAdapter", () => {
       voice: "david_v1",
     });
 
-    expect(result.segmentStarts).toEqual([0, 0.25]);
-    expect(result.duration).toBe(0.75);
+    expect(result.segmentStarts).toEqual([0, 0.45]);
+    expect(result.duration).toBe(0.95);
     expect(result.format).toBe("wav");
-    expect(new DataView(result.audio.buffer).getUint32(40, true)).toBe(12_000);
+    expect(new DataView(result.audio.buffer).getUint32(40, true)).toBe(15_200);
+    expect(result.audio.subarray(44 + 4_000, 44 + 7_200).every((byte) => byte === 0)).toBe(true);
     expect(requests.map((request) => request.url)).toEqual([
       "https://voice.example/health",
       "https://voice.example/generate",
@@ -72,6 +73,22 @@ describe("HuggingFaceVoiceAdapter", () => {
       "Tangible is generating narration segment 1 of 2.",
       "Tangible is generating narration segment 2 of 2.",
     ]);
+  });
+
+  it("pauses longer after a question than a full stop, and not at all after a comma", async () => {
+    const fetchImpl: typeof fetch = async (input) => {
+      if (String(input).endsWith("/health")) return { ok: true, status: 200, text: async () => "" } as Response;
+      return { ok: true, status: 200, arrayBuffer: async () => pcmWav(1).buffer as ArrayBuffer, text: async () => "" } as Response;
+    };
+    const adapter = new HuggingFaceVoiceAdapter({ endpointUrl: "https://voice.example", token: "secret", fetchImpl });
+
+    const result = await adapter.synthesizeSegments!({
+      segments: ["First,", "is it?", "\u201cQuoted.\u201d", "Last"],
+      voice: "david_v1",
+    });
+
+    expect(result.segmentStarts).toEqual([0, 1, 2.3, 3.5]);
+    expect(result.duration).toBe(4.5);
   });
 });
 
