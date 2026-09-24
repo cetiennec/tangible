@@ -163,10 +163,11 @@ export function armControls(ctx: SceneContext) {
       }
       const showing = state["show.workspace"] as boolean;
       workspaceButton.setAttribute("aria-pressed", String(showing));
-      workspaceButton.textContent = showing ? "Hide reachable space" : "Show reachable space";
+      // Write button labels only when they change: this runs every frame, and
+      // WebKit drops a click whose button text is replaced mid-press.
+      setLabel(workspaceButton, showing ? "Hide reachable space" : "Show reachable space");
       workspaceButton.classList.toggle("ik-active", Boolean(activity["show.workspace"]));
-      flipButton.textContent =
-        elbowBranch(state.q2 as number) === "up" ? "Flip to elbow-down" : "Flip to elbow-up";
+      setLabel(flipButton, elbowBranch(state.q2 as number) === "up" ? "Flip to elbow-down" : "Flip to elbow-up");
       // The heading must not announce the degrees of freedom before the
       // narration gets there.
       kicker.textContent = state["label.dof"] ? "2 DOF planar arm" : "Planar robot arm";
@@ -194,6 +195,11 @@ function sliderMarkup(spec: SliderSpec): string {
       <p class="ik-label"><span>${spec.label}</span><span data-value="${spec.param}"></span></p>
       <div class="ik-track">${bars}<input type="range" data-param="${spec.param}" min="${spec.min}" max="${spec.max}" step="${spec.step}" aria-label="${spec.aria}"></div>
     </div>`;
+}
+
+/** Set a button's label, leaving its text node alone when the label is unchanged. */
+function setLabel(button: HTMLElement, label: string): void {
+  if (button.textContent !== label) button.textContent = label;
 }
 
 /** Where a joint's travel begins and ends, as fractions of its slider. */
