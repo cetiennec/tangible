@@ -526,6 +526,11 @@ which shifts it by a fraction of a second. Anchor a cue that must land on a
 particular beat at a clause break or a sentence start, and let looser cues fall
 where the prose wants them.
 
+Each clip is generated on its own, so Tangible adds the pause between clips
+itself. It inserts 0.2 s of silence after a clip that ends a sentence and 0.3 s
+after a question, and none after a comma, where the voice already pauses. A cue
+at a sentence start fires when the new sentence begins, after that silence.
+
 ### Listen before you publish
 
 Read the built audio, not the script. Numbers, acronyms, formulas and any word
