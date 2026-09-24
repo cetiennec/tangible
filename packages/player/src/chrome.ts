@@ -113,11 +113,15 @@ export class Chrome {
   bindKeys(target: Window | HTMLElement = window): () => void {
     const onKey = (e: KeyboardEvent) => {
       const source = e.target as HTMLElement | null;
-      if (source?.matches("input, textarea, select, button, [contenteditable=true]")) return;
+      // A slider has no use for the space bar, and a learner who has just moved one
+      // during a checkpoint expects it to resume. Its arrow keys still move the slider.
+      const slider = source?.matches('input[type="range"]') ?? false;
+      if (!slider && source?.matches("input, textarea, select, button, [contenteditable=true]")) return;
       if (e.key === " " || e.key === "k") {
         e.preventDefault();
         this.togglePlay();
-      } else if (e.key === "f") this.toggleFullscreen();
+      } else if (slider) return;
+      else if (e.key === "f") this.toggleFullscreen();
       else if (e.key === "ArrowRight") this.clock.seek(this.clock.t + 5);
       else if (e.key === "ArrowLeft") this.clock.seek(this.clock.t - 5);
     };
