@@ -60,7 +60,7 @@ test("a held checkpoint says so on screen and offers its own way to continue", a
 
   // The learner is told the lesson is waiting for them, not that it broke.
   await expect(bar).toBeVisible();
-  await expect(bar.locator(".xv-pause-title")).toHaveText("Paused — play with the simulation");
+  await expect(bar.locator(".xv-pause-title")).toHaveText("Paused");
   const prompt = tracks.pauses[0].prompt as string | undefined;
   if (prompt) await expect(bar.locator(".xv-pause-prompt")).toHaveText(prompt);
 
