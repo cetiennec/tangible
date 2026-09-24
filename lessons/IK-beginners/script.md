@@ -19,17 +19,17 @@ The relation between angles and end-effector position is called the @board(kwFk:
 For serial robots, like ours, it can be obtained by modeling each joint position.
 For instance, @board(p1: $p_1 = (0,\ 0)$) motor one is at the base zero, zero.
 But motor two position @cue(q1 -> 1.2, over: 2s) @cue(label.angles = true) @cue(label.links = true) @board(p2: $p_2 = L_1(\cos q_1,\ \sin q_1)$) depends on motor one angle.
-And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_1{+}q_2))$) end-effector position on motor two position and angle.
+And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_1{+}q_2))$) end-effector position on motor two angle and position, which depends on motor one angle.
 
 @clear(board)
 With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
 
 
-But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space x, y and z, for instance, @cue(show.circle = true) drawing a circle around a point will give the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) equation:
+But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space x, y and z. If for instance, @cue(show.circle = true) you want to draw a circle around a point, you will define it by the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) equation:
 
 But from this, one needs to find what motor action we should apply to the robot to make it follow this circle.
 
-This is where the inverse kinematics (or IK) problem comes in.
+This is where the inverse kinematics, or IK problem comes in.
 @clear(board)
 IK is @board(kwIk: "Inverse Kinematics (IK)") @board(ik: $\theta = f^{-1}(x)$) the inverse relationship of FK.
 
@@ -75,14 +75,14 @@ Getting back to the IK problem, how could there be multiple solutions? Try to re
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: true)
 
-@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the @cue(show.solutions = true) reachable space is reachable, in two ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to two solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
+@cue(q1 -> 0.55, over: 1.5s) @cue(q2 -> 1.5, over: 1.5s) Each position within the @cue(show.solutions = true) reachable space is reachable in two ways. The elbow of the robot can either be up or @cue(q1 -> 2.05, over: 1.5s) @cue(q2 -> -1.500, over: 1.5s) down leading to two solutions, this gives a different orientation of the gripper and is not fully equivalent in our case.
 
 @cue(show.solutions = false)
 We've worked in the case where q one and q two can take any angle value. But in real life, joints have physical limitations, called @cue(show.limits = true) @board(kwLimits: "Joint limits") joint limits. Indeed, a real system cannot spin freely for ever.
 
 Here q one is allowed to turn between 0.25 and 2.85 radians, and q two between minus 2.6 and 1.15, and those two bounds alone carve the ring down to this shape.
 
-@pause(prompt: "Move q1 and q2 and watch where the arm refuses to go.", speak: false)
+@pause(prompt: "Move q1 and q2 and watch where the arm refuses to go.", speak: true)
 
 Joint limits create a less straightforward answer to our earlier question. Take this point, which the arm can still reach in two different ways.
 
@@ -97,7 +97,7 @@ Now move the target out to the right, and one of the two answers disappears.
 
 This is why limits matter so much in practice. Across this whole surface, @cue(show.solutions = true) only a small part keeps both solutions, about one point in ten. These are the kind of points that do. Most points keep just one, and a good half of the area is lost altogether.
 
-@pause(prompt: "Every marked point can be reached with the elbow either way.", speak: true)
+@pause(prompt: "Every marked point can be reached with the elbow either way, play with the motor angles manually to check this.", speak: true)
 
 @cue(show.solutions = false)
 @scene(redundant)
@@ -153,7 +153,7 @@ Now let's talk about @board(kwLerobot: "LeRobot") LeRobot, which is Hugging Face
 
 Starting from a robot description @board(lrRobot: "Robot descriptions"), LeRobot helps you performing the @board(lrTeleop: "Teleoperation") leader-follower teleoperation, and record @board(lrData: "Datasets") datasets to train physical AI models.
 
-@pause(prompt: "Take a look at the first part of the workflow. We'll come back to the arm next.", speak: false)
+@pause(prompt: "Take a quick look at the first part of the workflow. We'll come back to the arm next.", speak: true)
 
 @cue(diagram = none)
 @cue(show.brand = false)
@@ -166,7 +166,7 @@ First, say hi to today's robot: it's an S O one oh one, designed by Hugging Face
 Let's take a full tour of the joints, from base to tip: @cue(activePart = shoulder_pan) shoulder pan, @cue(activePart = shoulder_lift) shoulder lift, @cue(activePart = elbow_flex) elbow, @cue(activePart = wrist_flex) wrist flex, @cue(activePart = wrist_roll) wrist roll, and the @cue(activePart = gripper) gripper.
 
 @cue(activePart = none)
-Here are those six names again, shuffled: @board(j1: "Wrist roll") @board(j2: "Shoulder pan") @board(j3: "Gripper") @board(j4: "Elbow") @board(j5: "Wrist flex") @board(j6: "Shoulder lift") see if you can put each one back on the joint it belongs to.
+Here are those six names again, but shuffled: @board(j1: "Wrist roll") @board(j2: "Shoulder pan") @board(j3: "Gripper") @board(j4: "Elbow") @board(j5: "Wrist flex") @board(j6: "Shoulder lift"), see if you can put each one back on the joint it belongs to.
 
 @pause(prompt: "Match each label to the joint it names.", speak: false)
 
@@ -193,24 +193,24 @@ But if we use another arm, the follower just has to copy-paste the joint angles 
 Look at the two arms side by side. The shoulder angle on the leader is the shoulder angle on the follower, the elbow matches the elbow, and no equation is solved anywhere in between.
 
 @cue(show.angles = true)
-Every angle is mimicked, @cue(lift -> -0.7, over: 1.3s) @cue(elbow -> 1.2, over: 1.3s) one for one — watch the two arms move together. @cue(pan -> -0.25, over: 1.3s) @cue(wristRoll -> 0.45, over: 1.3s) And since both arms are the same shape, @cue(lift -> -1.15, over: 1.3s) @cue(elbow -> 1.55, over: 1.3s) @cue(wristRoll -> 1.3, over: 1.3s) anything the leader can hold @cue(pan -> -0.6, over: 1.3s) the follower can hold too.
+Every angle is mimicked, @cue(lift -> -0.7, over: 1.3s) @cue(elbow -> 1.5, over: 1.3s) one for one — watch the two arms move together. @cue(pan -> -0.25, over: 1.3s) @cue(wristRoll -> 0.45, over: 1.3s) And since both arms are the same shape, @cue(lift -> -1.15, over: 1.3s) @cue(elbow -> 1.55, over: 1.3s) @cue(wristRoll -> 1.3, over: 1.3s) anything the leader can hold @cue(pan -> -0.6, over: 1.3s) the follower can hold too.
 
 That is the whole appeal of teleoperating in the joint space. It is a copy, not a calculation, so it cannot fail to find a solution and it cannot pick the wrong elbow.
 
 @pause(prompt: "Compare each joint on the leader with the same joint on the follower.", speak: true)
 
 @cue(show.angles = false)
-@cue(pan -> -0.55, over: 2s) @cue(lift -> -0.45, over: 2s) @cue(elbow -> 0.95, over: 2s) @cue(wristFlex -> 0.35, over: 2s) @cue(wristRoll -> 0, over: 2s) @cue(gripper -> 1.25, over: 2s) Let's watch them work through a real task together. Most of today's physical AI algorithms are based on videos, so let's add a webcam to our setup.
+@cue(pan -> -0.55, over: 2s) @cue(lift -> -0.45, over: 2s) @cue(elbow -> 0.95, over: 2s) @cue(wristFlex -> 0.35, over: 2s) @cue(wristRoll -> 0, over: 2s) @cue(gripper -> 1.25, over: 2s) Let's watch them work through a real task together. Most of today's physical AI algorithms are based on videos, so let's add a webcam to our setup...
 
 @cue(show.task = true)
-@cue(task -> 1, over: 9s)
-This is also how a dataset gets recorded. A person teleoperates the arms through a task, again and again, and every run is kept. 
+@cue(task -> 1, over: 13s)
+This is how a dataset gets recorded. A person teleoperates the arms through a task, again and again, and every run is kept. 
 
 Here the pair move a brick from one spot to another, watched the whole time by a camera fixed on the workspace, like the one up there.
 
-@cue(task -> 0, over: 9s) Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays — leader and follower, almost on top of each other, the follower just a beat behind.
+@cue(task -> 0, over: 13s) Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays — leader and follower, almost on top of each other, the follower just a beat behind.
 
-@cue(show.wristCam = true) @cue(task -> 1, over: 9s) A real setup usually carries more than one camera, for more than one point of view. Here a second one rides on the gripper, so the recording holds a close view of the jaws as well as the wide one from above.
+@cue(show.wristCam = true) @cue(task -> 1, over: 10s) A real setup usually carries more than one camera, for more than one point of view. Here a second one rides on the gripper, so the recording holds a close view of the jaws as well as the wide one from above.
 
 @cue(show.wristCam = false)
 @cue(show.task = false)
@@ -227,3 +227,4 @@ Most of them use an @board(kwExpert: "Action expert") action expert separately f
 
 @clear(board)
 Just keep in mind that LeRobot helps you @board(later: "Next in this series") @board(t1: "Train your own policy") train your own policy, @board(t2: "Deploy it on a real robot") deploy it on a real robot, and @board(t3: "Evaluate what it learned") evaluate what it learned. All topics for the next series of lessons.
+See you there !
