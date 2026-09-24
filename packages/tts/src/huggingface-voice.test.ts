@@ -51,11 +51,11 @@ describe("HuggingFaceVoiceAdapter", () => {
       voice: "david_v1",
     });
 
-    expect(result.segmentStarts).toEqual([0, 0.45]);
-    expect(result.duration).toBe(0.95);
+    expect(result.segmentStarts).toEqual([0, 0.65]);
+    expect(result.duration).toBe(1.15);
     expect(result.format).toBe("wav");
-    expect(new DataView(result.audio.buffer).getUint32(40, true)).toBe(15_200);
-    expect(result.audio.subarray(44 + 4_000, 44 + 7_200).every((byte) => byte === 0)).toBe(true);
+    expect(new DataView(result.audio.buffer).getUint32(40, true)).toBe(18_400);
+    expect(result.audio.subarray(44 + 4_000, 44 + 10_400).every((byte) => byte === 0)).toBe(true);
     expect(requests.map((request) => request.url)).toEqual([
       "https://voice.example/health",
       "https://voice.example/generate",
@@ -87,8 +87,8 @@ describe("HuggingFaceVoiceAdapter", () => {
       voice: "david_v1",
     });
 
-    expect(result.segmentStarts).toEqual([0, 1, 2.3, 3.5]);
-    expect(result.duration).toBe(4.5);
+    expect(result.segmentStarts).toEqual([0, 1, 2.5, 3.9]);
+    expect(result.duration).toBe(4.9);
   });
 });
 

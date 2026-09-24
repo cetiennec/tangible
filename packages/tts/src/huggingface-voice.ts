@@ -20,7 +20,7 @@ const GENERATION_SETTINGS = { language: "English", temperature: 0.9, top_p: 0.95
 // Silence inserted after a clip, by the punctuation it ends on. Each clip is generated
 // alone, so the endpoint leaves the same short tail after a full stop as after a comma;
 // the pause a sentence ending deserves has to be added at the seam.
-const SEAM_SILENCE_SECONDS: Record<string, number> = { ".": 0.2, "!": 0.2, "\u2026": 0.2, "?": 0.3 };
+const SEAM_SILENCE_SECONDS: Record<string, number> = { ".": 0.4, "!": 0.4, "\u2026": 0.4, "?": 0.5 };
 
 export class HuggingFaceVoiceAdapter implements TtsAdapter {
   id = "hf-endpoint";
