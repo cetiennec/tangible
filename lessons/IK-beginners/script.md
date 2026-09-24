@@ -60,7 +60,7 @@ Think about it a few seconds...
 @cue(show.areaSurface = true)
 Yeah, this is actually @cue(l1 -> 12, over: 6s) @cue(l2 -> 12, over: 6s) L one equals L two.
 
-Look at this surface plot, this gives the reachable area as a function of L one and L two. The surface peaks along the diagonal, where the two links have the same length, meaning that this is . Equal links are what close the blind spot near the base.
+Look at this coverage surface. For each pair of lengths, it shows how much of its full reach the arm can actually get to. It peaks along the diagonal, where the two links have the same length: equal links close the blind spot near the base.
 
 Have you seen this somewhere?
 
