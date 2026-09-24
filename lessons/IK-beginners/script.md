@@ -208,9 +208,9 @@ This is how a dataset gets recorded. A person teleoperates the arms through a ta
 
 Here the pair move a brick from one spot to another, watched the whole time by a camera fixed on the workspace, like the one up there.
 
-@cue(task -> 0, over: 13s) Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays — leader and follower, almost on top of each other, the follower just a beat behind.
+@cue(task = 0) @cue(task -> 1, over: 13s) Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays — leader and follower, almost on top of each other, the follower just a beat behind.
 
-@cue(show.wristCam = true) @cue(task -> 1, over: 10s) A real setup usually carries more than one camera, for more than one point of view. Here a second one rides on the gripper, so the recording holds a close view of the jaws as well as the wide one from above.
+@cue(show.wristCam = true) @cue(task = 0) @cue(task -> 1, over: 10s) A real setup usually carries more than one camera, for more than one point of view. Here a second one rides on the gripper, so the recording holds a close view of the jaws as well as the wide one from above.
 
 @cue(show.wristCam = false)
 @cue(show.task = false)
