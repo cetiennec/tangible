@@ -116,6 +116,19 @@ describe("parseScript — escapes and edge cases", () => {
     // The prompt metadata is parsed either way.
     expect(silent.directives.find((d) => d.kind === "pause")).toMatchObject({ prompt: "Try it yourself.", speak: false });
   });
+
+  it("rejects a @pause speak value that is not true or false, instead of narrating it", () => {
+    expect(() => parseScript('Before.\n\n@pause(prompt: "Try it.", speak: fatruelse)\n\nAfter.', "script.md")).toThrow(
+      new ParseError('@pause speak must be true or false, not "fatruelse"', { file: "script.md", line: 3, col: 1 }),
+    );
+    const spoken = parseScript('Before.\n\n@pause(prompt: "Try it.", speak: true)\n\nAfter.');
+    expect(spoken.narration).toBe("Before.\n\nTry it. After.");
+  });
+
+  it("does not read speak from inside the prompt text", () => {
+    const p = parseScript('@pause(prompt: "Now speak: loudly.")');
+    expect(p.directives[0]).toMatchObject({ prompt: "Now speak: loudly.", speak: true });
+  });
 });
 
 describe("parseScript — @camera", () => {

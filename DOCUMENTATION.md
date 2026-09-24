@@ -1943,8 +1943,9 @@ selection, timing, and state rules. `@chapter` adds a timeline marker without
 changing the active module.
 
 A spoken pause inserts its prompt into narration and stops at the prompt
-boundary. A silent pause stops without adding text. The normal play control
-resumes.
+boundary. A silent pause stops without adding text. `speak` accepts only
+`true` or `false`; any other value fails the build rather than guessing. The
+normal play control resumes.
 Checkpoint times are rounded to the player's hundredth-of-a-second clock so
 resuming cannot immediately trigger the same pause again.
 
