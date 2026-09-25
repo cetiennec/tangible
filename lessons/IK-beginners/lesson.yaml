@@ -24,7 +24,7 @@ deployment:
   space: cetiennec/ik-beginners
 assistant:
   provider: huggingface
-  model: google/gemma-4-26B-A4B-it:fastest
+  model: google/gemma-4-26B-A4B-it:deepinfra
   context: assistant.md
   commandable:
     - planar.q1
