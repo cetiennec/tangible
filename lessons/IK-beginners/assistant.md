@@ -68,8 +68,9 @@ With both joints free and L1 held fixed:
 
 # Reading the coverage surface
 
-The surface plot shows coverage: the share of the full disc of radius L1 + L2
-that the tip can reach, which is 1 − ((L1 − L2)/(L1 + L2))². It is 100% all
+The height of the surface is the coverage for that pair of link lengths: the
+share of the full disc of radius L1 + L2 that the tip can reach, which is
+1 − ((L1 − L2)/(L1 + L2))². When asked what the height means, say this first. It is 100% all
 along the diagonal where L1 = L2, and lowest at the corners, 64% with one link
 at 3 cm and the other at 12 cm. It is not a plot of area. The drawing stretches
 the slope below the ridge so the crest is visible, so read values from the
