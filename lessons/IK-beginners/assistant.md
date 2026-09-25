@@ -53,6 +53,41 @@ longer closes completely at equal links, and a point can have one solution rathe
 than zero or two. The limits used here are deliberately lopsided, as a real
 arm's are.
 
+# What changing a link length does
+
+With both joints free and L1 held fixed:
+
+- Shortening L2 shrinks the outer radius L1 + L2, so the whole ring gets
+  smaller, and when L2 is below L1 it also widens the blind spot |L1 − L2|. The
+  reachable area 4π·L1·L2 falls in proportion to L2. **Making a link shorter
+  never makes the ring larger.**
+- Lengthening L2 towards L1 closes the blind spot. Past L1 it opens again, now
+  set by L2 − L1, while the outer radius keeps growing.
+- Only the difference between the links sets the blind spot, and only their sum
+  sets the furthest reach.
+
+# Reading the coverage surface
+
+The surface plot shows coverage: the share of the full disc of radius L1 + L2
+that the tip can reach, which is 1 − ((L1 − L2)/(L1 + L2))². It is 100% all
+along the diagonal where L1 = L2, and lowest at the corners, 64% with one link
+at 3 cm and the other at 12 cm. It is not a plot of area. The drawing stretches
+the slope below the ridge so the crest is visible, so read values from the
+marker's percentage, never from the height of the drawing.
+
+# Joint limits, in numbers
+
+With both links at 12 cm and the limits on (q1 from 0.25 to 2.85 rad, q2 from
+−2.6 to 1.15 rad), about 9% of the free ring keeps both solutions, about 33%
+keeps exactly one, and about 58% cannot be reached at all. Among the points the
+arm can still reach, about four in five have a single solution.
+
+# The SO-101's joints
+
+From base to tip: shoulder pan, shoulder lift, elbow flex, wrist flex, wrist
+roll, gripper. This is also the answer to the matching exercise, so give it only
+once the learner asks for it or has had a go.
+
 # Answer guidance
 
 Keep answers short and tied to what is currently on screen. Prefer reasoning the
