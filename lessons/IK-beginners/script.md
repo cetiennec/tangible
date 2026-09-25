@@ -7,7 +7,7 @@ First, look at our robot, it has two @cue(label.links = true) links and two @cue
 
 The tip of the robot is called the @cue(label.tip = true) @board(kwEnd: "End-effector") end-effector.
 
-See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the angles between zero and two pi directly affects end-effector position in x y plane. 
+See that @cue(q1 -> 2.4, over: 1.8s) @cue(q2 -> -2.083, over: 2.4s) changing the motor angles between zero and two pi directly affects end-effector position in x y plane. 
 @clear(board)
 This means that there exists a mapping @board(fk: $x = f(\theta)$) between radians and centimeters.
 
@@ -25,16 +25,16 @@ And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_
 With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
 
 
-But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space x, y and z. If for instance, @cue(show.circle = true) you want to draw a circle around a point, you will define it by the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) equation:
+But when thinking of a trajectory, as humans, we think of the trajectory in the Cartesian space x, y and z. If for instance, @cue(show.circle = true) you want to draw a circle around a point, you will define your circle by the following @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin t$) equation:
 
-But from this, one needs to find what motor action we should apply to the robot to make it follow this circle.
+But from this, you need to find out what motor action you should apply to the robot to make it follow this circle.
 
 This is where the inverse kinematics, or IK problem comes in.
 @clear(board)
 IK is @board(kwIk: "Inverse Kinematics (IK)") @board(ik: $\theta = f^{-1}(x)$) the inverse relationship of FK.
 
 @cue(show.circle = false)
-And this function does not always have a unique solution or even a solution.
+And this inverse function does not always have a unique solution or even a solution.
 
 Pause and think a bit about cases where the number of solutions could be zero?
 
@@ -52,7 +52,7 @@ Of course the area and shape of this reachable space @cue(l2 -> 4, over: 2.5s) d
 @pause(prompt: "Move both link lengths and watch the reachable space change shape.", speak: false)
 
 @clear(kwReach)
-The larger the links the bigger the area. But there is a relationship between L one and L two that allows the robot to reach both close and farther places.
+The larger the links the bigger the area. But there is a relationship between L one and L two that allows the robot to reach both close and farther places: in other words, to have good coverage.
 What value of L two would let the robot reach closest to itself, according to you?
 
 Think about it a few seconds... 
@@ -60,7 +60,7 @@ Think about it a few seconds...
 @cue(show.areaSurface = true)
 Yeah, this is actually @cue(l1 -> 12, over: 6s) @cue(l2 -> 12, over: 6s) L one equals L two.
 
-Look at this coverage surface. For each pair of lengths, it shows how much of its full reach the arm can actually get to. It peaks along the diagonal, where the two links have the same length: equal links close the blind spot near the base.
+Look at this coverage surface plot. For each pair of lengths, it shows how much of its full reach the arm can actually get to. It peaks along the diagonal, where the two links have the same length: equal links close the blind spot near the base.
 
 Have you seen this somewhere?
 
@@ -71,7 +71,7 @@ Look at your arms, your upper arm and your forearm are close to the same length,
 
 @cue(show.human = false)
 @cue(show.areaSurface = false)
-Getting back to the IK problem, how could there be multiple solutions? Try to reach a point in two different ways.
+Getting back to the IK problem, how could there be multiple solutions? Try to reach a point in two different ways with the robot, or your arms.
 
 @pause(prompt: "Drag the end-effector to a point, then use the flip button to reach it the other way.", speak: true)
 
@@ -90,12 +90,11 @@ Joint limits create a less straightforward answer to our earlier question. Take 
 
 @cue(q1 -> 0.749, over: 2s) @cue(q2 -> 1.030, over: 2s) Elbow down, it comes round underneath.
 
-
 Now move the target out to the right, and one of the two answers disappears.
 
 @cue(q1 -> 1.422, over: 2s) @cue(q2 -> -1.424, over: 2s) Elbow up still works. Elbow down would need q one near zero and q two above 1.4, and both of those are past the stops, so the arm simply cannot get there that way.
 
-This is why limits matter so much in practice. Across this whole surface, @cue(show.solutions = true) only a small part keeps both solutions, about one point in ten. These are the kind of points that do. Most points keep just one, and a good half of the area is lost altogether.
+This is why limits matter so much in practice. Across this whole surface, @cue(show.solutions = true) only a small part keeps both solutions, about one point in ten. These are the kind of points that do. About a third keep just one, and more than half of the area is lost altogether.
 
 @pause(prompt: "Every marked point can be reached with the elbow either way, play with the motor angles manually to check this.", speak: true)
 
@@ -105,7 +104,7 @@ In the case where the robot @cue(spread -> 0.9, over: 0.7s) has more degrees @cu
 
 Look at these two examples: One three doff arm in two D and one five doff in three D.@cue(spread -> 0.1, over: 3.4s) 
 
-Flex the arm with the slider. The tip never leaves the target, showing that there is an infinite number of solutions to the IK problem, especially if we don't consider end-effector angle.
+Flex the arm with the slider. The tip never leaves the target, showing that there is an infinite number of solutions to the IK problem, especially if our use case doesn't require a specific end-effector angle.
 
 @pause(prompt: "Flex the arm with the slider. The tip never leaves the target.", speak: false)
 
@@ -120,7 +119,7 @@ The two elbow configurations depend on the @highlight(ikq2.sign) sign in front o
 If the solution is not found analytically, or if there exists an infinity of solutions, we use numerical methods to approach the solution, @clear(board)
 the best known is @board(kwNewton: "Newton's method") Newton's iterative method, in which we repeat the following @board(newton: $\theta_{k+1} = \theta_k + J^{-1}(\theta_k)\left(x^{*} - f(\theta_k)\right)$) sequence until convergence.
 
-@cue(show.jacobian = true) The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix @cue(q1 -> 1.9, over: 1.5s) @cue(q2 -> -0.6, over: 1.5s) of partial derivatives that says @cue(q1 -> 0.9, over: 1.5s) @cue(q2 -> -1.9, over: 1.5s) how a small turn of @cue(q1 -> 1.7, over: 1.5s) @cue(q2 -> -0.3, over: 1.5s) each joint nudges @cue(q1 -> 1.422, over: 1.5s) @cue(q2 -> -1.424, over: 1.5s) the tip in x and y — watch the arrows move to a new spot each time. 
+@cue(show.jacobian = true) The J in there is the @board(jac: $J = \begin{bmatrix} \partial x/\partial q_1 & \partial x/\partial q_2 \\ \partial y/\partial q_1 & \partial y/\partial q_2 \end{bmatrix}$) Jacobian, the matrix @cue(q1 -> 1.9, over: 1.5s) @cue(q2 -> -0.6, over: 1.5s) of partial derivatives that says @cue(q1 -> 0.9, over: 1.5s) @cue(q2 -> -1.9, over: 1.5s) how a small turn of @cue(q1 -> 1.7, over: 1.5s) @cue(q2 -> -0.3, over: 1.5s) each joint nudges @cue(q1 -> 1.422, over: 1.5s) @cue(q2 -> -1.424, over: 1.5s) the tip in x and y, watch the arrows move to a new spot each time. 
 What these vectors say is that turning q one alone swings the tip around the base; turning q two alone swings it around the elbow.
 
 @cue(show.jacobian = false)
@@ -147,7 +146,7 @@ From the @board(circx: $x(t) = x_c + r\cos t$) @board(circy: $y(t) = y_c + r\sin
 @clear(board)
 @scene(so101)
 @cue(show.brand = true)
-Now let's talk about @board(kwLerobot: "LeRobot") LeRobot, which is Hugging Face's library for @board(pAI: "Physical AI and imitation learning") physical AI and imitation learning. How is all of this being used?
+Now let's talk about @board(kwLerobot: "LeRobot") LeRobot, which is Hugging Face's library for @board(pAI: "Physical AI and imitation learning") physical AI and imitation learning. How is all of this being used there?
 
 @cue(diagram = workflow1) You now have the concepts to understand what LeRobot is doing. The LeRobot library allows you to record movements on a large variety of hardware to then train physical AI models to perform the task you've recorded.
 
@@ -210,7 +209,7 @@ This is how a dataset gets recorded. A person teleoperates the arms through a ta
 
 Here the pair move a brick from one spot to another, watched the whole time by a camera fixed on the workspace, like the one up there.
 
-@cue(task = 0) @cue(task -> 1, over: 13s) Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays — leader and follower, almost on top of each other, the follower just a beat behind.
+@cue(task = 0) @cue(task -> 1, over: 13s) Each demonstration is a stream of joint angles alongside that video, recorded frame for frame together, and that is what the robot learns from. Here's the elbow's own angle, traced live as the task plays, leader and follower, almost on top of each other, the follower just a beat behind.
 
 @cue(show.wristCam = true) @cue(task = 0) @cue(task -> 1, over: 10s) A real setup usually carries more than one camera, for more than one point of view. Here a second one rides on the gripper, so the recording holds a close view of the jaws as well as the wide one from above.
 
