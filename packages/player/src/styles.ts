@@ -95,4 +95,5 @@ export const PLAYER_CSS = `
   .xv-portrait-title { font-size: 19px; line-height: 1.2; }
   .xv-portrait-explanation { max-width: 34ch; color: #d9e2ec; font-size: 15px; line-height: 1.4; }
 }
+.xv-export *, .xv-export *::before, .xv-export *::after { transition: none !important; animation: none !important; }
 `;
