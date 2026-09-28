@@ -533,6 +533,12 @@ itself. It inserts 0.4 s of silence after a clip that ends a sentence and 0.5 s
 after a question, and none after a comma, where the voice already pauses. A cue
 at a sentence start fires when the new sentence begins, after that silence.
 
+The voice occasionally spoils a clip with a pop, a short crackle that sounds like
+the audio tearing. Tangible checks every clip for one as soon as it is generated
+and, when it finds one, asks for that clip again with another seed, up to three
+takes, keeping the take with the fewest pops. The build log says which segments
+were regenerated. On the IK lesson, about one clip in twenty needed it.
+
 ### Listen before you publish
 
 Read the built audio, not the script. Numbers, acronyms, formulas and any word

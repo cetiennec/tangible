@@ -21,6 +21,11 @@ const GENERATION_SETTINGS = { language: "English", temperature: 0.9, top_p: 0.95
 // alone, so the endpoint leaves the same short tail after a full stop as after a comma;
 // the pause a sentence ending deserves has to be added at the seam.
 const SEAM_SILENCE_SECONDS: Record<string, number> = { ".": 0.4, "!": 0.4, "\u2026": 0.4, "?": 0.5 };
+// The voice sometimes spoils a clip with a pop: a burst of abrupt jumps between
+// neighbouring samples, several within a few milliseconds, which no speech sound
+// produces. On cloned-voice narrations 4 to 10% of clips had one. Such a clip is
+// asked for again with another seed, and the take with the fewest pops is kept.
+const POP_CHECK = { jump: 0.3, jumps: 5, window: 0.02, attempts: 3 };
 
 export class HuggingFaceVoiceAdapter implements TtsAdapter {
   id = "hf-endpoint";
@@ -49,6 +54,7 @@ export class HuggingFaceVoiceAdapter implements TtsAdapter {
       seed: this.seed,
       ...GENERATION_SETTINGS,
       seamSilence: SEAM_SILENCE_SECONDS,
+      popCheck: POP_CHECK,
     })).digest("hex")}`;
   }
 
@@ -76,8 +82,12 @@ export class HuggingFaceVoiceAdapter implements TtsAdapter {
         duration += silence.duration;
       }
       segmentStarts.push(duration);
-      const audio = await this.generate(text, req.voice || this.speaker, this.seed + i);
-      const clip = parsePcmWav(audio);
+      let clip = parsePcmWav(await this.generate(text, req.voice || this.speaker, this.seed + i));
+      for (let attempt = 1; attempt < POP_CHECK.attempts && countPops(clip) > 0; attempt++) {
+        this.onStatus?.(`Tangible is regenerating narration segment ${i + 1}, which had a pop.`);
+        const retry = parsePcmWav(await this.generate(text, req.voice || this.speaker, this.seed + i + attempt * 100_003));
+        if (countPops(retry) < countPops(clip)) clip = retry;
+      }
       clips.push(clip);
       duration += clip.duration;
     }
@@ -183,6 +193,27 @@ function parsePcmWav(audio: Uint8Array): ParsedWav {
 }
 
 /** Seconds of silence to follow a clip, from its last punctuation mark, ignoring closing quotes and brackets. */
+/** Pops in a clip: bursts of POP_CHECK.jumps or more sample-to-sample jumps within POP_CHECK.window, on the first channel. */
+export function countPops(clip: { data: Uint8Array; channels: number; sampleRate: number }): number {
+  const view = new DataView(clip.data.buffer, clip.data.byteOffset, clip.data.byteLength);
+  const frames = clip.data.byteLength / (2 * clip.channels);
+  const threshold = POP_CHECK.jump * 32768;
+  const window = POP_CHECK.window * clip.sampleRate;
+  let pops = 0;
+  let burst: number[] = [];
+  let previous = view.getInt16(0, true);
+  for (let i = 1; i < frames; i++) {
+    const sample = view.getInt16(i * 2 * clip.channels, true);
+    if (Math.abs(sample - previous) > threshold) {
+      burst = burst.filter((at) => i - at < window);
+      burst.push(i);
+      if (burst.length === POP_CHECK.jumps) pops += 1;
+    }
+    previous = sample;
+  }
+  return pops;
+}
+
 function seamSilenceSeconds(text: string): number {
   const last = text.replace(/["'\u2019\u201d)\]]+$/, "").at(-1) ?? "";
   return SEAM_SILENCE_SECONDS[last] ?? 0;
