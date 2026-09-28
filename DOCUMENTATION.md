@@ -671,7 +671,8 @@ Speech quality does not guarantee accurate timestamps. Supertonic provides no
 word alignment, so Tangible distributes character times across each sentence.
 The Qwen endpoint also provides no word alignment. Tangible instead synthesizes
 separate clips and joins them using their exact audio durations. Every sentence
-starts a clip. A cue anchor starts one only where the cut would not disfigure the
+starts a clip, and so does every `@pause`, so a checkpoint stops playback exactly
+between two clips. A cue anchor starts one only where the cut would not disfigure the
 speech: it must fall on a clause break, with at least 25 characters of narration
 on either side. Each clip is synthesized without sight of its neighbours, so a
 cut mid-phrase is spoken as a standalone utterance, with its own falling

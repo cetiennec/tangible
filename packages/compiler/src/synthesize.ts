@@ -57,11 +57,13 @@ const CLAUSE_BREAKS = ",;:\u2014\u2013";
 const MIN_SEGMENT_CHARS = 25;
 
 /** Cue anchors plus sentence starts, suitable for natural, timing-safe TTS chunks. */
-export function narrationSegmentOffsets(narration: string, directiveOffsets: number[]): number[] {
-  // Sentence starts are natural breaks and always survive. A cue anchor earns a seam
-  // only where it would not disfigure the speech; an anchor that loses its seam still
-  // gets a time, interpolated across the segment it falls in.
-  const kept = normalizeOffsets(narration, sentenceOffsets(narration));
+export function narrationSegmentOffsets(narration: string, directiveOffsets: number[], pauseOffsets: number[] = []): number[] {
+  // Sentence starts are natural breaks and always survive. So do pause anchors: the
+  // player stops there, so a cut costs no phrasing, and an interpolated pause time
+  // could stop the voice mid-word. A cue anchor earns a seam only where it would not
+  // disfigure the speech; an anchor that loses its seam still gets a time,
+  // interpolated across the segment it falls in.
+  const kept = normalizeOffsets(narration, [...sentenceOffsets(narration), ...pauseOffsets]);
   for (const offset of normalizeOffsets(narration, directiveOffsets)) {
     const previous = kept.filter((boundary) => boundary <= offset).pop() ?? 0;
     const next = kept.find((boundary) => boundary > offset) ?? narration.length;

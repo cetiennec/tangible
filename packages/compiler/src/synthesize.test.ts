@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SegmentedTtsRequest, TtsAdapter, TtsRequest, TtsResult } from "@tangible/core";
 import { synthesize, cacheKey, narrationSegmentOffsets } from "./synthesize.js";
+import { parseScript } from "./parse.js";
 
 // Minimal deterministic adapter (compiler depends on core only, not @tangible/tts).
 // Counts how many times the network path (synthesize) is actually hit.
@@ -124,6 +125,24 @@ describe("narrationSegmentOffsets", () => {
   it("still breaks at a full stop that follows a number", () => {
     const text = "The arm turns to 2.85. Then it stops moving entirely.";
     expect(narrationSegmentOffsets(text, [])).toEqual([text.indexOf("Then")]);
+  });
+
+  it("always starts a clip at a pause, even mid-phrase, so playback stops between clips", () => {
+    // A prompt without a final full stop, then a silent pause in the middle of a sentence.
+    const spoken = parseScript('Explore the arm now. @pause(prompt: "Drag the slider and watch the elbow") Then we look at the angles.');
+    const spokenPause = spoken.directives[0]!.anchorOffset;
+    expect(narrationSegmentOffsets(spoken.narration, [spokenPause], [spokenPause])).toContain(spokenPause);
+
+    const silent = parseScript("Watch the elbow as the arm swings @pause(speak: false) all the way round.");
+    const silentPause = silent.directives[0]!.anchorOffset;
+    expect(narrationSegmentOffsets(silent.narration, [silentPause], [silentPause])).toEqual([silentPause]);
+  });
+
+  it("drops a cue anchor too close to a pause, as it would near a sentence start", () => {
+    const text = "Watch the elbow as the arm swings, and all the way round it goes.";
+    const pause = text.indexOf(", and") + 1;
+    const cue = text.indexOf("and all");
+    expect(narrationSegmentOffsets(text, [cue], [pause])).toEqual([pause]);
   });
 });
 
