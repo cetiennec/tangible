@@ -18,8 +18,8 @@ The relation between angles and end-effector position is called the @board(kwFk:
 @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false)
 For serial robots, like ours, it can be obtained by modeling each joint position.
 For instance, @board(p1: $p_1 = (0,\ 0)$) motor one is at the base zero, zero.
-But motor two position @cue(q1 -> 1.2, over: 2s) @cue(label.angles = true) @cue(label.links = true) @board(p2: $p_2 = L_1(\cos q_1,\ \sin q_1)$) depends on motor one angle.
-And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(q_1{+}q_2),\ \sin(q_1{+}q_2))$) end-effector position on motor two angle and position, which depends on motor one angle.
+But motor two position @cue(q1 -> 1.2, over: 2s) @cue(label.angles = true) @cue(label.links = true) @board(p2: $p_2 = L_1(\cos \htmlClass{q1}{q_1},\ \sin \htmlClass{q1}{q_1})$) depends on @highlight(p2.q1) motor one angle.
+And @cue(label.tip = true) @board(p3: $p_3 = p_2 + L_2(\cos(\htmlClass{q1}{q_1}{+}\htmlClass{q2}{q_2}),\ \sin(\htmlClass{q1}{q_1}{+}\htmlClass{q2}{q_2}))$) end-effector position on @highlight(p3.q2) motor two angle and position, which depends on @highlight(p3.q1) motor one angle.
 
 @clear(board)
 With this we have the full relation that gives @board(fkx: $x = L_1 \cos q_1 + L_2 \cos(q_1+q_2)$) @board(fky: $y = L_1 \sin q_1 + L_2 \sin(q_1+q_2)$) angle to position.
