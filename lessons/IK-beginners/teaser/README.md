@@ -6,12 +6,12 @@ music track. It is a plain web page drawn frame by frame, with no video framewor
 
 ## Edit it
 
-- `teaser.js`: the timeline at the top of the file. It sets how long the hook,
-  each shot and the end card last, the opening questions, and for each shot the
-  clip it shows, where in the clip it starts, and its "What you will learn" line.
-  Keep durations in multiples of 0.5 s so the cuts land on the music's beat.
-- `teaser.html`: the texts of the closing card, and all colours, sizes and
-  positions.
+- `teaser.js`: every text and the timeline, at the top of the file. It sets how
+  long the hook, each shot and the end card last; the hook's label and questions;
+  for each shot the clip it shows, where in the clip it starts, and its "What you
+  will learn" line; and the closing card's texts. Keep durations in multiples of
+  0.5 s so the cuts land on the music's beat.
+- `teaser.html`: the layout only: colours, sizes and positions.
 - `make_music.py`: the music, synthesized from code. Every render makes it again
   to fit the timeline, with the beat playing from the first shot to the end card.
   To use a track you own instead, save it as `own-music.wav`; a track shorter

@@ -2,15 +2,18 @@
 // frame; everything on screen is computed from t alone, so any frame can be drawn
 // on its own and the video is the same every time it is rendered.
 
-// ---- Timeline: edit here -------------------------------------------------------
+// ---- Timeline and texts: edit here ----------------------------------------------
 const FPS = 30;
 const FADE = 10 / FPS; // crossfade between layers, in seconds
 // Keep these multiples of 0.5 s so every cut lands on the music's beat (120 BPM).
 const HOOK = 3.0; // the opening questions
 const SHOT = 3.0; // each lesson shot
 const END = 3.5; // the closing card
-// The opening questions, one per line; the second is drawn in orange.
+// The opening card: a small label, then the questions, one per line; the second is orange.
+const HOOK_LABEL = "INVERSE KINEMATICS";
 const QUESTION = ["How do we control a robot geometrically?", "And how do we make it move the right way?"];
+// The heading of the list that grows beside the shots.
+const LEARN_HEADING = "WHAT YOU WILL LEARN";
 // Each shot: the exported clip in clips/, where in it the shot starts (s), and the
 // line it adds to "What you will learn".
 const SHOTS = [
@@ -20,6 +23,15 @@ const SHOTS = [
   { clip: "teleop", trim: 1.0, learn: "How robots learn from demonstrations" },
   { clip: "brick", trim: 0.7, learn: "How the LeRobot library is used for imitation learning" },
 ];
+// The closing card, top to bottom.
+const END_CARD = {
+  label: "ROBOTICS 101",
+  title: "How to control a robot",
+  subtitle: "From kinematics to imitation learning with LeRobot",
+  tagline: "An interactive lesson: play with the simulation while it explains.",
+  address: "huggingface.co/spaces/cetiennec/robotics-lesson-101",
+  credit: "MADE WITH TANGIBLE",
+};
 
 // ---------------------------------------------------------------------------------
 
@@ -121,6 +133,9 @@ function drawArm(arm, frame) {
 const hook = document.getElementById("hook");
 const end = document.getElementById("end");
 const learn = document.getElementById("learn");
+hook.querySelector(".kicker").textContent = HOOK_LABEL;
+learn.querySelector(".header").textContent = LEARN_HEADING;
+for (const [part, text] of Object.entries(END_CARD)) end.querySelector(`[data-part="${part}"]`).textContent = text;
 const arms = [...document.querySelectorAll("svg.arm")].map(buildArm);
 
 const words = QUESTION.map((line, n) => {
