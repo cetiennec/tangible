@@ -29,7 +29,7 @@ const END_CARD = {
   label: "ROBOTICS 101",
   title: "How to control a robot",
   subtitle: "From kinematics to imitation learning with LeRobot",
-  tagline: "An interactive lesson: play with the simulation while it explains.",
+  tagline: "An interactive lesson: play with the simulation while I explain it.",
   address: "huggingface.co/spaces/cetiennec/robotics-lesson-101",
   credit: "MADE WITH TANGIBLE",
 };
