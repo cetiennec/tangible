@@ -34,18 +34,18 @@ needs FFmpeg, `uv` for the music, and Playwright's Chromium
 
 | Clip | Lesson time |
 |---|---|
-| `arm.mp4` | 37.66 to 42.09 s |
-| `elbow.mp4` | 217.96 to 222.39 s |
-| `joints.mp4` | 499.70 to 504.13 s |
-| `teleop.mp4` | 582.14 to 586.57 s |
-| `brick.mp4` | 615.34 to 619.77 s |
+| `arm.mp4` | 38.73 to 43.16 s |
+| `elbow.mp4` | 217.03 to 221.46 s |
+| `joints.mp4` | 497.14 to 501.57 s |
+| `teleop.mp4` | 581.66 to 586.09 s |
+| `brick.mp4` | 615.42 to 619.85 s |
 
 Each clip starts half a second before its shot, which is why every shot in
 `teaser.js` has `trim: 0.5`. `--scale 2` exports the clips at 3840×2160 so
 the shots stay sharp in the 4K teaser.
 
 ```bash
-pnpm lesson video --lesson lessons/IK-beginners -o lessons/IK-beginners/teaser/clips/arm.mp4 --from 37.66 --to 42.09 --scale 2
+pnpm lesson video --lesson lessons/IK-beginners -o lessons/IK-beginners/teaser/clips/arm.mp4 --from 38.73 --to 43.16 --scale 2
 ```
 
 The times match the narration built on 28 September 2026. After a narration
