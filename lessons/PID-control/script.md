@@ -1,17 +1,22 @@
 @scene(main)
 @chapter(Introduction)
 
-[[Placeholder. Link to lesson 101: inverse kinematics gives the target angles, and this lesson is about making each motor actually reach them.]]
-This lesson is about control: how a motor reaches the angle we ask for.
+In previous robotics 101 course you've seen how to control a robot geometrically. We saw different ways of generating target angles from another teleoperator (planning in the joint space) or from a controller outputting 3D positions or 3D speed (planning in the cartesian space).
+But saying this, we've said nothing on how the motor actually reach its target orientation. 
+As you might now, a motor is driven by its voltage and current, which translate eletrical power to mechanical power, but the electric signals to achieve a given position, speed or torque is not easy to compute as it might depend on the environment, this is exactly what PID control is about, come on let's dig into it.
 
-@chapter(Open loop and closed loop)
 
-[[Placeholder. Commanding a motor blindly versus measuring where it is and correcting.]]
-First, we compare driving a motor blindly with correcting it as it moves.
+Before jumping to PID control, let's meet our motor. The model of a DC motor is the following, defined by what's called the electric and the mechanical equations
+
+@chapter(Open loop, feedforward and closed loop)
+
+
+First, it's important to distinguish between what's called open-loop vs closed loop control.
+
+When you appl
 
 @chapter(The proportional term)
 
-[[Placeholder. The command grows with the error; show the overshoot and the steady error.]]
 The first idea is to push harder the further we are from the target.
 Then the push @cue(amount -> 80, over: 2s) grows with the error.
 
@@ -19,12 +24,10 @@ Then the push @cue(amount -> 80, over: 2s) grows with the error.
 
 @chapter(The integral term)
 
-[[Placeholder. Accumulating past error removes the steady offset.]]
 Next, we look at what the past error adds.
 
 @chapter(The derivative term)
 
-[[Placeholder. Reacting to how fast the error changes damps the overshoot.]]
 Then, we look at how the speed of the error helps.
 
 @chapter(Tuning a PID controller)
