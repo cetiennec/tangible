@@ -113,11 +113,15 @@ export class Chrome {
   bindKeys(target: Window | HTMLElement = window): () => void {
     const onKey = (e: KeyboardEvent) => {
       const source = e.target as HTMLElement | null;
-      if (source?.matches("input, textarea, select, button, [contenteditable=true]")) return;
+      // A slider has no use for the space bar, and a learner who has just moved one
+      // during a checkpoint expects it to resume. Its arrow keys still move the slider.
+      const slider = source?.matches('input[type="range"]') ?? false;
+      if (!slider && source?.matches("input, textarea, select, button, [contenteditable=true]")) return;
       if (e.key === " " || e.key === "k") {
         e.preventDefault();
         this.togglePlay();
-      } else if (e.key === "f") this.toggleFullscreen();
+      } else if (slider) return;
+      else if (e.key === "f") this.toggleFullscreen();
       else if (e.key === "ArrowRight") this.clock.seek(this.clock.t + 5);
       else if (e.key === "ArrowLeft") this.clock.seek(this.clock.t - 5);
     };
@@ -130,9 +134,14 @@ export class Chrome {
     if (!this.scrubbing) this.scrubber.value = String(d > 0 ? Math.round((t / d) * 1000) : 0);
     this.elapsed.textContent = `${formatTime(t)} / ${formatTime(d)}`;
     // Drive the icon from the actual state (robust to browsers that fire media
-    // play/pause events unreliably, e.g. Safari).
-    this.playBtn.textContent = this.clock.playing ? "⏸" : "▶";
-    this.playBtn.setAttribute("aria-label", this.clock.playing ? "Pause lesson" : "Play lesson");
+    // play/pause events unreliably, e.g. Safari), but write it only when it
+    // changes: this runs every frame, and WebKit drops a click whose button text
+    // is replaced while the mouse is held down.
+    const icon = this.clock.playing ? "⏸" : "▶";
+    if (this.playBtn.textContent !== icon) {
+      this.playBtn.textContent = icon;
+      this.playBtn.setAttribute("aria-label", this.clock.playing ? "Pause lesson" : "Play lesson");
+    }
   }
 
   private togglePlay(): void {

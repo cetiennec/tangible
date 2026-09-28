@@ -33,6 +33,25 @@ beforeEach(() => {
 });
 
 describe("PauseGate", () => {
+  it("reports that it is holding, separately from whether it has a prompt", () => {
+    // The panel needs to know a checkpoint is holding even when the author
+    // supplied no prompt, which activePrompt alone cannot tell it.
+    expect(gate.holding).toBe(false);
+    gate.update(4.9);
+    gate.update(5.01);
+    expect(gate.holding).toBe(true);
+    media.play();
+    expect(gate.holding).toBe(false);
+  });
+
+  it("holds without a prompt too", () => {
+    const silent = new PauseGate(clock, [{ t: 5, id: "q0" }]);
+    silent.update(4.9);
+    silent.update(5.01);
+    expect(silent.holding).toBe(true);
+    expect(silent.activePrompt).toBe(null);
+  });
+
   it("pauses at the checkpoint boundary", () => {
     gate.update(4.9);
     gate.update(5.01);

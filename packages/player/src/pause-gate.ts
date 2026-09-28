@@ -59,6 +59,11 @@ export class PauseGate {
     this.lastT = t;
   }
 
+  /** Whether an authored gate is holding playback right now. */
+  get holding(): boolean {
+    return this.active !== undefined;
+  }
+
   /** Prompt for the authored gate that currently holds playback. */
   get activePrompt(): string | null {
     return this.active?.prompt ?? null;
