@@ -52,7 +52,8 @@ brief when the author has already provided those two pieces of intent.
 - A `@pause` prompt is narrated unless it carries `speak: false`; any value other
   than `true` or `false` fails the build.
 - For providers without word alignment, a cue anchored at a clause break gets an
-  exact time; one placed mid-phrase is interpolated.
+  exact time; one placed mid-phrase is interpolated. A `@pause` always gets an
+  exact time, wherever it sits.
 - Listen to the built audio before deploying. A build succeeds whether or not
   the voice made sense.
 

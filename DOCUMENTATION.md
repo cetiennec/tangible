@@ -518,8 +518,9 @@ Write the prompt as a spoken sentence, or opt out.
 This applies to providers without word alignment, such as the Qwen endpoint.
 Tangible cannot ask them when a word was spoken, so it cuts the narration into
 clips and takes the timing from clip durations. Every sentence starts a clip, and
-a cue anchor starts one when it falls on a clause break with enough narration on
-either side.
+so does every `@pause`, so a checkpoint always stops playback between two clips
+rather than mid-word. Any other cue anchor starts a clip only when it falls on a
+clause break with enough narration on either side.
 
 A cue placed just after a comma therefore gets an exact time. A cue placed in the
 middle of a phrase still works, but its time is interpolated across the clip,
