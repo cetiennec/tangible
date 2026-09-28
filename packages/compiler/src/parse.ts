@@ -159,7 +159,7 @@ function tokenize(body: string, startLine: number, file?: string): { textRaw: st
         // the checkpoint just after it, so the voice reads the instruction before
         // playback pauses. `speak: false` opts out.
         if (name === "pause") {
-          const spoken = spokenPausePrompt(argsText);
+          const spoken = pauseSpeaks(argsText, { file, line, col }) ? pausePromptText(argsText) : "";
           if (spoken) {
             if (textRaw.length && !/\s$/.test(textRaw)) textRaw += " ";
             textRaw += spoken;
@@ -286,7 +286,7 @@ function parseDirective(r: RawDirective, anchorOffset: number): Directive {
     case "chapter":
       return { ...base, kind: "chapter", title: a };
     case "pause":
-      return { ...base, kind: "pause", prompt: pausePromptText(a), speak: !/\bspeak\s*:\s*false\b/.test(a) };
+      return { ...base, kind: "pause", prompt: pausePromptText(a), speak: pauseSpeaks(a, r.loc) };
     default:
       return { ...base, kind: "unknown", name: r.name, argsText: a };
   }
@@ -490,8 +490,12 @@ function pausePromptText(argsText: string): string {
   return m ? m[1]! : stripQuotes(argsText);
 }
 
-/** The prompt to speak before a pause, or "" when `speak: false`. */
-function spokenPausePrompt(argsText: string): string {
-  if (/\bspeak\s*:\s*false\b/.test(argsText)) return "";
-  return pausePromptText(argsText);
+/** Whether a pause narrates its prompt: yes unless `speak: false`. Any other value is an error, not a yes. */
+function pauseSpeaks(argsText: string, loc: SourceLoc): boolean {
+  const m = /\bspeak\s*:\s*([^,)]*)/.exec(argsText.replace(/"[^"]*"/g, '""'));
+  if (!m) return true;
+  const value = m[1]!.trim();
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ParseError(`@pause speak must be true or false, not "${value}"`, loc);
 }

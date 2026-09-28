@@ -166,7 +166,11 @@ async function buildLesson(lessonDir: string, manifest: Manifest, scene: SceneIn
     voice,
     cacheDir: join(lessonDir, ".cache", "tts"),
     speed,
-    segmentOffsets: narrationSegmentOffsets(parsed.narration, parsed.directives.map((directive) => directive.anchorOffset)),
+    segmentOffsets: narrationSegmentOffsets(
+      parsed.narration,
+      parsed.directives.map((directive) => directive.anchorOffset),
+      parsed.directives.filter((directive) => directive.kind === "pause").map((directive) => directive.anchorOffset),
+    ),
   });
 
   // Keep --silent hermetic. Every actual voice is converted to compact indexed
