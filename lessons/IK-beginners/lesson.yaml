@@ -21,7 +21,7 @@ tts:
   revision: dad273fce0b5d3a42602821f1beca99de3f4dad6
 deployment:
   provider: huggingface
-  space: cetiennec/ik-beginners
+  space: cetiennec/robotics-lesson-101
 assistant:
   provider: huggingface
   model: google/gemma-4-26B-A4B-it:deepinfra
