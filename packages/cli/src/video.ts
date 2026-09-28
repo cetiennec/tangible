@@ -14,7 +14,8 @@ import { staticServer } from "./frame.js";
 
 export interface VideoOptions {
   out: string;
-  size?: string; // "1920x1080"
+  size?: string; // "1920x1080": the layout size, in CSS pixels
+  scale?: number; // pixels per CSS pixel: 2 renders a 1920x1080 layout as a 3840x2160 video
   fps?: number;
   hold?: number; // seconds each pause checkpoint stays on screen
   captions?: boolean;
@@ -82,7 +83,7 @@ export async function renderVideo(siteDir: string, opts: VideoOptions): Promise<
   const browser = await chromium.launch({ channel: "chromium" });
   const holds: Hold[] = [];
   try {
-    const page = await browser.newPage({ viewport: { width: width!, height: height! } });
+    const page = await browser.newPage({ viewport: { width: width!, height: height! }, deviceScaleFactor: opts.scale ?? 1 });
     await page.goto(`http://127.0.0.1:${port}/?export&t=${from}${opts.captions ? "&captions" : ""}`);
     await page.waitForFunction(() => (globalThis as ExportWindow).__tangibleExport !== undefined);
     await page.waitForLoadState("networkidle");

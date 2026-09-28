@@ -93,7 +93,8 @@ Usage:
   pnpm lesson video -o <file.mp4> --from <s> --to <s> --lesson lessons/<id>
 
 Options:
-  --size 1920x1080   frame size (default 1920x1080)
+  --size 1920x1080   layout size (default 1920x1080)
+  --scale 2          pixel density: 2 renders that layout at 3840x2160 (default 1)
   --fps 30           frames per second (default 30)
   --hold 3           seconds each pause checkpoint stays on screen (default 3)
   --captions         show captions in the video

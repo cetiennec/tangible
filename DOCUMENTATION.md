@@ -1307,7 +1307,9 @@ controls, start screen, and assistant are left out. Each pause checkpoint stays
 on screen with its prompt for `--hold` seconds (3 by default), with silence under
 it, and then the lesson continues. `--captions` shows the captions, `--from` and
 `--to` export part of the lesson in lesson seconds, and `--size` and `--fps` set
-the frame (1920x1080 and 30 by default).
+the frame (1920x1080 and 30 by default). `--scale 2` keeps the same layout but
+renders it at twice the pixel density, so a 1920x1080 lesson becomes a sharp
+3840x2160 video; text and lines stay crisp instead of being upscaled.
 
 Frames are rendered one at a time rather than recorded: the exporter sets the
 lesson clock to each frame's time, lets the scene draw, and captures it. A scene

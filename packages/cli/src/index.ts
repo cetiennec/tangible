@@ -159,6 +159,7 @@ async function cmdVideo(flags: Flags): Promise<void> {
   await renderVideo(siteDir, {
     out,
     size: flags.size,
+    scale: flags.scale,
     fps: flags.fps,
     hold: flags.hold,
     captions: flags.captions,
@@ -469,6 +470,7 @@ interface Flags {
   caseIds?: string[];
   repeats?: number;
   fps?: number;
+  scale?: number;
   hold?: number;
   captions?: boolean;
   from?: number;
@@ -504,6 +506,7 @@ function parseFlags(args: string[]): Flags {
     }
     else if (args[i] === "--repeats") f.repeats = Number(args[++i]);
     else if (args[i] === "--fps") f.fps = positiveNumber(args[++i], "--fps");
+    else if (args[i] === "--scale") f.scale = positiveNumber(args[++i], "--scale");
     else if (args[i] === "--hold") f.hold = nonNegativeNumber(args[++i], "--hold");
     else if (args[i] === "--captions") f.captions = true;
     else if (args[i] === "--from") f.from = nonNegativeNumber(args[++i], "--from");
