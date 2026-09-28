@@ -1,6 +1,6 @@
-// Render the teaser to out/teaser.mp4: make the music if it is missing, extract each
-// shot's frames from its clip with FFmpeg, draw every frame of teaser.html in
-// headless Chromium, and encode the frames with the music.
+// Render the teaser to out/teaser.mp4: make music that fits the timeline (unless
+// own-music.wav is there), extract each shot's frames from its clip with FFmpeg,
+// draw every frame of teaser.html in headless Chromium, and encode it all.
 //
 // Run from anywhere inside the repository:  node lessons/IK-beginners/teaser/render.mjs
 
@@ -19,15 +19,18 @@ function run(command, args) {
   if (result.status !== 0) throw new Error(`${command} exited with code ${result.status}`);
 }
 
-if (!existsSync(join(here, "music.wav"))) {
-  run("uv", ["run", "-q", "--with", "numpy", "--with", "scipy", "--with", "soundfile", "python", "make_music.py", "music.wav"]);
-}
-
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   await page.goto(pathToFileURL(join(here, "teaser.html")).href);
-  const { fps, seconds, shots } = await page.evaluate(() => window.TEASER);
+  const { fps, seconds, beat, shots } = await page.evaluate(() => window.TEASER);
+
+  const ownMusic = existsSync(join(here, "own-music.wav"));
+  const music = ownMusic ? "own-music.wav" : "music.wav";
+  if (!ownMusic) {
+    run("uv", ["run", "-q", "--with", "numpy", "--with", "scipy", "--with", "soundfile", "python", "make_music.py",
+      "music.wav", String(seconds), String(beat.from), String(beat.to)]);
+  }
 
   for (const { clip, trim, seconds: length } of shots) {
     const dir = join(here, "frames", clip);
@@ -39,9 +42,10 @@ try {
 
   mkdirSync(dirname(out), { recursive: true });
   const encoder = spawn("ffmpeg", [
-    "-y", "-v", "error", "-f", "image2pipe", "-framerate", String(fps), "-c:v", "mjpeg", "-i", "-", "-i", "music.wav",
-    "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-    "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out,
+    "-y", "-v", "error", "-f", "image2pipe", "-framerate", String(fps), "-c:v", "mjpeg", "-i", "-", "-i", music,
+    // A track shorter than the video is padded with silence, so the video always runs its full length.
+    "-map", "0:v", "-map", "1:a", "-af", "apad", "-t", String(seconds), "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out,
   ], { cwd: here, stdio: ["pipe", "inherit", "inherit"] });
   const encoded = new Promise((resolve, reject) => {
     encoder.on("error", reject);

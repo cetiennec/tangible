@@ -1,9 +1,10 @@
-"""Synthesize the teaser's music: 20 s at 120 BPM, C–G–Am–F, all generated here.
+"""Synthesize the teaser's music at 120 BPM, C–G–Am–F, all generated here.
 
-Bar 1 (the hook) is pad and arpeggio only; the beat enters with the first shot;
-the last bars drop the beat and fade out under the end card.
+Under the hook it is pad and arpeggio only; the beat plays from the first shot to
+the end card, then drops while the music fades out. render.mjs passes the lengths
+from the timeline in teaser.js.
 
-Run:   uv run --with numpy --with scipy --with soundfile python make_music.py out.wav
+Run:   uv run --with numpy --with scipy --with soundfile python make_music.py out.wav LENGTH BEAT_FROM BEAT_TO
 """
 
 import sys
@@ -16,7 +17,7 @@ SR = 44100
 BPM = 120
 BEAT = 60 / BPM
 BAR = 4 * BEAT
-LENGTH = 20.0
+LENGTH, BEAT_FROM, BEAT_TO = (float(x) for x in sys.argv[2:5])
 N = int(LENGTH * SR)
 t = np.arange(N) / SR
 
@@ -70,7 +71,6 @@ for i in range(int(LENGTH / step)):
     right[start:start + length] += 0.11 * tone * (1 + pan)
 
 # Bass: the chord root on every eighth note, from the first shot until the end card.
-BEAT_FROM, BEAT_TO = 2.5, 16.5
 for i in range(int(BEAT_FROM / step), int(BEAT_TO / step)):
     start = int(i * step * SR)
     length = int(0.24 * SR)
@@ -101,4 +101,4 @@ stereo = np.stack([left, right], axis=1) * master[:, None]
 stereo = np.tanh(1.4 * stereo)
 stereo *= 10 ** (-1 / 20) / np.abs(stereo).max()
 sf.write(sys.argv[1], stereo, SR)
-print(f"wrote {sys.argv[1]}: {LENGTH} s, {BPM} BPM")
+print(f"wrote {sys.argv[1]}: {LENGTH} s, {BPM} BPM, beat from {BEAT_FROM} s to {BEAT_TO} s")

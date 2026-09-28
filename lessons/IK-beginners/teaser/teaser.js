@@ -5,18 +5,22 @@
 // ---- Timeline: edit here -------------------------------------------------------
 const FPS = 30;
 const FADE = 10 / FPS; // crossfade between layers, in seconds
-const HOOK = 2.5; // the opening question
-const SHOT = 3.5; // each lesson shot; with the hook, cuts land on the music's beat
+// Keep these multiples of 0.5 s so every cut lands on the music's beat (120 BPM).
+const HOOK = 3.0; // the opening questions
+const SHOT = 3.0; // each lesson shot
 const END = 3.5; // the closing card
-const QUESTION = ["How do you tell a robot", "where to go?"];
+// The opening questions, one per line; the second is drawn in orange.
+const QUESTION = ["How do we control a robot geometrically?", "And how do we make it move the right way?"];
 // Each shot: the exported clip in clips/, where in it the shot starts (s), and the
 // line it adds to "What you will learn".
 const SHOTS = [
   { clip: "arm", trim: 0.7, learn: "How joint angles place the tip" },
-  { clip: "elbow", trim: 4.5, learn: "Why a target has two solutions" },
-  { clip: "surface", trim: 1.0, learn: "Why equal links reach best" },
-  { clip: "brick", trim: 0.7, learn: "How robots learn from demonstrations" },
+  { clip: "elbow", trim: 4.5, learn: "Why a target might have multiple solutions" },
+  { clip: "joints", trim: 1.0, learn: "Meet the SO-101 robot and its six joints" },
+  { clip: "teleop", trim: 1.0, learn: "How robots learn from demonstrations" },
+  { clip: "brick", trim: 0.7, learn: "How the LeRobot library is used for imitation learning" },
 ];
+
 // ---------------------------------------------------------------------------------
 
 const TOTAL = HOOK + SHOTS.length * SHOT + END;
@@ -25,8 +29,13 @@ const END_AT = HOOK + SHOTS.length * SHOT;
 const LESSON = { left: 58, width: 1804 };
 const WINDOW_WIDTH = 1300;
 
-/** What render.mjs needs to prepare: the clip frames each shot shows. */
-window.TEASER = { fps: FPS, seconds: TOTAL, shots: SHOTS.map(({ clip, trim }) => ({ clip, trim, seconds: SHOT + FADE })) };
+/** What render.mjs needs: the clip frames each shot shows, and when the music's beat plays. */
+window.TEASER = {
+  fps: FPS,
+  seconds: TOTAL,
+  beat: { from: HOOK, to: END_AT },
+  shots: SHOTS.map(({ clip, trim }) => ({ clip, trim, seconds: SHOT + FADE })),
+};
 
 // ---- Motion ---------------------------------------------------------------------
 
@@ -164,7 +173,7 @@ window.renderAt = async function renderAt(t) {
     hook.style.display = "flex";
     hook.querySelector(".kicker").style.opacity = interpolate(frame, [0, 12], [0, 1]);
     words.forEach((line, n) => line.forEach((span, i) => {
-      const p = spring(frame - (n === 0 ? 2 : 14) - i * 2, { damping: 16, stiffness: 170 });
+      const p = spring(frame - (n === 0 ? 2 : 4 + words[0].length * 2) - i * 2, { damping: 16, stiffness: 170 });
       span.style.opacity = p;
       span.style.transform = `translateY(${(1 - p) * 40}px)`;
     }));
