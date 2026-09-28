@@ -9,9 +9,9 @@ const FADE = 10 / FPS; // crossfade between layers, in seconds
 const HOOK = 3.0; // the opening questions
 const SHOT = 3.0; // each lesson shot
 const END = 3.5; // the closing card
-// The opening card: a small label, then the questions, one per line; the second is orange.
-const HOOK_LABEL = "INVERSE KINEMATICS";
-const QUESTION = ["How do we control a robot geometrically?", "And how do we make it move the right way?"];
+// The opening card: a small label, then the questions, one per line; the last is orange.
+const HOOK_LABEL = "ROBOTICS 101";
+const QUESTION = ["How do we control a robot geometrically?", "And how can it learn to move the right way?"];
 // The heading of the list that grows beside the shots.
 const LEARN_HEADING = "WHAT YOU WILL LEARN";
 // Each shot: the exported clip in clips/, where in it the shot starts (s), and the
@@ -139,11 +139,13 @@ for (const [part, text] of Object.entries(END_CARD)) end.querySelector(`[data-pa
 const arms = [...document.querySelectorAll("svg.arm")].map(buildArm);
 
 const words = QUESTION.map((line, n) => {
-  const el = document.getElementById(`line${n + 1}`);
+  const el = document.createElement("span");
+  el.className = "line";
+  hook.querySelector(".question").append(el);
   return line.split(" ").map((word) => {
     const span = document.createElement("span");
     span.textContent = word;
-    if (n === 1) span.style.color = "var(--orange)";
+    if (n === QUESTION.length - 1) span.style.color = "var(--orange)";
     el.append(span);
     return span;
   });
@@ -188,7 +190,8 @@ window.renderAt = async function renderAt(t) {
     hook.style.display = "flex";
     hook.querySelector(".kicker").style.opacity = interpolate(frame, [0, 12], [0, 1]);
     words.forEach((line, n) => line.forEach((span, i) => {
-      const p = spring(frame - (n === 0 ? 2 : 4 + words[0].length * 2) - i * 2, { damping: 16, stiffness: 170 });
+      const start = 2 + words.slice(0, n).reduce((sum, line) => sum + 2 + line.length * 2, 0);
+      const p = spring(frame - start - i * 2, { damping: 16, stiffness: 170 });
       span.style.opacity = p;
       span.style.transform = `translateY(${(1 - p) * 40}px)`;
     }));
