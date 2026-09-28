@@ -15,13 +15,14 @@ const QUESTION = ["How do we control a robot geometrically?", "And how can it le
 // The heading of the list that grows beside the shots.
 const LEARN_HEADING = "WHAT YOU WILL LEARN";
 // Each shot: the exported clip in clips/, where in it the shot starts (s), and the
-// line it adds to "What you will learn".
+// line it adds to "What you will learn". Clips are exported with half a second of
+// margin before the shot, hence trim 0.5.
 const SHOTS = [
-  { clip: "arm", trim: 0.7, learn: "How joint angles place the tip" },
-  { clip: "elbow", trim: 4.5, learn: "Why a target might have multiple solutions" },
-  { clip: "joints", trim: 1.0, learn: "What the six joints of the SO-101 are" },
-  { clip: "teleop", trim: 1.0, learn: "How robots learn from demonstrations" },
-  { clip: "brick", trim: 0.7, learn: "How the LeRobot library is used for imitation learning" },
+  { clip: "arm", trim: 0.5, learn: "How joint angles place the tip" },
+  { clip: "elbow", trim: 0.5, learn: "Why a target might have multiple solutions" },
+  { clip: "joints", trim: 0.5, learn: "What the six joints of the SO-101 are" },
+  { clip: "teleop", trim: 0.5, learn: "How robots learn from demonstrations" },
+  { clip: "brick", trim: 0.5, learn: "How the LeRobot library is used for imitation learning" },
 ];
 // The closing card, top to bottom.
 const END_CARD = {

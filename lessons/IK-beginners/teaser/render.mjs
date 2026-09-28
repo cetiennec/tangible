@@ -21,7 +21,8 @@ function run(command, args) {
 
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  // Laid out at 1920x1080 and drawn at twice the pixel density: a sharp 3840x2160 video.
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
   await page.goto(pathToFileURL(join(here, "teaser.html")).href);
   const { fps, seconds, beat, shots } = await page.evaluate(() => window.TEASER);
 

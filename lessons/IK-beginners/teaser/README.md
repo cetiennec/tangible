@@ -23,8 +23,9 @@ music track. It is a plain web page drawn frame by frame, with no video framewor
 node lessons/IK-beginners/teaser/render.mjs
 ```
 
-This writes `out/teaser.mp4` in under a minute. It needs FFmpeg, `uv` for the
-music, and Playwright's Chromium (`pnpm exec playwright install chromium`).
+This writes a 3840×2160 `out/teaser.mp4` in about a minute and a half. It
+needs FFmpeg, `uv` for the music, and Playwright's Chromium
+(`pnpm exec playwright install chromium`).
 
 ## The lesson clips
 
@@ -33,17 +34,21 @@ music, and Playwright's Chromium (`pnpm exec playwright install chromium`).
 
 | Clip | Lesson time |
 |---|---|
-| `arm.mp4` | 36.5 to 43.0 s |
-| `elbow.mp4` | 213.0 to 221.5 s |
-| `joints.mp4` | 498.0 to 503.5 s |
-| `teleop.mp4` | 581.0 to 587.0 s |
-| `brick.mp4` | 614.5 to 619.5 s |
+| `arm.mp4` | 37.66 to 42.09 s |
+| `elbow.mp4` | 217.96 to 222.39 s |
+| `joints.mp4` | 499.70 to 504.13 s |
+| `teleop.mp4` | 582.14 to 586.57 s |
+| `brick.mp4` | 615.34 to 619.77 s |
+
+Each clip starts half a second before its shot, which is why every shot in
+`teaser.js` has `trim: 0.5`. `--scale 2` exports the clips at 3840×2160 so
+the shots stay sharp in the 4K teaser.
 
 ```bash
-pnpm lesson video --lesson lessons/IK-beginners -o lessons/IK-beginners/teaser/clips/arm.mp4 --from 36.5 --to 43
+pnpm lesson video --lesson lessons/IK-beginners -o lessons/IK-beginners/teaser/clips/arm.mp4 --from 37.66 --to 42.09 --scale 2
 ```
 
-The times match the narration built on 25 September 2026. After a narration
+The times match the narration built on 28 September 2026. After a narration
 change, check them again, and keep each range clear of pause checkpoints so no
 "Paused" hold appears in a clip. `clips/`, `frames/`, `out/`, `music.wav` and
 `own-music.wav` are not committed.
