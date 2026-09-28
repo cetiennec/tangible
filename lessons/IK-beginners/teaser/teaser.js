@@ -19,7 +19,7 @@ const LEARN_HEADING = "WHAT YOU WILL LEARN";
 const SHOTS = [
   { clip: "arm", trim: 0.7, learn: "How joint angles place the tip" },
   { clip: "elbow", trim: 4.5, learn: "Why a target might have multiple solutions" },
-  { clip: "joints", trim: 1.0, learn: "What the six joints of the SO-101 robot do" },
+  { clip: "joints", trim: 1.0, learn: "What the six joints of the SO-101 are" },
   { clip: "teleop", trim: 1.0, learn: "How robots learn from demonstrations" },
   { clip: "brick", trim: 0.7, learn: "How the LeRobot library is used for imitation learning" },
 ];
