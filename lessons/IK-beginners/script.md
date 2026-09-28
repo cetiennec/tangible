@@ -3,7 +3,7 @@
 @cue(label.motors = false) @cue(label.angles = false) @cue(label.links = false) @cue(label.tip = false) @cue(label.dof = false)
 Today we will discuss how robots are controlled. We'll first present Forward and Inverse Kinematics, which is the art of switching between the joint and the Cartesian space. Then, we'll study the case of imitation learning and take as an example the LeRobot library from Hugging Face. You'll be able to play with the simulation while I speak and pause to ask questions.
 
-First, look at our robot, it has two @cue(label.links = true) links and two @cue(label.motors = true) motors that can move their @cue(label.angles = true) angles q one and q two, the robot is thus said to be two @cue(label.dof = true) @board(kwDof: "2 degrees of freedom (DOF)") degrees of freedom or two doff.
+First, look at our robot, it has two @cue(label.links = true) links and two @cue(label.motors = true) motors that can move their @cue(label.angles = true) angles, called q one and q two, the robot is thus said to be two @cue(label.dof = true) @board(kwDof: "2 degrees of freedom (DOF)") degrees of freedom or two doff.
 
 The tip of the robot is called the @cue(label.tip = true) @board(kwEnd: "End-effector") end-effector.
 
