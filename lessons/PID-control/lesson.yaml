@@ -10,4 +10,7 @@ defaults:
   anticipation: -0.2
   ease: inOutCubic
   transition: 1.0
+deployment:
+  provider: huggingface
+  space: cetiennec/robotics-lesson-102
 # Narration: add the same tts block as lessons/IK-beginners/lesson.yaml once the script is written.
