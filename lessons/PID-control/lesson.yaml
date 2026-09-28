@@ -1,0 +1,13 @@
+id: "pid-control"
+title: "Robotics 102: PID control"
+# Placeholder promise: one sentence on what the learner can do after the lesson.
+promise: See how a controller turns the gap between where a joint is and where it should be into a motor command.
+tags:
+  - robotics
+  - control
+scene: ./scenes/scene.ts
+defaults:
+  anticipation: -0.2
+  ease: inOutCubic
+  transition: 1.0
+# Narration: add the same tts block as lessons/IK-beginners/lesson.yaml once the script is written.
