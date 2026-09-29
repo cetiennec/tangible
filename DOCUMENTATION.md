@@ -15,6 +15,7 @@ covered in [CONTRIBUTING.md](./CONTRIBUTING.md).
 - [Choose and configure narration](#choose-and-configure-narration)
 - [Review and tune the lesson](#review-and-tune-the-lesson)
 - [Add a lesson assistant](#add-a-lesson-assistant)
+- [Export a video](#export-a-video)
 - [Deploy to Hugging Face Spaces](#deploy-to-hugging-face-spaces)
 - [Appendix: command and format reference](#appendix-command-and-format-reference)
 
@@ -1289,6 +1290,39 @@ Before release, confirm that:
 - resuming or asking another question removes temporary changes;
 - browser assets contain no credentials; and
 - rate limits and structured server logs behave correctly.
+
+## Export a video
+
+`lesson video` turns a built lesson into an MP4 that plays anywhere, for sharing
+where an interactive page cannot go:
+
+```bash
+pnpm lesson build --bundle --lesson lessons/my-lesson
+pnpm lesson video --lesson lessons/my-lesson -o lesson.mp4
+pnpm lesson video --lesson lessons/my-lesson -o sample.mp4 --from 480 --to 520
+```
+
+The video shows one uninterrupted playthrough: nobody moves the scene, and the
+controls, start screen, and assistant are left out. Each pause checkpoint stays
+on screen with its prompt for `--hold` seconds (3 by default), with silence under
+it, and then the lesson continues. `--captions` shows the captions, `--from` and
+`--to` export part of the lesson in lesson seconds, and `--size` and `--fps` set
+the frame (1920x1080 and 30 by default). `--scale 2` keeps the same layout but
+renders it at twice the pixel density, so a 1920x1080 lesson becomes a sharp
+3840x2160 video; text and lines stay crisp instead of being upscaled.
+
+Frames are rendered one at a time rather than recorded: the exporter sets the
+lesson clock to each frame's time, lets the scene draw, and captures it. A scene
+that is slow to draw therefore makes the export slower but never choppier, and
+the narration, which comes from the lesson's own audio file, stays exactly in
+sync. CSS transitions are switched off during export, so a frame always shows the
+state of its lesson time.
+
+The export needs FFmpeg and Playwright's full Chromium build
+(`pnpm exec playwright install chromium`), which draws WebGL on the GPU in
+headless mode. Expect it to take two to three times the lesson's length on a
+machine with a GPU. The same export mode (`?export` in the lesson URL) is what
+`lesson frame` uses, so its screenshots are never covered by the start screen.
 
 ## Deploy to Hugging Face Spaces
 

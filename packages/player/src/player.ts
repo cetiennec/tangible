@@ -20,12 +20,14 @@ import { lessonPositionAt } from "./lesson-position.js";
 import { ParameterActivityTracker } from "./parameter-activity.js";
 import { mimeForAudio } from "./audio-source.js";
 import { PausePanel } from "./pause-panel.js";
+import { ExportMedia, exportControls } from "./export-clock.js";
 import { StartScreen, type LessonIntroduction } from "./start-screen.js";
 import { resizeScene, type DesignSize, type SceneSize } from "./scene-size.js";
 
 declare global {
   interface Window {
     __XV_STATE__?: PlainState;
+    __tangibleExport?: ReturnType<typeof exportControls>;
   }
 }
 
@@ -96,6 +98,7 @@ export class Player {
   private startScreen?: StartScreen;
   private activityTracker: ParameterActivityTracker;
   private assistantActivity: Record<string, number> = {};
+  private exportMedia?: ExportMedia;
 
   constructor(opts: PlayerOptions) {
     this.tracks = opts.tracks;
@@ -126,10 +129,13 @@ export class Player {
     this.overlay = overlay;
     const boardPanel = el("aside", "xv-board");
 
+    const dev = parseDevParams(typeof location !== "undefined" ? location.search : "");
     this.audio = document.createElement("audio");
     this.audio.preload = "auto";
     this.setAudioSources(opts.audioSrc ?? []);
-    this.clock = new AudioClock(this.audio);
+    // A video export moves time forward itself, frame by frame, instead of playing the audio.
+    if (dev.export) this.exportMedia = new ExportMedia(opts.tracks.duration);
+    this.clock = new AudioClock(this.exportMedia ?? this.audio);
 
     this.board = new Board(this.displayStore, opts.tracks.boardItems);
     boardPanel.append(this.board.el);
@@ -151,16 +157,16 @@ export class Player {
       beforeFrame: () => this.pauseGate.update(this.clock.t),
       onFrame: (t) => this.frame(t),
       onSeek: () => { this.interaction.cancel(); this.cancelAnswer(); },
+      now: this.exportMedia ? () => this.exportMedia!.currentTime : undefined,
     }, this.reconciler);
     this.interaction = this.createInteraction();
 
-    const dev = parseDevParams(typeof location !== "undefined" ? location.search : "");
-    if (opts.chrome !== false && !dev.nochrome) {
+    if (opts.chrome !== false && !dev.nochrome && !dev.export) {
       this.chrome = new Chrome(this.clock, opts.tracks, { onCaptionsToggle: (on) => this.captions.setVisible(on) });
       this.container.append(this.chrome.el);
       if (!opts.introduction) this.unbindKeys = this.chrome.bindKeys();
     }
-    if (opts.assistant) {
+    if (opts.assistant && !dev.export) {
       this.assistantFetch = opts.assistant.fetchImpl ?? ((input, init) => fetch(input, init));
       this.assistantEndpoint = opts.assistant.endpoint ?? "/api/answer";
       this.assistantClientId = persistentClientId();
@@ -192,7 +198,12 @@ export class Player {
       this.clock.pause();
     }
 
-    if (opts.introduction) {
+    if (this.exportMedia) {
+      // No transitions: a frame must show exactly the state of its lesson time.
+      this.shell.classList.add("xv-export");
+      if (dev.captions) this.captions.setVisible(true);
+      window.__tangibleExport = exportControls(this.exportMedia, () => this.driver.tick(), () => this.activeScene);
+    } else if (opts.introduction) {
       this.startScreen = new StartScreen(opts.introduction, {
         onStart: () => void this.beginLesson(),
         onRetry: () => void this.loadAudio(),
