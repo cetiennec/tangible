@@ -1,5 +1,6 @@
 // `lesson frame --at t -o f.png` — headless Chromium screenshot of the built site
-// at time t (?t&nochrome). Deterministic because state is a pure function of t.
+// at time t, in export mode (?export&t) so no start screen or controls cover it.
+// Deterministic because state is a pure function of t.
 
 import { chromium } from "playwright";
 import { createServer, type Server } from "node:http";
@@ -20,8 +21,9 @@ export async function renderFrame(siteDir: string, opts: FrameOptions): Promise<
   const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
   try {
     const page = await browser.newPage({ viewport: { width: w!, height: h! } });
-    await page.goto(`http://localhost:${port}/?t=${opts.t}&nochrome`);
+    await page.goto(`http://localhost:${port}/?export&t=${opts.t}`);
     await page.waitForFunction(() => (globalThis as unknown as { __player?: { clock: unknown } }).__player?.clock !== undefined);
+    await page.waitForLoadState("networkidle"); // scene assets such as 3D models
     await page.waitForTimeout(500); // let the seek and WebGL compositor settle
     await page.screenshot({ path: opts.out });
   } finally {
@@ -30,6 +32,6 @@ export async function renderFrame(siteDir: string, opts: FrameOptions): Promise<
   }
 }
 
-function staticServer(dir: string): Server {
+export function staticServer(dir: string): Server {
   return createServer((req, res) => void serveFromDir(dir, req, res));
 }

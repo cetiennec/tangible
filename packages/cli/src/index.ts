@@ -17,6 +17,7 @@ import { refSheet } from "./ref.js";
 import { scaffold } from "./scaffold.js";
 import { bundleSite } from "./bundle.js";
 import { renderFrame } from "./frame.js";
+import { renderVideo } from "./video.js";
 import { preview } from "./preview.js";
 import { browserAudioArtifacts } from "./transcode.js";
 import { buildAssistantContext, emitAssistantContext } from "./assistant-context.js";
@@ -58,6 +59,9 @@ async function main() {
       return;
     case "frame":
       await cmdFrame(flags);
+      return;
+    case "video":
+      await cmdVideo(flags);
       return;
     case "preview":
       await cmdPreview(flags);
@@ -145,6 +149,25 @@ async function cmdFrame(flags: Flags): Promise<void> {
   if (!existsSync(join(siteDir, "index.html"))) die('no static bundle — run "lesson build --bundle" first');
   await renderFrame(siteDir, { t, out, size: flags.size });
   console.error(`rendered frame at t=${t} → ${out}`);
+}
+
+async function cmdVideo(flags: Flags): Promise<void> {
+  const lessonDir = flags.lesson ?? process.cwd();
+  const out = flags.out ?? die("usage: lesson video -o <file.mp4> [--from s] [--to s] [--fps n] [--hold s] [--captions]");
+  const siteDir = join(lessonDir, "build", "site");
+  if (!existsSync(join(siteDir, "index.html"))) die('no static bundle — run "lesson build --bundle" first');
+  await renderVideo(siteDir, {
+    out,
+    size: flags.size,
+    scale: flags.scale,
+    fps: flags.fps,
+    hold: flags.hold,
+    captions: flags.captions,
+    from: flags.from,
+    to: flags.to,
+    onProgress: (message) => console.error(message),
+  });
+  console.error(`exported video → ${out}`);
 }
 
 class LessonBuildError extends Error {}
@@ -446,6 +469,12 @@ interface Flags {
   configurationIds?: string[];
   caseIds?: string[];
   repeats?: number;
+  fps?: number;
+  scale?: number;
+  hold?: number;
+  captions?: boolean;
+  from?: number;
+  to?: number;
 }
 
 function parseFlags(args: string[]): Flags {
@@ -476,6 +505,12 @@ function parseFlags(args: string[]): Flags {
       f.caseIds = [...(f.caseIds ?? []), ...commaSeparatedIds(args[++i], "--case")];
     }
     else if (args[i] === "--repeats") f.repeats = Number(args[++i]);
+    else if (args[i] === "--fps") f.fps = positiveNumber(args[++i], "--fps");
+    else if (args[i] === "--scale") f.scale = positiveNumber(args[++i], "--scale");
+    else if (args[i] === "--hold") f.hold = nonNegativeNumber(args[++i], "--hold");
+    else if (args[i] === "--captions") f.captions = true;
+    else if (args[i] === "--from") f.from = nonNegativeNumber(args[++i], "--from");
+    else if (args[i] === "--to") f.to = positiveNumber(args[++i], "--to");
     else if (args[i] === "--fake") die('the --fake option was renamed to --silent');
     else if (args[i] === "--variant") {
       const variant = args[++i];
@@ -485,6 +520,18 @@ function parseFlags(args: string[]): Flags {
     else if (args[i]?.startsWith("--")) die(`unknown option "${args[i]}"`);
   }
   return f;
+}
+
+function positiveNumber(value: string | undefined, option: string): number {
+  const n = Number(value);
+  if (!(n > 0)) die(`${option} needs a positive number`);
+  return n;
+}
+
+function nonNegativeNumber(value: string | undefined, option: string): number {
+  const n = Number(value);
+  if (!(n >= 0)) die(`${option} needs a number of zero or more`);
+  return n;
 }
 
 function commaSeparatedIds(value: string | undefined, option: string): string[] {

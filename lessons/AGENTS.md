@@ -85,3 +85,13 @@ deployment require explicit user intent.
 
 Generated `build/` and `.cache/` files are not authored source and must not be
 committed.
+
+## Teasers and videos
+
+Follow [Make a teaser](../DOCUMENTATION.md#make-a-teaser):
+
+- Anchor shots to sentences in `captions.vtt`, never to fixed times.
+- Keep clip ranges clear of the checkpoints in `tracks.json`.
+- Keep every duration and text in one timeline, and render frame by frame.
+- Cut on the music's beat, and make the music as long as the video.
+- Check a contact sheet and the audio length before sharing.

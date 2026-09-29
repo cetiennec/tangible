@@ -20,6 +20,7 @@ Commands:
   build                 Compile the lesson; add --bundle for a site.
   state                 Inspect the computed state at a lesson time.
   frame                 Render a PNG at a lesson time.
+  video                 Export the lesson as an MP4 video.
   serve                 Serve an existing lesson bundle.
   deploy                Prepare or publish a Hugging Face Space release.
   assistant-eval        Inspect or run lesson-assistant questions.
@@ -85,6 +86,21 @@ Usage:
   pnpm lesson frame --at <seconds> -o <file.png> --lesson lessons/<id>
 
 Build the lesson with --bundle before rendering a frame.`,
+  video: `Export the lesson as an MP4 video
+
+Usage:
+  pnpm lesson video -o <file.mp4> --lesson lessons/<id>
+  pnpm lesson video -o <file.mp4> --from <s> --to <s> --lesson lessons/<id>
+
+Options:
+  --size 1920x1080   layout size (default 1920x1080)
+  --scale 2          pixel density: 2 renders that layout at 3840x2160 (default 1)
+  --fps 30           frames per second (default 30)
+  --hold 3           seconds each pause checkpoint stays on screen (default 3)
+  --captions         show captions in the video
+
+Build the lesson with --bundle first. Frames are rendered one at a time, so an
+export takes longer than the lesson itself.`,
   deploy: `Prepare or publish a Hugging Face Space release
 
 Usage:

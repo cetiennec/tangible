@@ -25,9 +25,11 @@ describe("tickFractions", () => {
 });
 
 describe("parseDevParams", () => {
-  it("parses ?t, &nochrome, &state", () => {
-    expect(parseDevParams("?t=14.2&nochrome&state")).toEqual({ t: 14.2, nochrome: true, state: true });
-    expect(parseDevParams("")).toEqual({ t: undefined, nochrome: false, state: false });
-    expect(parseDevParams("?t=abc")).toEqual({ t: undefined, nochrome: false, state: false });
+  it("parses ?t, &nochrome, &state, &export, &captions", () => {
+    const none = { nochrome: false, state: false, export: false, captions: false };
+    expect(parseDevParams("?t=14.2&nochrome&state")).toEqual({ ...none, t: 14.2, nochrome: true, state: true });
+    expect(parseDevParams("")).toEqual({ ...none, t: undefined });
+    expect(parseDevParams("?t=abc")).toEqual({ ...none, t: undefined });
+    expect(parseDevParams("?export&captions")).toEqual({ ...none, t: undefined, export: true, captions: true });
   });
 });

@@ -15,6 +15,7 @@ covered in [CONTRIBUTING.md](./CONTRIBUTING.md).
 - [Choose and configure narration](#choose-and-configure-narration)
 - [Review and tune the lesson](#review-and-tune-the-lesson)
 - [Add a lesson assistant](#add-a-lesson-assistant)
+- [Export a video](#export-a-video)
 - [Deploy to Hugging Face Spaces](#deploy-to-hugging-face-spaces)
 - [Appendix: command and format reference](#appendix-command-and-format-reference)
 
@@ -1295,6 +1296,76 @@ Before release, confirm that:
 - resuming or asking another question removes temporary changes;
 - browser assets contain no credentials; and
 - rate limits and structured server logs behave correctly.
+
+## Export a video
+
+`lesson video` turns a built lesson into an MP4 that plays anywhere, for sharing
+where an interactive page cannot go:
+
+```bash
+pnpm lesson build --bundle --lesson lessons/my-lesson
+pnpm lesson video --lesson lessons/my-lesson -o lesson.mp4
+pnpm lesson video --lesson lessons/my-lesson -o sample.mp4 --from 480 --to 520
+```
+
+The video shows one uninterrupted playthrough: nobody moves the scene, and the
+controls, start screen, and assistant are left out. Each pause checkpoint stays
+on screen with its prompt for `--hold` seconds (3 by default), with silence under
+it, and then the lesson continues. `--captions` shows the captions, `--from` and
+`--to` export part of the lesson in lesson seconds, and `--size` and `--fps` set
+the frame (1920x1080 and 30 by default). `--scale 2` keeps the same layout but
+renders it at twice the pixel density, so a 1920x1080 lesson becomes a sharp
+3840x2160 video; text and lines stay crisp instead of being upscaled.
+
+Frames are rendered one at a time rather than recorded: the exporter sets the
+lesson clock to each frame's time, lets the scene draw, and captures it. A scene
+that is slow to draw therefore makes the export slower but never choppier, and
+the narration, which comes from the lesson's own audio file, stays exactly in
+sync. CSS transitions are switched off during export, so a frame always shows the
+state of its lesson time.
+
+The export needs FFmpeg and Playwright's full Chromium build
+(`pnpm exec playwright install chromium`), which draws WebGL on the GPU in
+headless mode. Expect it to take two to three times the lesson's length on a
+machine with a GPU. The same export mode (`?export` in the lesson URL) is what
+`lesson frame` uses, so its screenshots are never covered by the start screen.
+
+### Make a teaser
+
+A teaser is a short video, 15 to 25 seconds, made from moments of the lesson:
+an opening card, a few shots, and a closing card with the lesson's address. The
+steps below make one reproducible, and let it survive changes to the narration.
+
+1. **Anchor each shot to a sentence, not to a time.** A narration rebuild
+   shifts every time in the lesson, but the sentences stay. For each shot, note
+   the sentence it follows and an offset from that sentence's start. Resolve
+   sentences to times from `build/site/captions.vtt`, which has one cue per
+   sentence with its start and end.
+2. **Keep every clip clear of pause checkpoints.** A clip that crosses one
+   holds on the "Paused" bar. The checkpoint times are `pauses[].t` in
+   `build/site/tracks.json`; choose ranges that contain none of them.
+3. **Export each clip** with `lesson video --from <s> --to <s>`, with half a
+   second of margin on each side. Use `--scale 2` when the teaser itself will
+   be rendered at 4K, so the clips are not upscaled.
+4. **Compose frame by frame.** Write the teaser as a page with one timeline
+   object at the top holding every duration and every text, and a
+   `renderAt(t)` function that draws the exact state at time `t`. Extract the
+   clips' frames with FFmpeg and show them as images, so each frame is exact.
+   Step through the frames in headless Chromium and pipe the screenshots to
+   FFmpeg, as `lesson video` does. Nothing plays in real time, so nothing is
+   dropped.
+5. **Cut on the beat.** Keep every duration a multiple of the music's beat
+   (0.5 s at 120 BPM), and make the music as long as the timeline, or pad it
+   with silence, so the closing card is never cut off.
+6. **Use music you have the rights to**, or generate it in code.
+7. **Check before sharing:** the audio is exactly as long as the video; a
+   contact sheet with one frame per card and per shot shows every text fits
+   without overflowing, the longest line included; no clip shows a "Paused"
+   bar; and the closing card shows the lesson's current address.
+
+Lines of a list such as "What you will learn" read best in one grammatical form,
+for example all indirect questions: "How joint angles place the tip", "Why a
+target might have multiple solutions".
 
 ## Deploy to Hugging Face Spaces
 
